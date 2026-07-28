@@ -1,0 +1,12 @@
+pyproject.toml
+owl_dns_synergy/__init__.py
+owl_dns_synergy/cli.py
+owl_dns_synergy/config.py
+owl_dns_synergy/core.py
+owl_dns_synergy/router.py
+owl_dns_synergy.egg-info/PKG-INFO
+owl_dns_synergy.egg-info/SOURCES.txt
+owl_dns_synergy.egg-info/dependency_links.txt
+owl_dns_synergy.egg-info/entry_points.txt
+owl_dns_synergy.egg-info/requires.txt
+owl_dns_synergy.egg-info/top_level.txt

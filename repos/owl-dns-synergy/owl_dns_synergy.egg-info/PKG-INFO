@@ -1,0 +1,31 @@
+Metadata-Version: 2.4
+Name: owl-dns-synergy
+Version: 1.0.0
+Summary: Unified dual-channel resilient access engine: HTTP proxy evasion (OWL-AGENT) + DNS tunneling (LLM-DNS-Proxy)
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: httpx[socks]>=0.24
+Requires-Dist: aiohttp>=3.8
+Requires-Dist: aiofiles>=23.1
+Requires-Dist: circuitbreaker>=2.0
+Requires-Dist: beautifulsoup4>=4.12
+Requires-Dist: markdownify>=0.11
+Requires-Dist: prometheus-client>=0.17
+Requires-Dist: dnslib>=0.9.24
+Requires-Dist: openai>=1.0.0
+Requires-Dist: cryptography>=41.0.0
+Requires-Dist: click>=8.0.0
+Provides-Extra: proxy
+Requires-Dist: proxybroker2>=0.7; extra == "proxy"
+Requires-Dist: litproxy; extra == "proxy"
+Provides-Extra: redis
+Requires-Dist: redis>=5.0; extra == "redis"
+Provides-Extra: curl-cffi
+Requires-Dist: curl_cffi>=0.5; extra == "curl-cffi"
+Provides-Extra: full
+Requires-Dist: redis>=5.0; extra == "full"
+Requires-Dist: curl_cffi>=0.5; extra == "full"
+Requires-Dist: proxybroker2>=0.7; extra == "full"
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.21; extra == "dev"

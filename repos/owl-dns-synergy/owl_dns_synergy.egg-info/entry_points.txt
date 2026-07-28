@@ -1,0 +1,2 @@
+[console_scripts]
+owl-dns-synergy = owl_dns_synergy.cli:main

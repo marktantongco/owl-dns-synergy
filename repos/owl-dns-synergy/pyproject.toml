@@ -1,0 +1,36 @@
+[project]
+name = "owl-dns-synergy"
+version = "1.0.0"
+description = "Unified dual-channel resilient access engine: HTTP proxy evasion (OWL-AGENT) + DNS tunneling (LLM-DNS-Proxy)"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "httpx[socks]>=0.24",
+    "aiohttp>=3.8",
+    "aiofiles>=23.1",
+    "circuitbreaker>=2.0",
+    "beautifulsoup4>=4.12",
+    "markdownify>=0.11",
+    "prometheus-client>=0.17",
+    "dnslib>=0.9.24",
+    "openai>=1.0.0",
+    "cryptography>=41.0.0",
+    "click>=8.0.0",
+]
+
+[project.optional-dependencies]
+proxy = ["proxybroker2>=0.7", "litproxy"]
+redis = ["redis>=5.0"]
+curl-cffi = ["curl_cffi>=0.5"]
+full = ["redis>=5.0", "curl_cffi>=0.5", "proxybroker2>=0.7"]
+dev = ["pytest>=7.0", "pytest-asyncio>=0.21"]
+
+[project.scripts]
+owl-dns-synergy = "owl_dns_synergy.cli:main"
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["owl_dns_synergy*"]
