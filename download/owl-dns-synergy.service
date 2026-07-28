@@ -1,0 +1,25 @@
+[Unit]
+Description=OWL-DNS-Synergy Dual-Channel Resilient Access Engine
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=%i
+WorkingDirectory=%h/.owl-dns-synergy
+Environment=OWL_DNS_SYNERGY_HOME=%h/.owl-dns-synergy
+EnvironmentFile=%h/.owl-dns-synergy/.env
+ExecStart=%h/.owl-dns-synergy/venv/bin/owl-dns-synergy serve
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=%h/.owl-dns-synergy
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

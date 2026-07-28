@@ -48,3 +48,28 @@ Stage Summary:
 - Delivered: /home/z/my-project/download/owl-dns-synergy-v1.0.0.tar.gz (16KB, full project)
 - Package: owl-dns-synergy==1.0.0 installed and tested in ~/.owl-dns-synergy/venv
 - All CLI commands functional: fetch, chat, stats, generate-key, test-connection
+
+---
+Task ID: 1-7
+Agent: Super Z (main)
+Task: Configure OpenRouter API keys, start DNS server, implement SmartChannelRouter v2, create unified installer
+
+Work Log:
+- Created ~/.owl-dns-synergy/.env with 3 OpenRouter API keys + Fernet encryption key
+- Generated Fernet AES-128 key: PWxFdf3BWUJBqB0RntC4lN2I2Xb4w08ovrCrE7og4Bk=
+- Started DNS tunneling server on 127.0.0.1:5353 (UDP) via llm-dns-proxy CLI
+- Implemented SmartChannelRouter v2 with:
+  - OpenRouterKeyRotator: 3-key rotation with cooldown and failover
+  - DNSFloodProtector: token-bucket + per-client rate limiting
+  - Enhanced Prometheus metrics (11 gauges/ counters/ histograms)
+  - Per-domain preference learning with Redis persistence
+- Created unified install.sh v2.0.0 with 11 phases
+- Created systemd service template with security hardening
+- All 4 integration tests passed: Key rotation, Flood protection, DNS connectivity, SmartChannelRouter
+
+Stage Summary:
+- DNS server operational: 127.0.0.1:5353 UDP, TXT "OK" response verified
+- OpenRouter configured: 3 keys with automatic rotation on 429/401/403 errors
+- SmartChannelRouter v2: ChannelState enum, DomainPreference dataclass, hybrid retry
+- Flood protection: Blocked 15/25 excess queries in stress test
+- Deliverables: install-v2.sh, owl-dns-synergy.service, .env, start-dns-server.sh
