@@ -1,0 +1,668 @@
+     1→     1→"""
+     2→     2→CLI client for the DNS-based LLM proxy system.
+     3→     3→"""
+     4→     4→
+     5→     5→import socket
+     6→     6→import time
+     7→     7→import uuid
+     8→     8→import random
+     9→     9→import threading
+    10→    10→import sys
+    11→    11→import click
+    12→    12→from typing import Dict, List, Optional
+    13→    13→from dnslib import DNSRecord, QTYPE, DNSQuestion, DNSHeader
+    14→    14→
+    15→    15→from .crypto import CryptoManager
+    16→    16→#from .native_crypto import CryptoManager
+    17→    17→from .chunking import DNSChunker
+    18→    18→from .version import get_version_string
+    19→    19→from .config import format_dns_query
+    20→    20→
+    21→    21→
+    22→    22→class SimpleSpinner:
+    23→    23→    def __init__(self, message="Loading"):
+    24→    24→        self.message = message
+    25→    25→        self.running = False
+    26→    26→        self.thread = None
+    27→    27→        self.spinner_chars = "|/-\\"
+    28→    28→        self.current = 0
+    29→    29→
+    30→    30→    def _spin(self):
+    31→    31→        while self.running:
+    32→    32→            sys.stdout.write(f"\r{self.message} {self.spinner_chars[self.current % len(self.spinner_chars)]}")
+    33→    33→            sys.stdout.flush()
+    34→    34→            self.current += 1
+    35→    35→            time.sleep(0.1)
+    36→    36→        sys.stdout.write("\r" + " " * (len(self.message) + 2) + "\r")
+    37→    37→        sys.stdout.flush()
+    38→    38→
+    39→    39→    def start(self):
+    40→    40→        self.running = True
+    41→    41→        self.thread = threading.Thread(target=self._spin)
+    42→    42→        self.thread.start()
+    43→    43→
+    44→    44→    def stop(self):
+    45→    45→        self.running = False
+    46→    46→        if self.thread:
+    47→    47→            self.thread.join()
+    48→    48→
+    49→    49→
+    50→    50→class DNSLLMClient:
+    51→    51→    def __init__(self, server_host: str = "127.0.0.1", server_port: int = 5353, crypto_key: bytes = None, verbose: bool = False, poll_interval: float = 0.1, model: str = "LLM"):
+    52→    52→        self.server_host = server_host
+    53→    53→        self.server_port = server_port
+    54→    54→        self.crypto = CryptoManager(crypto_key)
+    55→    55→        self.chunker = DNSChunker()
+    56→    56→        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    57→    57→        self.sock.settimeout(30.0)
+    58→    58→        self.verbose = verbose
+    59→    59→        self.poll_interval = poll_interval
+    60→    60→        self.model = model
+    61→    61→        self.client_version = get_version_string()
+    62→    62→        # Use a single session ID for the entire client session to avoid collisions
+    63→    63→        # Use 3-digit session ID (000-999) for much better uniqueness
+    64→    64→        # Mix timestamp and random for collision avoidance
+    65→    65→        time_component = int(time.time()) % 1000
+    66→    66→        random_component = uuid.uuid4().int % 1000
+    67→    67→        session_num = (time_component + random_component) % 1000
+    68→    68→        self.session_id = f"{session_num:03d}"  # Zero-padded 3 digits
+    69→    69→
+    70→    70→    def _send_dns_query(self, query_name: str) -> Optional[str]:
+    71→    71→        """Send a DNS query and return the TXT record response."""
+    72→    72→        try:
+    73→    73→            # Manual DNS record construction to avoid dnslib issues
+    74→    74→            question = DNSQuestion(query_name, QTYPE.TXT)
+    75→    75→            header = DNSHeader(id=random.randint(1, 65535))
+    76→    76→            q = DNSRecord(header, q=question)
+    77→    77→            query_data = q.pack()
+    78→    78→
+    79→    79→            self.sock.sendto(query_data, (self.server_host, self.server_port))
+    80→    80→
+    81→    81→            response_data, _ = self.sock.recvfrom(4096)
+    82→    82→            response = DNSRecord.parse(response_data)
+    83→    83→
+    84→    84→            for rr in response.rr:
+    85→    85→                if rr.rtype == QTYPE.TXT:
+    86→    86→                    # Handle TXT RDATA which can be a list of strings (each ≤255 bytes)
+    87→    87→                    rdata = rr.rdata
+    88→    88→
+    89→    89→                    # dnslib TXT RDATA has a 'data' attribute that's a list of byte strings
+    90→    90→                    if hasattr(rdata, 'data') and isinstance(rdata.data, list):
+    91→    91→                        # Join all byte strings and decode
+    92→    92→                        txt_bytes = b''.join(rdata.data)
+    93→    93→                        txt_data = txt_bytes.decode('utf-8', errors='ignore')
+    94→    94→                    else:
+    95→    95→                        # Fallback to string conversion
+    96→    96→                        txt_data = str(rdata)
+    97→    97→                        # Handle quoted TXT records
+    98→    98→                        if txt_data.startswith('"') and txt_data.endswith('"'):
+    99→    99→                            txt_data = txt_data[1:-1]
+   100→   100→
+   101→   101→                    return txt_data
+   102→   102→
+   103→   103→            return None
+   104→   104→
+   105→   105→        except Exception as e:
+   106→   106→            if self.verbose:
+   107→   107→                click.echo(f"DNS query error: {e}")
+   108→   108→            return None
+   109→   109→
+   110→   110→    def send_message(self, message: str, show_spinner: bool = True, streaming: bool = True) -> Optional[str]:
+   111→   111→        """Send a message to the LLM through DNS and get the response.
+   112→   112→
+   113→   113→        Args:
+   114→   114→            message: The message to send
+   115→   115→            show_spinner: Whether to show spinner during processing
+   116→   116→            streaming: Whether to display streaming response (default True)
+   117→   117→        """
+   118→   118→        # Use the persistent session ID for this client instance
+   119→   119→        session_id = self.session_id
+   120→   120→        if self.verbose:
+   121→   121→            click.echo(f"Using session ID: {session_id}")
+   122→   122→        spinner = None
+   123→   123→
+   124→   124→        try:
+   125→   125→            if self.verbose:
+   126→   126→                click.echo(f"Encrypting message...")
+   127→   127→            encrypted_data = self.crypto.encrypt(message)
+   128→   128→
+   129→   129→            if self.verbose:
+   130→   130→                click.echo(f"Creating message chunks...")
+   131→   131→            chunks = self.chunker.create_chunks(encrypted_data, session_id)
+   132→   132→
+   133→   133→            if show_spinner and not self.verbose:
+   134→   134→                spinner = SimpleSpinner("...")
+   135→   135→                spinner.start()
+   136→   136→
+   137→   137→            if self.verbose:
+   138→   138→                click.echo(f"Sending {len(chunks)} chunks...")
+   139→   139→
+   140→   140→            for i, chunk in enumerate(chunks):
+   141→   141→                if self.verbose:
+   142→   142→                    click.echo(f"Sending chunk {i+1}/{len(chunks)}")
+   143→   143→                response = self._send_dns_query(chunk)
+   144→   144→                if response != "OK" and self.verbose:
+   145→   145→                    click.echo(f"Warning: Unexpected response for chunk {i+1}: {response}")
+   146→   146→
+   147→   147→            if spinner:
+   148→   148→                spinner.stop()
+   149→   149→
+   150→   150→            if streaming and not self.verbose:
+   151→   151→                return self._handle_streaming_response(session_id)
+   152→   152→            else:
+   153→   153→                return self._handle_traditional_response(session_id, show_spinner)
+   154→   154→
+   155→   155→        finally:
+   156→   156→            if spinner:
+   157→   157→                spinner.stop()
+   158→   158→
+   159→   159→    def _handle_streaming_response(self, session_id: str) -> Optional[str]:
+   160→   160→        """Handle streaming response by displaying individual chunks immediately."""
+   161→   161→        import sys
+   162→   162→
+   163→   163→        displayed_chunks = set()  # Track which chunks we've already displayed
+   164→   164→        final_response = ""
+   165→   165→        start_time = time.time()
+   166→   166→        max_wait_time = 60  # Maximum wait time in seconds
+   167→   167→        last_chunk_time = time.time()
+   168→   168→
+   169→   169→        # Initial wait for processing to start
+   170→   170→        time.sleep(self.poll_interval)
+   171→   171→
+   172→   172→        while True:
+   173→   173→            # Check for timeout
+   174→   174→            current_time = time.time()
+   175→   175→            if current_time - start_time > max_wait_time:
+   176→   176→                if self.verbose:
+   177→   177→                    click.echo(f"\nTimeout waiting for response after {max_wait_time}s")
+   178→   178→                break
+   179→   179→
+   180→   180→            # Check if no new chunks for too long (indicates completion)
+   181→   181→            if current_time - last_chunk_time > 10:  # 10 seconds without new chunks
+   182→   182→                if final_response and '[EOS]' in final_response:
+   183→   183→                    break
+   184→   184→                elif len(final_response) > 50:  # Only timeout if we have substantial content
+   185→   185→                    if not final_response.endswith('\n'):
+   186→   186→                        sys.stdout.write('\n')
+   187→   187→                        sys.stdout.flush()
+   188→   188→                    final_response += "[Response may be incomplete - connection timed out]"
+   189→   189→                    break
+   190→   190→
+   191→   191→            response_chunks = self._get_current_response_chunks(session_id)
+   192→   192→
+   193→   193→            if not response_chunks:
+   194→   194→                time.sleep(self.poll_interval)
+   195→   195→                continue
+   196→   196→
+   197→   197→            # Process each new chunk individually and display immediately
+   198→   198→            new_chunks_found = False
+   199→   199→            for chunk_index, chunk_data in response_chunks.items():
+   200→   200→                if chunk_index not in displayed_chunks:
+   201→   201→                    displayed_chunks.add(chunk_index)
+   202→   202→                    new_chunks_found = True
+   203→   203→                    last_chunk_time = current_time
+   204→   204→
+   205→   205→                    try:
+   206→   206→                        # Try to decrypt this individual chunk
+   207→   207→                        parts = chunk_data.split(':', 2)
+   208→   208→                        if len(parts) == 3:
+   209→   209→                            encrypted_data = parts[2].encode('ascii')
+   210→   210→                            try:
+   211→   211→                                # Try streaming chunk decryption
+   212→   212→                                chunk_text = self.crypto.decrypt_chunk(encrypted_data)
+   213→   213→                            except Exception:
+   214→   214→                                # Fall back to regular decryption if chunk method fails
+   215→   215→                                chunk_text = self.crypto.decrypt(encrypted_data)
+   216→   216→
+   217→   217→                            # Display chunk content immediately (remove [EOS] marker)
+   218→   218→                            display_text = chunk_text.replace('[EOS]', '')
+   219→   219→                            if display_text:
+   220→   220→                                sys.stdout.write(display_text)
+   221→   221→                                sys.stdout.flush()
+   222→   222→                                final_response += display_text
+   223→   223→
+   224→   224→                            # Check if this chunk contains [EOS] marker
+   225→   225→                            if '[EOS]' in chunk_text:
+   226→   226→                                if not final_response.endswith('\n'):
+   227→   227→                                    sys.stdout.write('\n')
+   228→   228→                                    sys.stdout.flush()
+   229→   229→                                return final_response.rstrip()
+   230→   230→
+   231→   231→                    except Exception as e:
+   232→   232→                        if self.verbose:
+   233→   233→                            click.echo(f"\nError decrypting chunk {chunk_index}: {e}")
+   234→   234→                        continue
+   235→   235→
+   236→   236→            if not new_chunks_found:
+   237→   237→                time.sleep(self.poll_interval)
+   238→   238→
+   239→   239→        # Return final response (timeout case)
+   240→   240→        return final_response.rstrip() if final_response else None
+   241→   241→
+   242→   242→    def _get_current_response_chunks(self, session_id: str) -> dict:
+   243→   243→        """Get current response chunks from server."""
+   244→   244→        response_chunks = {}
+   245→   245→        chunk_index = 0
+   246→   246→        max_chunks = 100  # Increased limit for large responses
+   247→   247→        total_chunks = None
+   248→   248→        consecutive_not_found = 0
+   249→   249→        max_consecutive_not_found = 50  # Allow more gaps - server may be generating chunks slowly
+   250→   250→
+   251→   251→        while chunk_index < max_chunks and consecutive_not_found < max_consecutive_not_found:
+   252→   252→            query = format_dns_query("g", session_id, chunk_index)
+   253→   253→            response = self._send_dns_query(query)
+   254→   254→
+   255→   255→            if response == "NOT_FOUND":
+   256→   256→                consecutive_not_found += 1
+   257→   257→                chunk_index += 1
+   258→   258→                continue
+   259→   259→            else:
+   260→   260→                consecutive_not_found = 0  # Reset counter on successful retrieval
+   261→   261→
+   262→   262→            if response and ':' in response:
+   263→   263→                parts = response.split(':', 2)
+   264→   264→                if len(parts) == 3:
+   265→   265→                    try:
+   266→   266→                        current_index = int(parts[0])
+   267→   267→                        chunk_total = int(parts[1])
+   268→   268→                        response_chunks[current_index] = response
+   269→   269→
+   270→   270→                        # Update total_chunks if we haven't seen it yet or if it's larger
+   271→   271→                        if total_chunks is None or chunk_total > total_chunks:
+   272→   272→                            total_chunks = chunk_total
+   273→   273→                            # Don't limit max_chunks yet - server might still be generating more
+   274→   274→
+   275→   275→                        # If we have all chunks we expect, we can break early
+   276→   276→                        if total_chunks and len(response_chunks) >= total_chunks:
+   277→   277→                            # Verify we have a contiguous sequence from 0 to total_chunks-1
+   278→   278→                            if all(i in response_chunks for i in range(total_chunks)):
+   279→   279→                                break
+   280→   280→                    except (ValueError, IndexError):
+   281→   281→                        if self.verbose:
+   282→   282→                            click.echo(f"Error parsing chunk response: {response}")
+   283→   283→
+   284→   284→            chunk_index += 1
+   285→   285→
+   286→   286→        # If we know how many chunks we should have, try to wait for missing ones
+   287→   287→        if total_chunks and len(response_chunks) < total_chunks:
+   288→   288→            missing_chunks = [i for i in range(total_chunks) if i not in response_chunks]
+   289→   289→            if self.verbose:
+   290→   290→                click.echo(f"Waiting for {len(missing_chunks)} missing chunks: {missing_chunks}")
+   291→   291→
+   292→   292→            # Implement chunk-level retries with exponential backoff for flaky networks
+   293→   293→            max_retries = 5
+   294→   294→            for retry in range(max_retries):
+   295→   295→                if not missing_chunks:
+   296→   296→                    break
+   297→   297→
+   298→   298→                if self.verbose:
+   299→   299→                    click.echo(f"Retry {retry + 1}/{max_retries}: Requesting {len(missing_chunks)} missing chunks...")
+   300→   300→
+   301→   301→                # Exponential backoff: 0.5, 1.0, 2.0, 4.0, 8.0 seconds
+   302→   302→                import time
+   303→   303→                wait_time = 0.5 * (2 ** retry)
+   304→   304→                time.sleep(wait_time)
+   305→   305→
+   306→   306→                # Request specific missing chunks
+   307→   307→                chunks_retrieved_this_round = 0
+   308→   308→                for missing_idx in missing_chunks[:]:
+   309→   309→                    query = format_dns_query("g", session_id, missing_idx)
+   310→   310→                    response = self._send_dns_query(query)
+   311→   311→
+   312→   312→                    if self._validate_chunk_response(response, missing_idx):
+   313→   313→                        response_chunks[missing_idx] = response
+   314→   314→                        missing_chunks.remove(missing_idx)
+   315→   315→                        chunks_retrieved_this_round += 1
+   316→   316→                        if self.verbose:
+   317→   317→                            click.echo(f"  ✓ Retrieved missing chunk {missing_idx}")
+   318→   318→                    elif self.verbose and response and response != "NOT_FOUND":
+   319→   319→                        click.echo(f"  ✗ Invalid chunk {missing_idx}: {response[:30]}...")
+   320→   320→
+   321→   321→                if self.verbose:
+   322→   322→                    click.echo(f"  Retrieved {chunks_retrieved_this_round} chunks this round")
+   323→   323→
+   324→   324→                if not missing_chunks:  # All chunks found
+   325→   325→                    break
+   326→   326→
+   327→   327→            if self.verbose and missing_chunks:
+   328→   328→                click.echo(f"Still missing {len(missing_chunks)} chunks after all retries: {missing_chunks}")
+   329→   329→
+   330→   330→        return response_chunks
+   331→   331→
+   332→   332→    def _validate_chunk_response(self, response: str, expected_index: int) -> bool:
+   333→   333→        """Validate chunk response format and integrity.
+   334→   334→
+   335→   335→        Args:
+   336→   336→            response: Raw TXT record response
+   337→   337→            expected_index: Expected chunk index
+   338→   338→
+   339→   339→        Returns:
+   340→   340→            True if valid, False otherwise
+   341→   341→        """
+   342→   342→        if not response or response == "NOT_FOUND":
+   343→   343→            return False
+   344→   344→
+   345→   345→        parts = response.split(':', 2)
+   346→   346→        if len(parts) != 3:
+   347→   347→            return False
+   348→   348→
+   349→   349→        try:
+   350→   350→            actual_index = int(parts[0])
+   351→   351→            total_chunks = int(parts[1])
+   352→   352→            data = parts[2]
+   353→   353→
+   354→   354→            # Validate index matches expectation
+   355→   355→            if actual_index != expected_index:
+   356→   356→                return False
+   357→   357→
+   358→   358→            # Validate data is not empty
+   359→   359→            if not data:
+   360→   360→                return False
+   361→   361→
+   362→   362→            # Basic format validation - should be base64-like Fernet token
+   363→   363→            if len(data) < 20:  # Fernet tokens are at least ~44 chars
+   364→   364→                return False
+   365→   365→
+   366→   366→            return True
+   367→   367→
+   368→   368→        except (ValueError, IndexError):
+   369→   369→            return False
+   370→   370→
+   371→   371→    def _handle_traditional_response(self, session_id: str, show_spinner: bool) -> Optional[str]:
+   372→   372→        """Handle traditional non-streaming response."""
+   373→   373→        spinner = None
+   374→   374→
+   375→   375→        try:
+   376→   376→            if show_spinner and not self.verbose:
+   377→   377→                spinner = SimpleSpinner("-->")
+   378→   378→                spinner.start()
+   379→   379→            elif self.verbose:
+   380→   380→                click.echo("Message sent, waiting for processing...")
+   381→   381→
+   382→   382→            # Wait longer for server to generate response, especially for long responses
+   383→   383→            time.sleep(1)  # Increased wait time for server generation
+   384→   384→
+   385→   385→            if spinner:
+   386→   386→                spinner.stop()
+   387→   387→                spinner = SimpleSpinner("<--")
+   388→   388→                spinner.start()
+   389→   389→            elif self.verbose:
+   390→   390→                click.echo("Retrieving response chunks...")
+   391→   391→
+   392→   392→            # Use the improved chunk retrieval method
+   393→   393→            # Try multiple times until we get a complete response (marked with [EOS])
+   394→   394→            response_chunks = {}
+   395→   395→            max_attempts = 5
+   396→   396→
+   397→   397→            for attempt in range(max_attempts):
+   398→   398→                response_chunks = self._get_current_response_chunks(session_id)
+   399→   399→
+   400→   400→                if response_chunks:
+   401→   401→                    # Try to reassemble and check if it's complete
+   402→   402→                    try:
+   403→   403→                        reassembled = self.chunker.reassemble_response(response_chunks)
+   404→   404→                        if reassembled:
+   405→   405→                            decrypted = self.crypto.decrypt(reassembled)
+   406→   406→                            if '[EOS]' in decrypted:
+   407→   407→                                # Response is complete
+   408→   408→                                break
+   409→   409→                    except Exception:
+   410→   410→                        pass  # Decryption failed, keep trying
+   411→   411→
+   412→   412→                if attempt < max_attempts - 1:  # Don't sleep on last attempt
+   413→   413→                    if self.verbose:
+   414→   414→                        click.echo(f"Response incomplete, waiting... (attempt {attempt + 1}/{max_attempts})")
+   415→   415→                    time.sleep(2)  # Wait before retrying
+   416→   416→
+   417→   417→            if spinner:
+   418→   418→                spinner.stop()
+   419→   419→
+   420→   420→            if not response_chunks:
+   421→   421→                if not self.verbose:
+   422→   422→                    click.echo("No response received from server")
+   423→   423→                return None
+   424→   424→
+   425→   425→            if self.verbose:
+   426→   426→                click.echo(f"Received {len(response_chunks)} response chunks")
+   427→   427→
+   428→   428→            try:
+   429→   429→                complete_encrypted_response = self.chunker.reassemble_response(response_chunks)
+   430→   430→                decrypted_response = self.crypto.decrypt(complete_encrypted_response)
+   431→   431→                return decrypted_response
+   432→   432→            except Exception as e:
+   433→   433→                if self.verbose:
+   434→   434→                    click.echo(f"Error decrypting response: {e}")
+   435→   435→                    click.echo(f"Encrypted data length: {len(complete_encrypted_response) if complete_encrypted_response else 0}")
+   436→   436→                    if complete_encrypted_response:
+   437→   437→                        click.echo(f"Encrypted data starts with: {complete_encrypted_response[:50]}")
+   438→   438→                return None
+   439→   439→
+   440→   440→        finally:
+   441→   441→            if spinner:
+   442→   442→                spinner.stop()
+   443→   443→
+   444→   444→    def get_server_info(self) -> Optional[Dict[str, str]]:
+   445→   445→        """Get the server version and model info."""
+   446→   446→        import json
+   447→   447→        try:
+   448→   448→            version_query = format_dns_query("v")
+   449→   449→            response = self._send_dns_query(version_query)
+   450→   450→            if response and response != "NOT_FOUND":
+   451→   451→                # Handle quoted TXT records
+   452→   452→                if response.startswith('"') and response.endswith('"'):
+   453→   453→                    response = response[1:-1]
+   454→   454→
+   455→   455→                # Try to parse as JSON (new format)
+   456→   456→                try:
+   457→   457→                    return json.loads(response)
+   458→   458→                except json.JSONDecodeError:
+   459→   459→                    # Fallback to old format (just version string)
+   460→   460→                    return {"version": response, "model": None}
+   461→   461→            return None
+   462→   462→        except Exception:
+   463→   463→            return None
+   464→   464→
+   465→   465→    def test_connection(self) -> bool:
+   466→   466→        """Test basic connectivity to the DNS server."""
+   467→   467→        try:
+   468→   468→            # Try a simple DNS query to test connectivity
+   469→   469→            test_query = format_dns_query("t")
+   470→   470→            question = DNSQuestion(test_query, QTYPE.TXT)
+   471→   471→            header = DNSHeader(id=random.randint(1, 65535))
+   472→   472→            q = DNSRecord(header, q=question)
+   473→   473→            query_data = q.pack()
+   474→   474→
+   475→   475→            # Set shorter timeout for connection test
+   476→   476→            original_timeout = self.sock.gettimeout()
+   477→   477→            self.sock.settimeout(5.0)
+   478→   478→
+   479→   479→            self.sock.sendto(query_data, (self.server_host, self.server_port))
+   480→   480→            response_data, _ = self.sock.recvfrom(4096)
+   481→   481→
+   482→   482→            # Restore original timeout
+   483→   483→            self.sock.settimeout(original_timeout)
+   484→   484→
+   485→   485→            # If we got any response, connection is working
+   486→   486→            return True
+   487→   487→        except Exception:
+   488→   488→            return False
+   489→   489→
+   490→   490→    def cleanup_session(self):
+   491→   491→        """Send cleanup signal to server to clear session data."""
+   492→   492→        try:
+   493→   493→            # Send a cleanup query to help server clear session data
+   494→   494→            cleanup_query = format_dns_query("c", self.session_id)  # 'c' for cleanup
+   495→   495→            self._send_dns_query(cleanup_query)
+   496→   496→        except Exception:
+   497→   497→            pass  # Cleanup is best-effort
+   498→   498→
+   499→   499→    def close(self):
+   500→   500→        """Close the client connection."""
+   501→   501→        self.cleanup_session()
+   502→   502→        self.sock.close()
+   503→   503→
+   504→   504→
+   505→   505→@click.group()
+   506→   506→def cli():
+   507→   507→    """DNS-based LLM proxy client."""
+   508→   508→    pass
+   509→   509→
+   510→   510→
+   511→   511→@cli.command()
+   512→   512→@click.option('--server', default='127.0.0.1', help='DNS server address')
+   513→   513→@click.option('--port', default=5353, help='DNS server port')
+   514→   514→@click.option('--message', '-m', help='Single message to send')
+   515→   515→@click.option('--verbose', '-v', is_flag=True, help='Enable verbose output')
+   516→   516→@click.option('--poll-interval', default=0.1, help='Polling interval in seconds for streaming responses')
+   517→   517→@click.option('--model', default='LLM', help='Model name to display in chat (for display purposes only)')
+   518→   518→def chat(server, port, message, verbose, poll_interval, model):
+   519→   519→    """Start a chat session with the LLM through DNS."""
+   520→   520→    client = DNSLLMClient(server, port, verbose=verbose, poll_interval=poll_interval, model=model)
+   521→   521→
+   522→   522→    # Test connection first
+   523→   523→    if not verbose:
+   524→   524→        spinner = SimpleSpinner("Testing connection")
+   525→   525→        spinner.start()
+   526→   526→
+   527→   527→    connection_ok = client.test_connection()
+   528→   528→
+   529→   529→    if not verbose:
+   530→   530→        spinner.stop()
+   531→   531→
+   532→   532→    if connection_ok:
+   533→   533→        # Get server info
+   534→   534→        server_info = client.get_server_info()
+   535→   535→        client_version = client.client_version
+   536→   536→
+   537→   537→        if server_info:
+   538→   538→            server_version = server_info.get("version")
+   539→   539→            server_model = server_info.get("model")
+   540→   540→
+   541→   541→            if server_model:
+   542→   542→                click.echo(f"✓ Connected to DNS server at {server}:{port}")
+   543→   543→                click.echo(f"  Server: {server_version} (model: {server_model})")
+   544→   544→                click.echo(f"  Client: {client_version}")
+   545→   545→            else:
+   546→   546→                click.echo(f"✓ Connected to DNS server at {server}:{port} (server: {server_version}, client: {client_version})")
+   547→   547→
+   548→   548→            # Check for version mismatch
+   549→   549→            if server_version and server_version != client_version:
+   550→   550→                click.echo(f"⚠️  WARNING: Version mismatch detected!")
+   551→   551→                click.echo(f"   Server version: {server_version}")
+   552→   552→                click.echo(f"   Client version: {client_version}")
+   553→   553→        else:
+   554→   554→            click.echo(f"✓ Connected to DNS server at {server}:{port} (client: {client_version})")
+   555→   555→            click.echo("⚠️  Could not retrieve server version - using older server?")
+   556→   556→
+   557→   557→        if verbose:
+   558→   558→            click.echo("Connection test successful - chat is ready!")
+   559→   559→    else:
+   560→   560→        click.echo(f"✗ Failed to connect to DNS server at {server}:{port}")
+   561→   561→        click.echo("Please check that the server is running and accessible.")
+   562→   562→        client.close()
+   563→   563→        return
+   564→   564→
+   565→   565→    try:
+   566→   566→        if message:
+   567→   567→            response = client.send_message(message, show_spinner=not verbose, streaming=not verbose)
+   568→   568→            if response and verbose:
+   569→   569→                click.echo(response)
+   570→   570→            elif not verbose:
+   571→   571→                click.echo()  # Add newline after streaming response
+   572→   572→        else:
+   573→   573→            click.echo("Chat session started. Type '/quit' to exit, '/help' for commands.")
+   574→   574→            click.echo()
+   575→   575→
+   576→   576→            while True:
+   577→   577→                try:
+   578→   578→                    user_input = input("> ")
+   579→   579→                    if user_input.lower() in ['/quit', '/exit']:
+   580→   580→                        break
+   581→   581→
+   582→   582→                    # Move cursor up one line and overwrite the input with grey color
+   583→   583→                    print(f"\033[1A\033[K> \033[90m{user_input}\033[0m")
+   584→   584→
+   585→   585→                    response = client.send_message(user_input, show_spinner=not verbose, streaming=not verbose)
+   586→   586→                    if response and verbose:
+   587→   587→                        click.echo(response)
+   588→   588→                    elif response and not verbose:
+   589→   589→                        click.echo()  # Add newline after streaming response
+   590→   590→                    else:
+   591→   591→                        click.echo("No response received or error occurred.")
+   592→   592→
+   593→   593→                except (KeyboardInterrupt, EOFError):
+   594→   594→                    break
+   595→   595→
+   596→   596→    finally:
+   597→   597→        client.close()
+   598→   598→        click.echo("Chat session ended.")
+   599→   599→
+   600→   600→
+   601→   601→@cli.command()
+   602→   602→@click.option('--server', default='127.0.0.1', help='DNS server address')
+   603→   603→@click.option('--port', default=5353, help='DNS server port')
+   604→   604→@click.option('--verbose', '-v', is_flag=True, help='Enable verbose output')
+   605→   605→@click.option('--poll-interval', default=0.1, help='Polling interval in seconds for streaming responses')
+   606→   606→@click.option('--model', default='LLM', help='Model name to display in chat (for display purposes only)')
+   607→   607→def test_connection(server, port, verbose, poll_interval, model):
+   608→   608→    """Test connection to the DNS server."""
+   609→   609→    client = DNSLLMClient(server, port, verbose=verbose, poll_interval=poll_interval, model=model)
+   610→   610→
+   611→   611→    try:
+   612→   612→        click.echo(f"Testing connection to {server}:{port}")
+   613→   613→
+   614→   614→        # First test basic connectivity
+   615→   615→        if not verbose:
+   616→   616→            spinner = SimpleSpinner("Testing basic connectivity")
+   617→   617→            spinner.start()
+   618→   618→
+   619→   619→        basic_connection = client.test_connection()
+   620→   620→
+   621→   621→        if not verbose:
+   622→   622→            spinner.stop()
+   623→   623→
+   624→   624→        if not basic_connection:
+   625→   625→            click.echo("✗ Basic connectivity test failed")
+   626→   626→            click.echo("Server is not reachable or not responding to DNS queries")
+   627→   627→            return
+   628→   628→
+   629→   629→        # Get server info
+   630→   630→        server_info = client.get_server_info()
+   631→   631→        client_version = client.client_version
+   632→   632→
+   633→   633→        if server_info:
+   634→   634→            server_version = server_info.get("version")
+   635→   635→            server_model = server_info.get("model")
+   636→   636→
+   637→   637→            if server_model:
+   638→   638→                click.echo(f"✓ Basic connectivity test passed")
+   639→   639→                click.echo(f"  Server: {server_version} (model: {server_model})")
+   640→   640→                click.echo(f"  Client: {client_version}")
+   641→   641→            else:
+   642→   642→                click.echo(f"✓ Basic connectivity test passed (server: {server_version}, client: {client_version})")
+   643→   643→
+   644→   644→            # Check for version mismatch
+   645→   645→            if server_version and server_version != client_version:
+   646→   646→                click.echo(f"⚠️  WARNING: Version mismatch detected!")
+   647→   647→                click.echo(f"   Server version: {server_version}")
+   648→   648→                click.echo(f"   Client version: {client_version}")
+   649→   649→        else:
+   650→   650→            click.echo(f"✓ Basic connectivity test passed (client: {client_version})")
+   651→   651→            click.echo("⚠️  Could not retrieve server version - using older server?")
+   652→   652→
+   653→   653→        # Test full message flow
+   654→   654→        click.echo("Testing full message flow...")
+   655→   655→        response = client.send_message("Hello, this is a test message.", show_spinner=not verbose)
+   656→   656→
+   657→   657→        if response:
+   658→   658→            click.echo(f"✓ Full test successful!")
+   659→   659→            click.echo(f"Response: {response}")
+   660→   660→        else:
+   661→   661→            click.echo("✗ Message flow test failed - no response received")
+   662→   662→
+   663→   663→    finally:
+   664→   664→        client.close()
+   665→   665→
+   666→   666→
+   667→   667→if __name__ == '__main__':
+   668→   668→    cli()
