@@ -1,0 +1,44 @@
+[Unit]
+Description=OWL-DNS-Synergy Smart Channel Router v3
+Documentation=https://github.com/owl-dns-synergy
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=owl-dns
+Group=owl-dns
+WorkingDirectory=/opt/owl-dns-synergy
+ExecStart=/usr/bin/python3 -m owl_dns_synergy.server
+EnvironmentFile=-/etc/owl-dns-synergy/env
+Environment=PYTHONUNBUFFERED=1
+Environment=SYNERGY_LOG_LEVEL=info
+
+# Resource Limits
+MemoryMax=1G
+MemoryHigh=768M
+CPUQuota=200%
+LimitNOFILE=65536
+
+# Restart Policy
+Restart=on-failure
+RestartSec=5
+WatchdogSec=120
+
+# Security Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/log/owl-dns-synergy /var/cache/owl-dns-synergy
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=owl-dns-synergy
+
+[Install]
+WantedBy=multi-user.target

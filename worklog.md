@@ -268,3 +268,22 @@ Stage Summary:
 - PDF: /home/z/my-project/download/OWL-DNS-Synergy-Combined-Fix-Summary.pdf (15.7 KB)
 - All CRITICAL and HIGH items resolved across both audit phases
 - Remaining: 6 MEDIUM items (Flask→Gunicorn, token encryption, Prometheus, systemd, E2E test, structured logging)
+---
+Task ID: 11-16
+Agent: main
+Task: Implement 6 remaining MEDIUM items for OWL-DNS-Synergy
+
+Work Log:
+1. Flask→Gunicorn: Created wsgi.py (Gunicorn entry point) + gunicorn_config.py (eventlet workers, graceful timeout, max_requests recycling, preload_app)
+2. Token Encryption: Created token_encryption.py with Fernet AES-128-CBC encrypt/decrypt; integrated into auth.py load_tokens()/save_tokens() with backwards-compatible plaintext fallback; AUTOCLAW_TOKEN_KEY env var
+3. Prometheus Metrics: Created owl_dns_synergy/metrics.py with 12 gauges/counters/histograms (dns_sessions, cache_entries, decompress_budget, domain_prefs, flood_clients, quality_targets, channel_requests, channel_latency, autoclaw_accounts, token_refresh); ProcessCollector for CPU/mem/FD; update helpers + /metrics endpoint
+4. Systemd Deployment: Created owl-dns-synergy.service (MemoryMax=1G, CPUQuota=200%, NoNewPrivileges, ProtectSystem=strict, CAP_NET_BIND_SERVICE) + autoclaw-proxy.service (MemoryMax=512M, Gunicorn, SIGQUIT kill) + env.template files for both
+5. E2E Pipeline Test: Created test-e2e-pipeline.py with 15 tests covering: router channels, DNS chunk roundtrip, cache LRU, cache max_entry, circuit breaker, EMA learning, quality scorer cap, flood protector, crypto roundtrip, decompress budget, token cache, Prometheus metrics, token encryption, Gunicorn config, systemd units — 15/15 PASS
+6. Structured Logging: Replaced all print() in auth.py (~20 calls) and proxy.py (~13 calls) with logging.getLogger() + proper log levels (debug/info/warning/error)
+
+Stage Summary:
+- All 6 MEDIUM items implemented and verified
+- E2E test: 15/15 PASS (covers all new + previous fixes)
+- New files: wsgi.py, gunicorn_config.py, token_encryption.py, metrics.py, 2 systemd units, 2 env templates
+- Modified files: auth.py (logging + encryption), proxy.py (logging)
+- Production deployment ready: Gunicorn + systemd + Prometheus + encrypted tokens + structured logging
