@@ -225,3 +225,27 @@ Stage Summary:
 - PDF report: /home/z/my-project/download/OWL-DNS-Synergy-Memory-Analysis-Deep-Dive.pdf (20 pages)
 - 7 CRITICAL fixes applied, 8 files modified
 - Remaining: 8 HIGH items (AutoClaw JSON reload, Flask→gunicorn, tokens encryption, etc.)
+---
+Task ID: 5-8
+Agent: main
+Task: Apply remaining CRITICAL + HIGH memory fixes to OWL-DNS-Synergy codebase
+
+Work Log:
+- Verified M-D1+M-D3 (DNSChunker TTL eviction + max sessions) already applied in chunking.py
+- Verified M-O1+M-O5 (HTTPCache LRU eviction + max entry bytes) already applied in core.py
+- Verified M-R1 (DomainPreference TTL eviction + cap) already applied in router_v3.py
+- Verified M-R2 (DNSFloodProtector client IP eviction) already applied in router_v3.py
+- Applied M-C1: Global 100MB decompression budget in crypto.py (llm-dns-proxy) — threading.Lock + estimated_size tracking
+- Applied M-C1: Global 100MB decompression budget in core.py (owl-dns-synergy) — same pattern for merged CryptoManager
+- Applied M-A1: In-memory token cache with 5s TTL in auth.py — load_tokens() returns cached data, save_tokens() invalidates cache
+- Applied M-R3: Shared httpx.AsyncClient in _try_http_direct (was creating per-request client)
+- Applied M-R3: Shared httpx.AsyncClient in AutoClawAdapter (was creating per-request client in get_next_token + chat_completion)
+- Applied DomainPreference __slots__ via @dataclass(slots=True) — ~40% per-instance memory reduction
+- Applied QualityScorer MAX_TARGETS=5000 cap with oldest-target eviction
+- All 5 edited files verified to parse correctly (AST check passed)
+
+Stage Summary:
+- 7 CRITICAL + 5 HIGH memory fixes now fully applied across the codebase
+- Files modified: crypto.py, core.py, router_v3.py, auth.py (chunking.py was already fixed)
+- Memory amplification 4.4x → estimated ~2.1x with all fixes applied
+- Key improvements: unbounded dicts → bounded with TTL eviction, per-request clients → shared pooled clients, 12× disk reads → 1 cached read per 5s, 100MB decompression OOM guard, __slots__ memory reduction

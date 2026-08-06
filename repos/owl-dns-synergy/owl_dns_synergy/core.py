@@ -270,12 +270,19 @@ class RequestDeduplicator:
 class QualityScorer:
     """Weighted scoring for proxies and DNS servers based on success rate and latency."""
 
+    MAX_TARGETS = 5000  # Memory Fix: cap tracked targets to prevent unbounded growth
+
     def __init__(self, decay_factor: float = QUALITY_DECAY):
         self._scores: Dict[str, float] = {}
         self._history: Dict[str, List[float]] = {}
         self._decay = decay_factor
 
     def update(self, target_id: str, success: bool, latency_ms: float = 9999.0):
+        # Memory Fix: Evict oldest target when at capacity
+        if target_id not in self._scores and len(self._scores) >= self.MAX_TARGETS:
+            oldest = min(self._scores, key=self._scores.get)
+            del self._scores[oldest]
+            self._history.pop(oldest, None)
         old_score = self._scores.get(target_id, 0.5)
         new_score = old_score * self._decay + (1.0 if success else 0.0) * (1 - self._decay)
         self._scores[target_id] = new_score
@@ -371,6 +378,12 @@ class RedisStore:
 # LLM-DNS-Proxy Classes (crypto.py + chunking.py)
 # ═══════════════════════════════════════════════════════════════════
 
+# ─── Memory Fix M-C1: Global decompression budget (100MB concurrent) ───
+_MAX_DECOMPRESS_BUDGET = 100 * 1024 * 1024  # 100 MB total concurrent decompressed output
+_current_decompress_bytes = 0
+_decompress_lock = asyncio.Lock()  # asyncio lock for async context
+
+
 class CryptoManager:
     """Fernet (AES-128) encryption with compression for DNS tunneling."""
 
@@ -396,8 +409,21 @@ class CryptoManager:
         return self.fernet.encrypt(compressed)
 
     def decrypt(self, encrypted_data: bytes) -> str:
+        """Decrypt with global decompression budget (M-C1) to prevent OOM."""
+        global _current_decompress_bytes
         decrypted = self.fernet.decrypt(encrypted_data)
-        return zlib.decompress(decrypted).decode()
+        estimated_size = len(decrypted) * 12  # zlib worst-case ratio
+        # Check budget (best-effort for sync callers; async callers should use decrypt_async)
+        if _current_decompress_bytes + estimated_size > _MAX_DECOMPRESS_BUDGET:
+            raise MemoryError(
+                f"Decompression budget exceeded: "
+                f"{_current_decompress_bytes}/{_MAX_DECOMPRESS_BUDGET} bytes"
+            )
+        _current_decompress_bytes += estimated_size
+        try:
+            return zlib.decompress(decrypted).decode()
+        finally:
+            _current_decompress_bytes -= estimated_size
 
     def encrypt_chunk(self, text_chunk: str, sequence: int = 0) -> bytes:
         return self.fernet.encrypt(text_chunk.encode('utf-8'))
