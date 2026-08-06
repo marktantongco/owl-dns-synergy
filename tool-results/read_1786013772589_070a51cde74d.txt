@@ -1,0 +1,699 @@
+     1→   700→            self._process.terminate()
+     2→   701→            self._process.wait(timeout=5)
+     3→   702→            logger.info("https_proxy stopped")
+     4→   703→
+     5→   704→    @property
+     6→   705→    def is_running(self) -> bool:
+     7→   706→        return self._process is not None and self._process.poll() is None
+     8→   707→
+     9→   708→    def get_proxy_url(self, username: str = "", password: str = "") -> str:
+    10→   709→        """Get proxy URL for connecting through the stealth proxy."""
+    11→   710→        host = self._config.listen.split(':')[0] or "0.0.0.0"
+    12→   711→        port = self._config.listen.split(':')[1] or "443"
+    13→   712→        if username and password:
+    14→   713→            return f"http://{username}:{password}@{host}:{port}"
+    15→   714→        return f"http://{host}:{port}"
+    16→   715→
+    17→   716→
+    18→   717→# ═══════════════════════════════════════════════════════════════
+    19→   718→# 5. ProxyTunnel Adapter — CONNECT chain integration
+    20→   719→# ═══════════════════════════════════════════════════════════════
+    21→   720→
+    22→   721→class ProxyTunnelAdapter:
+    23→   722→    """
+    24→   723→    Adapter for proxytunnel (C) — CONNECT tunnel chaining.
+    25→   724→    Supports dual-proxy chains with per-hop SSL encryption.
+    26→   725→    """
+    27→   726→
+    28→   727→    def __init__(self, binary_path: str = None):
+    29→   728→        self._binary = binary_path or self._find_binary()
+    30→   729→
+    31→   730→    def _find_binary(self) -> Optional[str]:
+    32→   731→        for path in [
+    33→   732→            os.path.expanduser("~/my-project/repos/proxytunnel/proxytunnel"),
+    34→   733→            os.path.expanduser("~/.owl-dns-synergy/bin/proxytunnel"),
+    35→   734→            "/usr/local/bin/proxytunnel",
+    36→   735→            "/usr/bin/proxytunnel",
+    37→   736→        ]:
+    38→   737→            if os.path.exists(path):
+    39→   738→                return path
+    40→   739→        return None
+    41→   740→
+    42→   741→    def build_command(
+    43→   742→        self,
+    44→   743→        proxy: str,
+    45→   744→        destination: str,
+    46→   745→        remproxy: str = None,
+    47→   746→        proxyauth: str = None,
+    48→   747→        remproxyauth: str = None,
+    49→   748→        encrypt: bool = False,
+    50→   749→        encrypt_proxy: bool = False,
+    51→   750→        encrypt_remproxy: bool = False,
+    52→   751→        ntlm: bool = False,
+    53→   752→        custom_headers: List[str] = None,
+    54→   753→    ) -> List[str]:
+    55→   754→        """
+    56→   755→        Build proxytunnel command with full flag support.
+    57→   756→        Chain: Client → proxy (-p) → [remproxy (-r)] → destination (-d)
+    58→   757→        """
+    59→   758→        if not self._binary:
+    60→   759→            return []
+    61→   760→
+    62→   761→        cmd = [self._binary, "-p", proxy, "-d", destination]
+    63→   762→        if remproxy:
+    64→   763→            cmd.extend(["-r", remproxy])
+    65→   764→        if proxyauth:
+    66→   765→            cmd.extend(["-P", proxyauth])
+    67→   766→        if remproxyauth:
+    68→   767→            cmd.extend(["-R", remproxyauth])
+    69→   768→        if encrypt:
+    70→   769→            cmd.append("-e")
+    71→   770→        if encrypt_proxy:
+    72→   771→            cmd.append("-E")
+    73→   772→        if encrypt_remproxy:
+    74→   773→            cmd.append("-X")
+    75→   774→        if ntlm:
+    76→   775→            cmd.append("-N")
+    77→   776→        if custom_headers:
+    78→   777→            for h in custom_headers:
+    79→   778→                cmd.extend(["-H", h])
+    80→   779→        return cmd
+    81→   780→
+    82→   781→    async def tunnel(
+    83→   782→        self,
+    84→   783→        proxy: str,
+    85→   784→        destination: str,
+    86→   785→        **kwargs
+    87→   786→    ) -> ChannelResult:
+    88→   787→        """Execute proxytunnel to establish a CONNECT tunnel."""
+    89→   788→        start = time.time()
+    90→   789→        cmd = self.build_command(proxy, destination, **kwargs)
+    91→   790→        if not cmd:
+    92→   791→            return ChannelResult("connect_chain", False, error="proxytunnel binary not found")
+    93→   792→
+    94→   793→        try:
+    95→   794→            proc = await asyncio.create_subprocess_exec(
+    96→   795→                *cmd,
+    97→   796→                stdout=asyncio.subprocess.PIPE,
+    98→   797→                stderr=asyncio.subprocess.PIPE,
+    99→   798→            )
+   100→   799→            await asyncio.wait_for(proc.wait(), timeout=30)
+   101→   800→            latency = (time.time() - start) * 1000
+   102→   801→            chain_depth = 2 if kwargs.get('remproxy') else 1
+   103→   802→            CONNECT_TUNNELS.labels(chain_depth=str(chain_depth)).inc()
+   104→   803→
+   105→   804→            if proc.returncode == 0:
+   106→   805→                return ChannelResult(
+   107→   806→                    "connect_chain", True, latency_ms=latency, chain_depth=chain_depth
+   108→   807→                )
+   109→   808→            else:
+   110→   809→                stderr = await proc.stderr.read()
+   111→   810→                return ChannelResult(
+   112→   811→                    "connect_chain", False, error=stderr.decode()[:200], latency_ms=latency
+   113→   812→                )
+   114→   813→        except asyncio.TimeoutError:
+   115→   814→            return ChannelResult("connect_chain", False, error="proxytunnel timeout (30s)")
+   116→   815→        except Exception as e:
+   117→   816→            return ChannelResult("connect_chain", False, error=str(e))
+   118→   817→
+   119→   818→
+   120→   819→# ═══════════════════════════════════════════════════════════════
+   121→   820→# 6. SecretAgent Adapter — MITM stealth browser integration
+   122→   821→# ═══════════════════════════════════════════════════════════════
+   123→   822→
+   124→   823→class SecretAgentAdapter:
+   125→   824→    """
+   126→   825→    Adapter for secret-agent/Hero (Node.js) — stealth browser automation.
+   127→   826→    Routes browser sessions through DNS-tunneled proxy pool.
+   128→   827→    """
+   129→   828→
+   130→   829→    def __init__(self, npm_path: str = None, project_dir: str = None):
+   131→   830→        self._npm = npm_path or "npx"
+   132→   831→        self._project_dir = project_dir or os.path.expanduser(
+   133→   832→            "~/my-project/repos/secret-agent"
+   134→   833→        )
+   135→   834→        self._sessions: Dict[str, Dict] = {}
+   136→   835→
+   137→   836→    def generate_session_script(
+   138→   837→        self,
+   139→   838→        url: str,
+   140→   839→        upstream_proxy: str = None,
+   141→   840→        extract_selector: str = None,
+   142→   841→        session_id: str = None,
+   143→   842→    ) -> str:
+   144→   843→        """
+   145→   844→        Generate a Node.js script for a secret-agent session.
+   146→   845→        Uses @secret-agent/client with upstreamProxyUrl for proxy routing.
+   147→   846→        """
+   148→   847→        sid = session_id or hashlib.md5(url.encode()).hexdigest()[:8]
+   149→   848→        proxy_opt = f", upstreamProxyUrl: '{upstream_proxy}'" if upstream_proxy else ""
+   150→   849→        extract_code = ""
+   151→   850→        if extract_selector:
+   152→   851→            extract_code = f"""
+   153→   852→    const elements = await agent.document.querySelectorAll('{extract_selector}');
+   154→   853→    const results = [];
+   155→   854→    for (const el of elements) {{
+   156→   855→      results.push(await el.textContent);
+   157→   856→    }}
+   158→   857→    console.log(JSON.stringify(results));
+   159→   858→"""
+   160→   859→        else:
+   161→   860→            extract_code = """
+   162→   861→    const title = await agent.document.title;
+   163→   862→    const body = await agent.document.querySelector('body').textContent;
+   164→   863→    console.log(JSON.stringify({ title, bodyLength: body.length, preview: body.substring(0, 500) }));
+   165→   864→"""
+   166→   865→        return f"""const {{ Handler }} = require('@secret-agent/client');
+   167→   866→
+   168→   867→(async () => {{
+   169→   868→  const handler = new Handler({{
+   170→   869→    maxConcurrentClientsCount: 1{proxy_opt}
+   171→   870→  }});
+   172→   871→  const agent = await handler.createAgent();
+   173→   872→  await agent.goto('{url}');
+   174→   873→  await agent.waitForPaintingStable();{extract_code}
+   175→   874→  await handler.close();
+   176→   875→}})();"""
+   177→   876→
+   178→   877→    async def scrape(
+   179→   878→        self,
+   180→   879→        url: str,
+   181→   880→        upstream_proxy: str = None,
+   182→   881→        timeout: int = 30,
+   183→   882→    ) -> ChannelResult:
+   184→   883→        """Execute a secret-agent scraping session."""
+   185→   884→        start = time.time()
+   186→   885→        script = self.generate_session_script(url, upstream_proxy)
+   187→   886→
+   188→   887→        try:
+   189→   888→            proc = await asyncio.create_subprocess_exec(
+   190→   889→                self._npm, "--yes", "@secret-agent/client",
+   191→   890→                stdin=asyncio.subprocess.PIPE,
+   192→   891→                stdout=asyncio.subprocess.PIPE,
+   193→   892→                stderr=asyncio.subprocess.PIPE,
+   194→   893→                cwd=self._project_dir,
+   195→   894→            )
+   196→   895→            proc.stdin.write(script.encode())
+   197→   896→            await proc.stdin.drain()
+   198→   897→            proc.stdin.close()
+   199→   898→
+   200→   899→            stdout, stderr = await asyncio.wait_for(
+   201→   900→                proc.communicate(), timeout=timeout
+   202→   901→            )
+   203→   902→            latency = (time.time() - start) * 1000
+   204→   903→
+   205→   904→            if proc.returncode == 0:
+   206→   905→                STEALTH_SESSIONS.inc()
+   207→   906→                return ChannelResult(
+   208→   907→                    "mitm_stealth", True,
+   209→   908→                    data=stdout.decode()[:10000],
+   210→   909→                    latency_ms=latency
+   211→   910→                )
+   212→   911→            else:
+   213→   912→                return ChannelResult(
+   214→   913→                    "mitm_stealth", False,
+   215→   914→                    error=stderr.decode()[:500],
+   216→   915→                    latency_ms=latency
+   217→   916→                )
+   218→   917→        except asyncio.TimeoutError:
+   219→   918→            return ChannelResult("mitm_stealth", False, error=f"Timeout ({timeout}s)")
+   220→   919→        except Exception as e:
+   221→   920→            return ChannelResult("mitm_stealth", False, error=str(e))
+   222→   921→
+   223→   922→
+   224→   923→# ═══════════════════════════════════════════════════════════════
+   225→   924→# 7. AutoClaw Adapter — OAuth token harvesting
+   226→   925→# ═══════════════════════════════════════════════════════════════
+   227→   926→
+   228→   927→class AutoClawAdapter:
+   229→   928→    """
+   230→   929→    Adapter for autoclaw-autologin — Google OAuth token harvesting
+   231→   930→    with proxy rotation and OpenAI-compatible API proxy.
+   232→   931→    """
+   233→   932→
+   234→   933→    def __init__(self, base_url: str = "http://localhost:31000"):
+   235→   934→        self._base_url = base_url
+   236→   935→        self._tokens: List[Dict] = []
+   237→   936→        self._current_index = 0
+   238→   937→
+   239→   938→    async def get_next_token(self) -> Optional[Dict]:
+   240→   939→        """Get next available token via autoclaw API."""
+   241→   940→        try:
+   242→   941→            import httpx
+   243→   942→            async with httpx.AsyncClient() as client:
+   244→   943→                resp = await client.get(
+   245→   944→                    f"{self._base_url}/v1/models",
+   246→   945→                    timeout=10.0,
+   247→   946→                )
+   248→   947→                if resp.status_code == 200:
+   249→   948→                    return {"source": "autoclaw", "status": "active", "url": self._base_url}
+   250→   949→        except Exception as e:
+   251→   950→            logger.warning(f"AutoClaw token check failed: {e}")
+   252→   951→        return None
+   253→   952→
+   254→   953→    async def chat_completion(
+   255→   954→        self,
+   256→   955→        message: str,
+   257→   956→        model: str = "glm-5.2",
+   258→   957→        stream: bool = False,
+   259→   958→    ) -> ChannelResult:
+   260→   959→        """Send chat completion through autoclaw's OpenAI-compatible proxy."""
+   261→   960→        start = time.time()
+   262→   961→        try:
+   263→   962→            import httpx
+   264→   963→            async with httpx.AsyncClient() as client:
+   265→   964→                resp = await client.post(
+   266→   965→                    f"{self._base_url}/v1/chat/completions",
+   267→   966→                    json={
+   268→   967→                        "model": model,
+   269→   968→                        "messages": [{"role": "user", "content": message}],
+   270→   969→                        "stream": stream,
+   271→   970→                    },
+   272→   971→                    timeout=30.0,
+   273→   972→                )
+   274→   973→                latency = (time.time() - start) * 1000
+   275→   974→                if resp.status_code == 200:
+   276→   975→                    return ChannelResult(
+   277→   976→                        "autoclaw", True,
+   278→   977→                        data=resp.json(),
+   279→   978→                        latency_ms=latency,
+   280→   979→                        status_code=200
+   281→   980→                    )
+   282→   981→                else:
+   283→   982→                    return ChannelResult(
+   284→   983→                        "autoclaw", False,
+   285→   984→                        error=f"HTTP {resp.status_code}",
+   286→   985→                        latency_ms=latency,
+   287→   986→                        status_code=resp.status_code
+   288→   987→                    )
+   289→   988→        except Exception as e:
+   290→   989→            return ChannelResult("autoclaw", False, error=str(e))
+   291→   990→
+   292→   991→
+   293→   992→# ═══════════════════════════════════════════════════════════════
+   294→   993→# 8. SMART CHANNEL ROUTER v3 — Unified Decision Engine
+   295→   994→# ═══════════════════════════════════════════════════════════════
+   296→   995→
+   297→   996→class SmartChannelRouterV3:
+   298→   997→    """
+   299→   998→    Unified SmartChannelRouter v3 — selects optimal access channel
+   300→   999→    across 7 integrated repos with automatic failover.
+   301→  1000→
+   302→  1001→    Channels (priority order):
+   303→  1002→      1. CACHED         — Return cached response if fresh
+   304→  1003→      2. HTTP_PROXY     — Route through proxy pool (prox5/https_proxy)
+   305→  1004→      3. SOCKS_POOL     — Use SOCKS5 pool directly (prox5 Mystery Dialer)
+   306→  1005→      4. DNS_TUNNEL     — Fall back to DNS tunneling (llm-dns-proxy)
+   307→  1006→      5. MITM_STEALTH   — Use secret-agent for JS-heavy/protected targets
+   308→  1007→      6. CONNECT_CHAIN  — Use proxytunnel for corporate proxy traversal
+   309→  1008→      7. HTTP_DIRECT    — Last resort direct connection
+   310→  1009→    """
+   311→  1010→
+   312→  1011→    def __init__(self, config=None):
+   313→  1012→        # Key rotation
+   314→  1013→        self.key_rotator = OpenRouterKeyRotator.from_env()
+   315→  1014→
+   316→  1015→        # Shared HTTP client (Audit Fix: was creating new client per request)
+   317→  1016→        self._http_client: Optional[httpx.AsyncClient] = None
+   318→  1017→
+   319→  1018→        # DNS flood protection
+   320→  1019→        self.flood_protector = DNSFloodProtector(
+   321→  1020→            max_qps=int(os.getenv("DNS_FLOOD_MAX_QPS", "50")),
+   322→  1021→            burst=int(os.getenv("DNS_FLOOD_BURST", "100")),
+   323→  1022→        )
+   324→  1023→
+   325→  1024→        # Per-channel circuit breakers (Audit Fix: no circuit breaker existed)
+   326→  1025→        self._circuit_breakers: Dict[str, ChannelCircuitBreaker] = {
+   327→  1026→            ch.value: ChannelCircuitBreaker(
+   328→  1027→                ch.value,
+   329→  1028→                failure_threshold=int(os.getenv(f"CB_{ch.name}_THRESHOLD", "5")),
+   330→  1029→                recovery_timeout=float(os.getenv(f"CB_{ch.name}_TIMEOUT", "30")),
+   331→  1030→            )
+   332→  1031→            for ch in Channel if ch != Channel.CACHED
+   333→  1032→        }
+   334→  1033→
+   335→  1034→        # Proxy pool (prox5-compatible)
+   336→  1035→        proxy_file = os.getenv("SYNERGY_PROXY_FILE", "")
+   337→  1036→        self.proxy_pool = ProxyPoolAdapter(
+   338→  1037→            proxy_file=proxy_file if os.path.exists(proxy_file) else None
+   339→  1038→        )
+   340→  1039→
+   341→  1040→        # Stealth proxy (https_proxy Rust)
+   342→  1041→        self.stealth_proxy = StealthProxyAdapter()
+   343→  1042→
+   344→  1043→        # ProxyTunnel adapter
+   345→  1044→        self.proxytunnel = ProxyTunnelAdapter()
+   346→  1045→
+   347→  1046→        # SecretAgent adapter
+   348→  1047→        self.secret_agent = SecretAgentAdapter()
+   349→  1048→
+   350→  1049→        # AutoClaw adapter
+   351→  1050→        self.autoclaw = AutoClawAdapter(
+   352→  1051→            base_url=os.getenv("AUTOCLAW_BASE_URL", "http://localhost:31000")
+   353→  1052→        )
+   354→  1053→
+   355→  1054→        # curl_cffi Chrome impersonation client (Audit Fix: no TLS fingerprinting)
+   356→  1055→        self.curl_client = CurlCffiClient(
+   357→  1056→            chrome_version=os.getenv("CURL_CFFI_CHROME", "chrome131")
+   358→  1057→        )
+   359→  1058→
+   360→  1059→        # Channel preferences per domain (with EMA learning)
+   361→  1060→        self._prefs: Dict[str, DomainPreference] = {}
+   362→  1061→        self._states: Dict[str, ChannelState] = {}
+   363→  1062→
+   364→  1063→        # Cache (simple TTL cache with max size)
+   365→  1064→        self._cache: Dict[str, Tuple[Any, float]] = {}
+   366→  1065→        self._cache_ttl = int(os.getenv("SYNERGY_CACHE_TTL", "300"))
+   367→  1066→        self._cache_max = int(os.getenv("SYNERGY_CACHE_MAX", "1000"))
+   368→  1067→
+   369→  1068→        # Stack info
+   370→  1069→        STACK_INFO.info({
+   371→  1070→            "version": "3.0.0",
+   372→  1071→            "repos": "owl-agent+llm-dns-proxy+secret-agent+proxytunnel+autoclaw+https_proxy+prox5",
+   373→  1072→            "channels": "cached,http_proxy,socks_pool,dns_tunnel,mitm_stealth,connect_chain,http_direct",
+   374→  1073→        })
+   375→  1074→
+   376→  1075→    # ─── Cache ────────────────────────────────────────────────
+   377→  1076→
+   378→  1077→    def _cache_get(self, key: str) -> Optional[Any]:
+   379→  1078→        if key in self._cache:
+   380→  1079→            data, ts = self._cache[key]
+   381→  1080→            if time.time() - ts < self._cache_ttl:
+   382→  1081→                return data
+   383→  1082→            del self._cache[key]
+   384→  1083→        return None
+   385→  1084→
+   386→  1085→    def _cache_set(self, key: str, data: Any):
+   387→  1086→        # Evict oldest entries when cache exceeds max size
+   388→  1087→        if len(self._cache) >= self._cache_max:
+   389→  1088→            oldest_key = min(self._cache, key=lambda k: self._cache[k][1])
+   390→  1089→            del self._cache[oldest_key]
+   391→  1090→        self._cache[key] = (data, time.time())
+   392→  1091→
+   393→  1092→    async def _get_http_client(self, proxy: str = None) -> httpx.AsyncClient:
+   394→  1093→        """Get or create shared HTTP client (connection pooling)."""
+   395→  1094→        if self._http_client is None or self._http_client.is_closed:
+   396→  1095→            self._http_client = httpx.AsyncClient(
+   397→  1096→                proxy=proxy, timeout=30.0,
+   398→  1097→                limits=httpx.Limits(max_connections=20, max_keepalive_connections=10)
+   399→  1098→            )
+   400→  1099→        return self._http_client
+   401→  1100→
+   402→  1101→    def _extract_domain(self, url: str) -> str:
+   403→  1102→        parsed = urlparse(url)
+   404→  1103→        return parsed.hostname or url
+   405→  1104→
+   406→  1105→    def _select_channel(self, domain: str, force_channel: str = None) -> Channel:
+   407→  1106→        """Select the optimal channel for a domain."""
+   408→  1107→        if force_channel:
+   409→  1108→            try:
+   410→  1109→                return Channel(force_channel)
+   411→  1110→            except ValueError:
+   412→  1111→                pass
+   413→  1112→
+   414→  1113→        pref = self._prefs.get(domain)
+   415→  1114→        if pref and pref.preferred_channel:
+   416→  1115→            try:
+   417→  1116→                return Channel(pref.preferred_channel)
+   418→  1117→            except ValueError:
+   419→  1118→                pass
+   420→  1119→
+   421→  1120→        # Default priority: proxy pool → SOCKS → DNS → MITM → direct
+   422→  1121→        if self.proxy_pool.valid_count > 0:
+   423→  1122→            return Channel.HTTP_PROXY
+   424→  1123→        return Channel.DNS_TUNNEL
+   425→  1124→
+   426→  1125→    # ─── Channel Implementations ──────────────────────────────
+   427→  1126→
+   428→  1127→    async def _try_http_proxy(self, url: str, domain: str, **kwargs) -> ChannelResult:
+   429→  1128→        """Route through proxy pool (prox5/https_proxy)."""
+   430→  1129→        import httpx
+   431→  1130→        start = time.time()
+   432→  1131→        proxy = self.proxy_pool.get_next()
+   433→  1132→
+   434→  1133→        if not proxy:
+   435→  1134→            return ChannelResult("http_proxy", False, error="No proxies available")
+   436→  1135→
+   437→  1136→        try:
+   438→  1137→            api_key = self.key_rotator.get_active_key()
+   439→  1138→            headers = {}
+   440→  1139→            if api_key:
+   441→  1140→                headers["Authorization"] = f"Bearer {api_key}"
+   442→  1141→
+   443→  1142→            async with httpx.AsyncClient(
+   444→  1143→                proxy=proxy.url, timeout=30.0
+   445→  1144→            ) as client:
+   446→  1145→                resp = await client.get(url, headers=headers)
+   447→  1146→                latency = (time.time() - start) * 1000
+   448→  1147→
+   449→  1148→                if resp.status_code in (401, 403, 429):
+   450→  1149→                    self.key_rotator.report_error(
+   451→  1150→                        resp.status_code,
+   452→  1151→                        "rate_limit" if resp.status_code == 429 else "auth_error"
+   453→  1152→                    )
+   454→  1153→
+   455→  1154→                self.proxy_pool.report_success(proxy.endpoint, latency)
+   456→  1155→
+   457→  1156→                # Only treat 2xx as success — non-2xx should trigger failover
+   458→  1157→                is_success = 200 <= resp.status_code < 300
+   459→  1158→                if is_success:
+   460→  1159→                    self._cache_set(url, resp.content)
+   461→  1160→
+   462→  1161→                return ChannelResult(
+   463→  1162→                    "http_proxy", is_success,
+   464→  1163→                    data=resp.content, latency_ms=latency,
+   465→  1164→                    status_code=resp.status_code, proxy_used=proxy.endpoint
+   466→  1165→                )
+   467→  1166→        except Exception as e:
+   468→  1167→            latency = (time.time() - start) * 1000
+   469→  1168→            self.proxy_pool.report_failure(proxy.endpoint)
+   470→  1169→            return ChannelResult("http_proxy", False, error=str(e), latency_ms=latency)
+   471→  1170→
+   472→  1171→    async def _try_socks_pool(self, url: str, domain: str, **kwargs) -> ChannelResult:
+   473→  1172→        """Route through SOCKS5 pool directly (prox5 Mystery Dialer pattern)."""
+   474→  1173→        import httpx
+   475→  1174→        start = time.time()
+   476→  1175→        proxy = self.proxy_pool.get_next()
+   477→  1176→
+   478→  1177→        if not proxy or proxy.protocol not in ("socks5", "socks4"):
+   479→  1178→            return ChannelResult("socks_pool", False, error="No SOCKS proxies available")
+   480→  1179→
+   481→  1180→        try:
+   482→  1181→            async with httpx.AsyncClient(proxy=proxy.url, timeout=30.0) as client:
+   483→  1182→                resp = await client.get(url)
+   484→  1183→                latency = (time.time() - start) * 1000
+   485→  1184→                self.proxy_pool.report_success(proxy.endpoint, latency)
+   486→  1185→                return ChannelResult(
+   487→  1186→                    "socks_pool", True, data=resp.content,
+   488→  1187→                    latency_ms=latency, status_code=resp.status_code,
+   489→  1188→                    proxy_used=proxy.endpoint
+   490→  1189→                )
+   491→  1190→        except Exception as e:
+   492→  1191→            latency = (time.time() - start) * 1000
+   493→  1192→            self.proxy_pool.report_failure(proxy.endpoint)
+   494→  1193→            return ChannelResult("socks_pool", False, error=str(e), latency_ms=latency)
+   495→  1194→
+   496→  1195→    async def _try_dns_tunnel(self, url: str, domain: str, **kwargs) -> ChannelResult:
+   497→  1196→        """Fall back to DNS tunneling (llm-dns-proxy).
+   498→  1197→        Verifies DNS server is actually reachable by sending a health-check query."""
+   499→  1198→        start = time.time()
+   500→  1199→        try:
+   501→  1200→            import socket
+   502→  1201→            dns_host = os.getenv("DNS_SERVER_HOST", "127.0.0.1")
+   503→  1202→            dns_port = int(os.getenv("DNS_SERVER_PORT", "5353"))
+   504→  1203→            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+   505→  1204→            sock.settimeout(2)
+   506→  1205→            # Send a minimal DNS query to verify the server is actually running
+   507→  1206→            # DNS header: ID=0x1234, RD=1, QDCOUNT=1, QNAME=., QTYPE=TXT, QCLASS=IN
+   508→  1207→            query = b'\x12\x34\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x10\x00\x01'
+   509→  1208→            sock.sendto(query, (dns_host, dns_port))
+   510→  1209→            # Wait for any response (even SERVFAIL proves the server is alive)
+   511→  1210→            data, _ = sock.recvfrom(512)
+   512→  1211→            sock.close()
+   513→  1212→            if not data:
+   514→  1213→                return ChannelResult("dns_tunnel", False, error="DNS server returned empty response")
+   515→  1214→            return ChannelResult(
+   516→  1215→                "dns_tunnel", True,
+   517→  1216→                data=f"[DNS tunnel verified for {domain}]",
+   518→  1217→                latency_ms=(time.time() - start) * 1000
+   519→  1218→            )
+   520→  1219→        except socket.timeout:
+   521→  1220→            return ChannelResult("dns_tunnel", False, error="DNS server not reachable (timeout)")
+   522→  1221→        except ConnectionRefusedError:
+   523→  1222→            return ChannelResult("dns_tunnel", False, error="DNS server not running (connection refused)")
+   524→  1223→        except Exception as e:
+   525→  1224→            return ChannelResult("dns_tunnel", False, error=str(e))
+   526→  1225→
+   527→  1226→    async def _try_mitm_stealth(self, url: str, domain: str, **kwargs) -> ChannelResult:
+   528→  1227→        """Use secret-agent for JS-heavy/protected targets."""
+   529→  1228→        proxy = self.proxy_pool.get_next()
+   530→  1229→        upstream = proxy.url if proxy else None
+   531→  1230→        return await self.secret_agent.scrape(url, upstream_proxy=upstream)
+   532→  1231→
+   533→  1232→    async def _try_connect_chain(self, url: str, domain: str, **kwargs) -> ChannelResult:
+   534→  1233→        """Use proxytunnel for corporate proxy traversal."""
+   535→  1234→        proxy = kwargs.get('proxy', '')
+   536→  1235→        dest = kwargs.get('destination', url)
+   537→  1236→        if not proxy:
+   538→  1237→            return ChannelResult("connect_chain", False, error="No proxy specified for CONNECT chain")
+   539→  1238→        return await self.proxytunnel.tunnel(proxy, dest)
+   540→  1239→
+   541→  1240→    async def _try_http_direct(self, url: str, domain: str, **kwargs) -> ChannelResult:
+   542→  1241→        """Last resort: direct HTTP connection."""
+   543→  1242→        import httpx
+   544→  1243→        start = time.time()
+   545→  1244→        try:
+   546→  1245→            async with httpx.AsyncClient(timeout=30.0) as client:
+   547→  1246→                resp = await client.get(url)
+   548→  1247→                latency = (time.time() - start) * 1000
+   549→  1248→                return ChannelResult(
+   550→  1249→                    "http_direct", True, data=resp.content,
+   551→  1250→                    latency_ms=latency, status_code=resp.status_code
+   552→  1251→                )
+   553→  1252→        except Exception as e:
+   554→  1253→            latency = (time.time() - start) * 1000
+   555→  1254→            return ChannelResult("http_direct", False, error=str(e), latency_ms=latency)
+   556→  1255→
+   557→  1256→    # ─── Main Fetch Method ────────────────────────────────────
+   558→  1257→
+   559→  1258→    async def fetch(self, url: str, force_channel: str = None, **kwargs) -> ChannelResult:
+   560→  1259→        """
+   561→  1260→        Fetch a URL through the optimal channel with automatic failover.
+   562→  1261→        Now includes per-channel circuit breaker and EMA domain preference learning.
+   563→  1262→
+   564→  1263→        Channel selection priority:
+   565→  1264→          cached → http_proxy → socks_pool → dns_tunnel → mitm_stealth → connect_chain → http_direct
+   566→  1265→        """
+   567→  1266→        domain = self._extract_domain(url)
+   568→  1267→
+   569→  1268→        # Check cache
+   570→  1269→        cached = self._cache_get(url)
+   571→  1270→        if cached and not force_channel:
+   572→  1271→            return ChannelResult("cached", True, data=cached)
+   573→  1272→
+   574→  1273→        # Select channel (uses DomainPreference EMA if available)
+   575→  1274→        channel = self._select_channel(domain, force_channel)
+   576→  1275→
+   577→  1276→        # Channel implementations
+   578→  1277→        channel_map = {
+   579→  1278→            Channel.HTTP_PROXY: self._try_http_proxy,
+   580→  1279→            Channel.SOCKS_POOL: self._try_socks_pool,
+   581→  1280→            Channel.DNS_TUNNEL: self._try_dns_tunnel,
+   582→  1281→            Channel.MITM_STEALTH: self._try_mitm_stealth,
+   583→  1282→            Channel.CONNECT_CHAIN: self._try_connect_chain,
+   584→  1283→            Channel.HTTP_DIRECT: self._try_http_direct,
+   585→  1284→        }
+   586→  1285→
+   587→  1286→        # Try preferred channel (with circuit breaker check)
+   588→  1287→        if channel in channel_map:
+   589→  1288→            cb = self._circuit_breakers.get(channel.value)
+   590→  1289→            if cb and not await cb.allow_request():
+   591→  1290→                logger.debug(f"Circuit OPEN for {channel.value} — skipping")
+   592→  1291→            else:
+   593→  1292→                result = await channel_map[channel](url, domain, **kwargs)
+   594→  1293→                # Record result in circuit breaker and EMA
+   595→  1294→                if cb:
+   596→  1295→                    if result.success:
+   597→  1296→                        await cb.record_success()
+   598→  1297→                    else:
+   599→  1298→                        await cb.record_failure()
+   600→  1299→                # Update domain preference EMA
+   601→  1300→                pref = self._prefs.get(domain)
+   602→  1301→                if not pref:
+   603→  1302→                    pref = DomainPreference(domain=domain)
+   604→  1303→                    self._prefs[domain] = pref
+   605→  1304→                pref.record_channel_result(result.channel, result.success)
+   606→  1305→
+   607→  1306→                if result.success:
+   608→  1307→                    REQUESTS_TOTAL.labels(channel=result.channel, domain=domain, status="success").inc()
+   609→  1308→                    REQUESTS_DURATION.labels(channel=result.channel, domain=domain).observe(result.latency_ms / 1000)
+   610→  1309→                    return result
+   611→  1310→                # Record failure in Prometheus
+   612→  1311→                REQUESTS_TOTAL.labels(channel=result.channel, domain=domain, status="error").inc()
+   613→  1312→
+   614→  1313→        # Fallback: try all channels in priority order
+   615→  1314→        # NOTE: CONNECT_CHAIN was missing — added between MITM and HTTP_DIRECT
+   616→  1315→        fallback_order = [
+   617→  1316→            Channel.HTTP_PROXY, Channel.SOCKS_POOL, Channel.DNS_TUNNEL,
+   618→  1317→            Channel.MITM_STEALTH, Channel.CONNECT_CHAIN, Channel.HTTP_DIRECT,
+   619→  1318→        ]
+   620→  1319→        for ch in fallback_order:
+   621→  1320→            if ch == channel:
+   622→  1321→                continue  # Already tried
+   623→  1322→            if ch not in channel_map:
+   624→  1323→                continue
+   625→  1324→
+   626→  1325→            # Circuit breaker check
+   627→  1326→            cb = self._circuit_breakers.get(ch.value)
+   628→  1327→            if cb and not await cb.allow_request():
+   629→  1328→                logger.debug(f"Circuit OPEN for {ch.value} — skipping fallback")
+   630→  1329→                continue
+   631→  1330→
+   632→  1331→            result = await channel_map[ch](url, domain, **kwargs)
+   633→  1332→
+   634→  1333→            # Record in circuit breaker and EMA
+   635→  1334→            if cb:
+   636→  1335→                if result.success:
+   637→  1336→                    await cb.record_success()
+   638→  1337→                else:
+   639→  1338→                    await cb.record_failure()
+   640→  1339→            pref = self._prefs.get(domain)
+   641→  1340→            if pref:
+   642→  1341→                pref.record_channel_result(result.channel, result.success)
+   643→  1342→
+   644→  1343→            if result.success:
+   645→  1344→                CHANNEL_SWITCHES.labels(
+   646→  1345→                    from_channel=channel.value, to_channel=ch.value
+   647→  1346→                ).inc()
+   648→  1347→                REQUESTS_TOTAL.labels(channel=result.channel, domain=domain, status="success").inc()
+   649→  1348→                REQUESTS_DURATION.labels(channel=result.channel, domain=domain).observe(result.latency_ms / 1000)
+   650→  1349→                return result
+   651→  1350→            # Record failure
+   652→  1351→            REQUESTS_TOTAL.labels(channel=result.channel, domain=domain, status="error").inc()
+   653→  1352→
+   654→  1353→        REQUESTS_TOTAL.labels(channel="none", domain=domain, status="all_failed").inc()
+   655→  1354→        return ChannelResult("none", False, error=f"All channels exhausted for {domain}")
+   656→  1355→
+   657→  1356→    # ─── Status & Monitoring ──────────────────────────────────
+   658→  1357→
+   659→  1358→    def get_status(self) -> Dict[str, Any]:
+   660→  1359→        """Get comprehensive stack status."""
+   661→  1360→        return {
+   662→  1361→            "version": "3.0.0",
+   663→  1362→            "channels": {
+   664→  1363→                "http_proxy": self.proxy_pool.valid_count > 0,
+   665→  1364→                "socks_pool": any(
+   666→  1365→                    p.protocol.startswith("socks") and p.score > 0.2
+   667→  1366→                    for p in self.proxy_pool._pool
+   668→  1367→                ),
+   669→  1368→                "dns_tunnel": True,  # Always available if server running
+   670→  1369→                "mitm_stealth": bool(self.secret_agent._npm),
+   671→  1370→                "connect_chain": bool(self.proxytunnel._binary),
+   672→  1371→                "stealth_proxy": self.stealth_proxy.is_running,
+   673→  1372→            },
+   674→  1373→            "circuit_breakers": {
+   675→  1374→                name: {
+   676→  1375→                    "state": cb.state.name,
+   677→  1376→                    "failures": cb._failure_count,
+   678→  1377→                }
+   679→  1378→                for name, cb in self._circuit_breakers.items()
+   680→  1379→            },
+   681→  1380→            "domain_preferences": {
+   682→  1381→                domain: {
+   683→  1382→                    "preferred": pref.preferred_channel,
+   684→  1383→                    "scores": pref._ema_scores,
+   685→  1384→                }
+   686→  1385→                for domain, pref in self._prefs.items()
+   687→  1386→            },
+   688→  1387→            "key_rotator": self.key_rotator.get_status(),
+   689→  1388→            "proxy_pool": self.proxy_pool.get_status(),
+   690→  1389→            "flood_protection": {
+   691→  1390→                "blocked": self.flood_protector._blocked_count,
+   692→  1391→            },
+   693→  1392→            "cache": {
+   694→  1393→                "entries": len(self._cache),
+   695→  1394→                "ttl": self._cache_ttl,
+   696→  1395→                "max": self._cache_max,
+   697→  1396→            },
+   698→  1397→        }
+   699→  1398→
