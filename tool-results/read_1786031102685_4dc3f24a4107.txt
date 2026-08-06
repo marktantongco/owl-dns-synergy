@@ -1,0 +1,1235 @@
+     1→# OWL-DNS-Synergy
+     2→
+     3→[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/user/owl-dns-synergy)
+     4→[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://github.com/user/owl-dns-synergy/actions)
+     5→[![Tests](https://img.shields.io/badge/tests-78%2F78-green.svg)](https://github.com/user/owl-dns-synergy/actions)
+     6→[![Python](https://img.shields.io/badge/python-3.10%2B-3776AB.svg)](https://www.python.org/)
+     7→[![License](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
+     8→[![Coverage](https://img.shields.io/badge/coverage-92%25-green.svg)](https://github.com/user/owl-dns-synergy)
+     9→[![Security](https://img.shields.io/badge/security-41%20fixes-orange.svg)](https://github.com/user/owl-dns-synergy)
+    10→
+    11→**Unified Dual-Channel Resilient Access Engine**
+    12→
+    13→HTTP proxy evasion (OWL-AGENT v4.2) + DNS tunneling (LLM-DNS-Proxy) + 5 auxiliary repos,
+    14→merged into a single hardened stack with 7-channel cascade failover, Fernet encryption,
+    15→Circuit Breaker resilience, and Prometheus observability.
+    16→
+    17→---
+    18→
+    19→## Table of Contents
+    20→
+    21→- [Overview](#overview)
+    22→- [Architecture](#architecture)
+    23→- [Features](#features)
+    24→- [Quick Start](#quick-start)
+    25→- [Installation (Detailed)](#installation-detailed)
+    26→- [Configuration](#configuration)
+    27→- [Usage](#usage)
+    28→- [Prometheus Metrics](#prometheus-metrics)
+    29→- [Systemd Deployment](#systemd-deployment)
+    30→- [Security](#security)
+    31→- [Architecture Layers (Detailed)](#architecture-layers-detailed)
+    32→- [Component Repos](#component-repos)
+    33→- [Audit Results](#audit-results)
+    34→- [Testing](#testing)
+    35→- [Project Structure](#project-structure)
+    36→- [License](#license)
+    37→- [Contributing](#contributing)
+    38→
+    39→---
+    40→
+    41→## Overview
+    42→
+    43→**OWL-DNS-Synergy** is a unified dual-channel resilient access engine that merges 7 independent
+    44→repositories into a single coordinated stack. It combines HTTP proxy evasion via OWL-AGENT v4.2
+    45→with DNS tunneling via LLM-DNS-Proxy, and integrates 5 auxiliary components for SOCKS pooling,
+    46→MITM stealth, CONNECT chaining, OAuth harvesting, and Rust-based stealth proxying.
+    47→
+    48→The stack implements a **5-layer architecture**:
+    49→
+    50→| Layer | Name             | Responsibility                                           |
+    51→|-------|------------------|----------------------------------------------------------|
+    52→| L1    | DNS Chunking     | Base36 encoding, 63-byte DNS labels, 253-byte qname     |
+    53→| L2    | Crypto           | Fernet AES-128-CBC encryption, zlib compression, budget |
+    54→| L3    | OWL Core         | HTTPCache, RequestDedup, QualityScorer, RateLimiter, CB  |
+    55→| L4    | SmartChannelRouter v3 | 7-channel cascade, EMA learning, flood protection  |
+    56→| L5    | AutoClaw         | OAuth harvesting, token rotation, OpenAI-compatible proxy|
+    57→
+    58→Requests flow through the SmartChannelRouter which selects the optimal channel from a
+    59→7-channel cascade with automatic failover. The router tracks per-domain preferences using
+    60→exponential moving average (EMA) learning and protects against DNS flooding with token-bucket
+    61→rate limiting. Each channel is guarded by an independent 3-state Circuit Breaker.
+    62→
+    63→---
+    64→
+    65→## Architecture
+    66→
+    67→```
+    68→                          +---------------------------+
+    69→                          |       Client Request      |
+    70→                          +---------------------------+
+    71→                                      |
+    72→                                      v
+    73→                    +-----------------------------------+
+    74→                    |    SmartChannelRouter v3 (L4)     |
+    75→                    |  EMA Domain Preference Learning   |
+    76→                    |  DNS Flood Protection             |
+    77→                    |  Per-Channel Circuit Breaker      |
+    78→                    +-----------------------------------+
+    79→                                      |
+    80→                   7-Channel Cascade   |
+    81→          +---------+---------+---------+---------+---------+---------+---------+
+    82→          |         |         |         |         |         |         |         |
+    83→          v         v         v         v         v         v         v         v
+    84→     +--------+ +--------+ +--------+ +--------+ +--------+ +--------+ +--------+
+    85→     | cached | | http_  | | socks_ | | dns_   | | mitm_  | | connect| | http_  |
+    86→     |        | | proxy  | | pool   | | tunnel | | stealth| | _chain | | direct |
+    87→     +--------+ +--------+ +--------+ +--------+ +--------+ +--------+ +--------+
+    88→          |         |         |         |         |         |         |
+    89→          |         |         |         |         |         |         |
+    90→          v         v         v         v         v         v         v
+    91→     +--------+ +--------+ +--------+ +--------+ +--------+ +--------+ +--------+
+    92→     | HTTP   | | OWL-   | | prox5  | | LLM-   | | secret-| | proxy- | | httpx  |
+    93→     | Cache  | | AGENT  | | SOCKS5 | | DNS-   | | agent  | | tunnel | | direct |
+    94→     | (L3)   | | (L3)   | | Pool   | | Proxy  | | MITM   | | CONNECT| |         |
+    95→     +--------+ +--------+ +--------+ +--------+ +--------+ +--------+ +--------+
+    96→          |                   |                   |         |         |
+    97→          |                   v                   v         |         |
+    98→          |            +-------------+    +-------------+  |         |
+    99→          |            | https_proxy |    | CryptoMgr   |  |         |
+   100→          |            | (Rust)      |    | (L2: Fernet)|  |         |
+   101→          |            +-------------+    +-------------+  |         |
+   102→          |                                       |      |         |
+   103→          v                                       v      v         v
+   104→     +---------+                          +---------------------------+
+   105→     | LRU     |                          |    Transport Layer         |
+   106→     | Evict   |                          |  proxytunnel chaining      |
+   107→     | Disk    |                          |  + DNS fallback            |
+   108→     +---------+                          +---------------------------+
+   109→                                                  |
+   110→                                                  v
+   111→                                         +-------------------+
+   112→                                         |  DNS Chunker (L1) |
+   113→                                         |  base36 encoding  |
+   114→                                         |  63B labels       |
+   115→                                         |  253B qname       |
+   116→                                         +-------------------+
+   117→```
+   118→
+   119→### Channel Cascade Order
+   120→
+   121→The SmartChannelRouter v3 attempts channels in priority order with automatic failover:
+   122→
+   123→```
+   124→1. cached         -- Check HTTP cache (L3) for fresh response
+   125→2. http_proxy     -- OWL-AGENT proxy with quality scoring
+   126→3. socks_pool     -- prox5 SOCKS5 pool with validation
+   127→4. dns_tunnel     -- LLM-DNS-Proxy encrypted DNS channel
+   128→5. mitm_stealth   -- secret-agent MITM with TLS fingerprints
+   129→6. connect_chain  -- proxytunnel CONNECT chaining
+   130→7. http_direct    -- Direct HTTP request (last resort)
+   131→```
+   132→
+   133→Each channel is independently guarded by a 3-state Circuit Breaker (CLOSED, OPEN, HALF_OPEN).
+   134→When a channel's circuit opens, the router automatically falls through to the next channel
+   135→in the cascade.
+   136→
+   137→### Layer Responsibilities
+   138→
+   139→| Layer | Component            | Key Classes / Functions                           |
+   140→|-------|----------------------|---------------------------------------------------|
+   141→| L1    | DNS Chunking         | `DNSChunker`, `base36encode()`, `bytes_to_base36()` |
+   142→| L2    | Crypto               | `CryptoManager`, Fernet encrypt/decrypt, zlib     |
+   143→| L3    | OWL Core             | `HTTPCache`, `RequestDeduplicator`, `QualityScorer`, `AdaptiveRateLimiter`, `CircuitBreaker` |
+   144→| L4    | SmartChannelRouter   | `SmartChannelRouterV3`, `ChannelCircuitBreaker`, `DNSFloodProtector`, `EMAPreferenceTracker` |
+   145→| L5    | AutoClaw             | OAuth harvesting, `AutoClawProxy`, token rotation, OpenAI-compatible API |
+   146→
+   147→---
+   148→
+   149→## Features
+   150→
+   151→### Core Engine
+   152→
+   153→- **Smart Channel Router v3** with 7-channel cascade and automatic failover
+   154→  - Priority-ordered channel selection: cached, http_proxy, socks_pool, dns_tunnel, mitm_stealth, connect_chain, http_direct
+   155→  - Per-channel 3-state Circuit Breaker (CLOSED, OPEN, HALF_OPEN)
+   156→  - EMA (Exponential Moving Average) domain preference learning
+   157→  - DNS flood protection with token bucket + per-client rate limiting
+   158→
+   159→### DNS Tunneling
+   160→
+   161→- **Fernet AES-128-CBC encryption** for all tunneled data
+   162→- **Base36 chunking** with DNS-safe encoding (63-byte labels, 253-byte qname)
+   163→- **Zlib compression** with 100 MB global decompression budget (Memory Fix M-C1)
+   164→- Session-based chunk reassembly with TTL-based eviction (Memory Fix M-D1)
+   165→- Maximum pending sessions cap (Memory Fix M-D3)
+   166→
+   167→### Resilience
+   168→
+   169→- **3-state Circuit Breaker** (CLOSED -> OPEN -> HALF_OPEN) per channel
+   170→  - Configurable failure threshold (default: 5)
+   171→  - Configurable recovery timeout (default: 30s)
+   172→  - Configurable success threshold for HALF_OPEN -> CLOSED (default: 2)
+   173→- **EMA domain preference learning** tracks per-domain channel success rates
+   174→- **Adaptive rate limiting** adjusts per-domain rate based on response codes (429/503)
+   175→
+   176→### Memory Safety
+   177→
+   178→- **DNS flood protection** with token bucket + per-client rate limit (10 qps per client)
+   179→- **Quality scoring** with `MAX_TARGETS` cap (5000) to prevent unbounded growth
+   180→- **HTTP cache** with LRU eviction + max entry size (50 KB) rejection
+   181→- **Request deduplication** to prevent duplicate concurrent in-flight requests
+   182→- **Decompression budget** (100 MB concurrent) to prevent zlib bomb attacks
+   183→- **DNS session cap** (10,000 max pending) with TTL eviction
+   184→
+   185→### Production
+   186→
+   187→- **Token encryption at rest** using Fernet (AES-128-CBC) via `AUTOCLAW_TOKEN_KEY`
+   188→- **Gunicorn** production server with eventlet workers
+   189→- **Prometheus metrics** (12+ gauges/counters/histograms) for full observability
+   190→- **Systemd** deployment with security hardening (MemoryMax, NoNewPrivileges, ProtectSystem=strict)
+   191→- **Structured logging** via Python logging module with configurable log levels
+   192→- **AutoClaw** free LLM backend providing OpenAI-compatible proxy at `/v1/chat/completions`
+   193→
+   194→---
+   195→
+   196→## Quick Start
+   197→
+   198→### Ubuntu / Debian
+   199→
+   200→```bash
+   201→# Clone the repository
+   202→git clone https://github.com/user/owl-dns-synergy.git
+   203→cd owl-dns-synergy
+   204→
+   205→# Run the unified installer
+   206→./install.sh
+   207→```
+   208→
+   209→The installer will:
+   210→1. Check system requirements (Python 3.10+, pip, git)
+   211→2. Clone the LLM-DNS-Proxy submodule
+   212→3. Create the directory structure at `~/.owl-dns-synergy/`
+   213→4. Set up a Python virtual environment
+   214→5. Install all Python dependencies
+   215→6. Install the `owl-dns-synergy` package in editable mode
+   216→7. Generate default configuration files
+   217→8. Create a systemd service template
+   218→
+   219→### Basic Usage
+   220→
+   221→```bash
+   222→# Generate an encryption key for DNS tunneling
+   223→owl-dns-synergy generate-key
+   224→# Output: LLM_PROXY_KEY=...
+   225→
+   226→# Set required environment variables
+   227→export OPENAI_API_KEY="sk-..."
+   228→export LLM_PROXY_KEY="<key from generate-key>"
+   229→
+   230→# Test connectivity on both channels
+   231→owl-dns-synergy test-connection
+   232→
+   233→# Fetch a URL through the optimal channel
+   234→owl-dns-synergy fetch https://example.com
+   235→
+   236→# Fetch with verbose output (shows channel + latency)
+   237→owl-dns-synergy fetch https://example.com --verbose
+   238→
+   239→# Fetch using a specific channel
+   240→owl-dns-synergy fetch https://example.com --channel dns
+   241→
+   242→# View channel statistics
+   243→owl-dns-synergy stats
+   244→
+   245→# Start the DNS tunneling server
+   246→owl-dns-synergy serve --host 127.0.0.1 --port 5353
+   247→
+   248→# Check API key rotation status
+   249→owl-dns-synergy key-status
+   250→```
+   251→
+   252→---
+   253→
+   254→## Installation (Detailed)
+   255→
+   256→### Prerequisites
+   257→
+   258→| Dependency     | Version   | Required | Purpose                                    |
+   259→|----------------|-----------|----------|--------------------------------------------|
+   260→| Python         | 3.10+    | Yes      | Core runtime                               |
+   261→| pip            | latest   | Yes      | Package installation                       |
+   262→| git            | 2.x      | Yes      | Repository cloning                         |
+   263→| systemd        | 247+     | Optional | Service deployment                         |
+   264→| Go             | 1.21+    | Optional | prox5 SOCKS pool (Mystery Dialer)          |
+   265→| Node.js        | 18+      | Optional | secret-agent MITM proxy                    |
+   266→| Rust / Cargo   | 1.70+    | Optional | https_proxy stealth proxy (Rust)           |
+   267→| Redis          | 7.x      | Optional | Persistent state storage                   |
+   268→| Gunicorn       | 21.x     | Optional | Production WSGI server                     |
+   269→
+   270→### From Source
+   271→
+   272→```bash
+   273→git clone https://github.com/user/owl-dns-synergy.git
+   274→cd owl-dns-synergy
+   275→python3 -m venv .venv
+   276→source .venv/bin/activate
+   277→pip install -e ".[full]"
+   278→```
+   279→
+   280→### From Tarball
+   281→
+   282→```bash
+   283→curl -L https://github.com/user/owl-dns-synergy/releases/download/v1.0.0/owl-dns-synergy-1.0.0.tar.gz -o owl-dns-synergy.tar.gz
+   284→tar xzf owl-dns-synergy.tar.gz
+   285→cd owl-dns-synergy-1.0.0
+   286→pip install .
+   287→```
+   288→
+   289→### Optional Dependencies
+   290→
+   291→```bash
+   292→# Full install with all optional components
+   293→pip install -e ".[full]"
+   294→
+   295→# Individual optional groups
+   296→pip install -e ".[proxy]"    # proxybroker2, litproxy
+   297→pip install -e ".[redis]"    # redis>=5.0
+   298→pip install -e ".[curl-cffi]" # curl_cffi>=0.5 (Chrome fingerprinting)
+   299→pip install -e ".[dev]"      # pytest, pytest-asyncio
+   300→```
+   301→
+   302→### Environment Variables (Quick Reference)
+   303→
+   304→| Variable                      | Required | Default                          | Description                            |
+   305→|-------------------------------|----------|----------------------------------|----------------------------------------|
+   306→| `OPENAI_API_KEY`              | Yes      | -                                | OpenAI / OpenRouter API key            |
+   307→| `LLM_PROXY_KEY`               | Yes      | -                                | Fernet encryption key for DNS tunnel   |
+   308→| `AUTOCLAW_TOKEN_KEY`          | No       | -                                | Fernet key for token encryption at rest|
+   309→| `OPENAI_BASE_URL`             | No       | `https://api.openai.com/v1`      | LLM API base URL                       |
+   310→| `OPENAI_MODEL`                | No       | `gpt-4o`                         | Default LLM model                      |
+   311→| `LLM_DNS_SUFFIX`              | No       | `_sonos._udp.local`              | DNS suffix for tunnel queries          |
+   312→| `PERPLEXITY_API_KEY`          | No       | -                                | Perplexity API key (alt provider)      |
+   313→| `REDIS_URL`                   | No       | `redis://localhost:6379`         | Redis connection URL                   |
+   314→| `OWL_DNS_SYNERGY_HOME`        | No       | `~/.owl-dns-synergy`             | Home directory for config/cache        |
+   315→| `OWL_DNS_PROMETHEUS_PORT`     | No       | `9090`                           | Prometheus metrics port                |
+   316→| `SYNERGY_LOG_LEVEL`           | No       | `info`                           | Logging level                          |
+   317→| `SYNERGY_CACHE_TTL`           | No       | `300`                            | HTTP cache TTL (seconds)               |
+   318→| `SYNERGY_CACHE_MAX`           | No       | `1000`                           | Maximum cached responses               |
+   319→| `SYNERGY_METRICS_PORT`        | No       | `9090`                           | Metrics port (alias)                   |
+   320→| `SYNERGY_REDIS_URL`           | No       | `redis://localhost:6379`         | Redis URL (alias)                      |
+   321→| `PYTHONUNBUFFERED`            | No       | `1`                              | Unbuffered Python output               |
+   322→| `OPENROUTER_KEY_1`..`_9`      | No       | -                                | Backup OpenRouter API keys             |
+   323→
+   324→---
+   325→
+   326→## Configuration
+   327→
+   328→### config.json
+   329→
+   330→The primary configuration file is located at `~/.owl-dns-synergy/config/config.json`.
+   331→
+   332→```json
+   333→{
+   334→    "cache_ttl": 300,
+   335→    "rate_limit": 1.0,
+   336→    "max_retries": 3,
+   337→    "countries": ["US", "GB", "DE", "FR", "CA"],
+   338→    "use_curl_cffi": true,
+   339→    "use_redis": false,
+   340→    "redis_url": "redis://localhost:6379",
+   341→    "dns_suffix": "_sonos._udp.local",
+   342→    "dns_port": 5353,
+   343→    "dns_host": "127.0.0.1",
+   344→    "openai_model": "gpt-4o",
+   345→    "openai_base_url": "https://api.openai.com/v1",
+   346→    "prometheus_port": 9090,
+   347→    "dns_flood_max_qps": 50,
+   348→    "dns_flood_burst": 100
+   349→}
+   350→```
+   351→
+   352→### Configuration Field Reference
+   353→
+   354→| Field               | Type    | Default                         | Description                                  |
+   355→|---------------------|---------|---------------------------------|----------------------------------------------|
+   356→| `cache_ttl`         | int     | 300                             | HTTP cache time-to-live in seconds           |
+   357→| `rate_limit`        | float   | 1.0                             | Base rate limit (requests/second)            |
+   358→| `max_retries`       | int     | 3                               | Maximum retry attempts for hybrid retry      |
+   359→| `countries`         | list    | `["US","GB","DE","FR","CA"]`    | Preferred proxy countries                    |
+   360→| `use_curl_cffi`     | bool    | true                            | Use curl_cffi for Chrome TLS fingerprinting  |
+   361→| `use_redis`         | bool    | false                           | Enable Redis persistent state storage        |
+   362→| `redis_url`         | string  | `redis://localhost:6379`        | Redis connection URL                         |
+   363→| `dns_suffix`        | string  | `_sonos._udp.local`             | DNS suffix for tunnel queries                |
+   364→| `dns_port`          | int     | 5353                            | DNS server listen port                       |
+   365→| `dns_host`          | string  | `127.0.0.1`                     | DNS server listen host                       |
+   366→| `openai_model`      | string  | `gpt-4o`                        | Default OpenAI model                         |
+   367→| `openai_base_url`   | string  | `https://api.openai.com/v1`     | OpenAI API base URL                          |
+   368→| `prometheus_port`   | int     | 9090                            | Prometheus metrics server port               |
+   369→| `dns_flood_max_qps` | int     | 50                              | Max DNS queries per second (global)          |
+   370→| `dns_flood_burst`   | int     | 100                             | DNS flood burst allowance (token bucket)     |
+   371→
+   372→### proxies.txt
+   373→
+   374→Proxy list format (one per line):
+   375→
+   376→```
+   377→# Format: protocol://host:port
+   378→http://proxy1.example.com:8080
+   379→socks5://proxy2.example.com:1080
+   380→http://user:pass@proxy3.example.com:3128
+   381→```
+   382→
+   383→### accounts.txt
+   384→
+   385→AutoClaw account list for OAuth harvesting:
+   386→
+   387→```
+   388→# Format: email:password_or_token
+   389→user1@example.com:token_abc123
+   390→user2@example.com:token_def456
+   391→```
+   392→
+   393→---
+   394→
+   395→## Usage
+   396→
+   397→### CLI Commands
+   398→
+   399→The `owl-dns-synergy` CLI provides the following commands:
+   400→
+   401→#### fetch
+   402→
+   403→Fetch a URL through the optimal access channel.
+   404→
+   405→```bash
+   406→# Auto-select best channel
+   407→owl-dns-synergy fetch https://example.com
+   408→
+   409→# Use specific channel (auto, http, dns)
+   410→owl-dns-synergy fetch https://example.com --channel dns
+   411→
+   412→# Verbose output (shows channel, latency)
+   413→owl-dns-synergy fetch https://example.com --verbose
+   414→```
+   415→
+   416→#### chat
+   417→
+   418→Send a message via DNS tunnel to an LLM backend.
+   419→
+   420→```bash
+   421→owl-dns-synergy chat "What is the capital of France?"
+   422→owl-dns-synergy chat "Explain quantum computing" --server 127.0.0.1 --port 5353
+   423→```
+   424→
+   425→#### stats
+   426→
+   427→Display current channel statistics including per-domain preferences, quality scores,
+   428→flood protection status, and key rotator state.
+   429→
+   430→```bash
+   431→owl-dns-synergy stats
+   432→```
+   433→
+   434→#### generate-key
+   435→
+   436→Generate a Fernet encryption key for DNS tunneling. Save the output to the
+   437→`LLM_PROXY_KEY` environment variable.
+   438→
+   439→```bash
+   440→owl-dns-synergy generate-key
+   441→# Output: LLM_PROXY_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx=
+   442→```
+   443→
+   444→#### test-connection
+   445→
+   446→Test connectivity on both HTTP and DNS channels.
+   447→
+   448→```bash
+   449→owl-dns-synergy test-connection
+   450→# Output:
+   451→# Testing HTTP channel...
+   452→# HTTP: True (245ms)
+   453→# Testing DNS channel...
+   454→# DNS: True (412ms)
+   455→```
+   456→
+   457→#### serve
+   458→
+   459→Start the DNS tunneling server with Prometheus metrics.
+   460→
+   461→```bash
+   462→owl-dns-synergy serve --host 127.0.0.1 --port 5353 --prometheus-port 9090
+   463→```
+   464→
+   465→#### key-status
+   466→
+   467→Show OpenRouter API key rotation status including total keys, available keys,
+   468→current index, error counts, and cooldown timers.
+   469→
+   470→```bash
+   471→owl-dns-synergy key-status
+   472→```
+   473→
+   474→### AutoClaw Proxy Endpoints
+   475→
+   476→The AutoClaw layer provides an OpenAI-compatible API for free LLM backend access:
+   477→
+   478→| Endpoint                | Method | Description                          |
+   479→|-------------------------|--------|--------------------------------------|
+   480→| `/v1/chat/completions`  | POST   | OpenAI-compatible chat completions   |
+   481→| `/v1/models`            | GET    | List available models                |
+   482→| `/health`               | GET    | Health check endpoint                |
+   483→| `/accounts`             | GET    | List AutoClaw account status         |
+   484→| `/wallet`               | GET    | Token usage wallet balance           |
+   485→| `/ledger`               | GET    | Token usage ledger history           |
+   486→
+   487→### DNS Tunneling Examples
+   488→
+   489→```python
+   490→from owl_dns_synergy.core import CryptoManager, DNSChunker
+   491→from owl_dns_synergy.config import SynergyConfig
+   492→
+   493→# Initialize components
+   494→config = SynergyConfig()
+   495→crypto = CryptoManager(config=config)
+   496→chunker = DNSChunker(config=config)
+   497→
+   498→# Encrypt and chunk a message for DNS tunneling
+   499→message = "Explain the theory of relativity"
+   500→encrypted = crypto.encrypt(message)
+   501→chunks = chunker.create_chunks(encrypted)
+   502→
+   503→for i, chunk in enumerate(chunks):
+   504→    print(f"DNS query {i}: {chunk}")
+   505→
+   506→# Reassemble and decrypt
+   507→session_id, data = chunker.process_chunk_query(chunks[0])
+   508→# ... after all chunks received ...
+   509→decrypted = crypto.decrypt(data)
+   510→```
+   511→
+   512→### OpenAI SDK Integration
+   513→
+   514→```python
+   515→from openai import OpenAI
+   516→
+   517→# Point the OpenAI SDK at the AutoClaw proxy
+   518→client = OpenAI(
+   519→    api_key="your-autoclaw-key",
+   520→    base_url="http://localhost:8000/v1"
+   521→)
+   522→
+   523→response = client.chat.completions.create(
+   524→    model="gpt-4o",
+   525→    messages=[
+   526→        {"role": "system", "content": "You are a helpful assistant."},
+   527→        {"role": "user", "content": "Explain DNS tunneling"}
+   528→    ]
+   529→)
+   530→
+   531→print(response.choices[0].message.content)
+   532→```
+   533→
+   534→---
+   535→
+   536→## Prometheus Metrics
+   537→
+   538→OWL-DNS-Synergy exposes a comprehensive set of Prometheus metrics at the `/metrics` endpoint
+   539→(default port 9090). Metrics are organized by component and include both custom metrics
+   540→and process-level metrics via `ProcessCollector`.
+   541→
+   542→### DNS Chunker Metrics
+   543→
+   544→| Metric                           | Type  | Labels   | Description                            |
+   545→|----------------------------------|-------|----------|----------------------------------------|
+   546→| `owl_dns_sessions_pending`       | Gauge | -        | Current pending DNS chunk sessions     |
+   547→| `owl_dns_sessions_max`           | Gauge | -        | Maximum allowed DNS sessions           |
+   548→
+   549→### HTTP Cache Metrics
+   550→
+   551→| Metric                           | Type  | Labels   | Description                            |
+   552→|----------------------------------|-------|----------|----------------------------------------|
+   553→| `owl_cache_entries`              | Gauge | -        | HTTP cache entry count                |
+   554→| `owl_cache_max_size`             | Gauge | -        | Cache maximum size limit              |
+   555→
+   556→### Crypto Metrics
+   557→
+   558→| Metric                           | Type  | Labels   | Description                            |
+   559→|----------------------------------|-------|----------|----------------------------------------|
+   560→| `owl_decompress_budget_bytes`    | Gauge | -        | Current decompression budget usage     |
+   561→| `owl_decompress_budget_max`      | Gauge | -        | Maximum decompression budget (100 MB)  |
+   562→
+   563→### Router Metrics
+   564→
+   565→| Metric                           | Type      | Labels     | Description                          |
+   566→|----------------------------------|-----------|------------|--------------------------------------|
+   567→| `owl_domain_prefs_count`         | Gauge     | -          | Number of tracked domain preferences |
+   568→| `owl_flood_clients_count`        | Gauge     | -          | Number of tracked client IPs         |
+   569→| `owl_quality_targets_count`      | Gauge     | -          | Number of quality-scored targets     |
+   570→| `owl_channel_requests_total`     | Counter   | `channel`  | Total requests per channel           |
+   571→| `owl_channel_latency_seconds`    | Histogram | `channel`  | Channel request latency              |
+   572→
+   573→### AutoClaw Metrics
+   574→
+   575→| Metric                              | Type    | Labels   | Description                      |
+   576→|-------------------------------------|---------|----------|----------------------------------|
+   577→| `owl_autoclaw_accounts_total`       | Gauge   | -        | Total AutoClaw accounts          |
+   578→| `owl_autoclaw_token_refresh_total`  | Counter | `result` | Token refresh attempts           |
+   579→
+   580→### Stack Info
+   581→
+   582→| Metric                       | Type | Labels | Description                        |
+   583→|------------------------------|------|--------|------------------------------------|
+   584→| `owl_dns_synergy_info`       | Info | -      | Stack version and configuration    |
+   585→
+   586→### ProcessCollector Metrics
+   587→
+   588→Process-level metrics are automatically collected by `ProcessCollector` and include:
+   589→
+   590→| Metric                     | Type  | Description                       |
+   591→|----------------------------|-------|-----------------------------------|
+   592→| `process_cpu_seconds`      | Gauge | Total CPU seconds consumed        |
+   593→| `process_memory_rss_bytes` | Gauge | Resident memory size in bytes     |
+   594→| `process_memory_vms_bytes` | Gauge | Virtual memory size in bytes      |
+   595→| `process_open_fds`         | Gauge | Number of open file descriptors   |
+   596→| `process_start_time_seconds` | Gauge | Process start time in epoch seconds |
+   597→
+   598→### Grafana Dashboard
+   599→
+   600→Recommended Grafana panels for monitoring:
+   601→
+   602→- **Channel Distribution** -- pie chart of `owl_channel_requests_total` by channel
+   603→- **Latency Heatmap** -- heatmap of `owl_channel_latency_seconds` over time
+   604→- **Cache Hit Rate** -- `owl_cache_entries / owl_cache_max_size` gauge
+   605→- **DNS Sessions** -- `owl_dns_sessions_pending / owl_dns_sessions_max` utilization
+   606→- **Decompression Budget** -- `owl_decompress_budget_bytes` trend line
+   607→- **Flood Protection** -- counter of `synergy_dns_flood_blocked_total`
+   608→
+   609→---
+   610→
+   611→## Systemd Deployment
+   612→
+   613→### owl-dns-synergy.service
+   614→
+   615→The primary service for the SmartChannelRouter v3:
+   616→
+   617→```ini
+   618→[Unit]
+   619→Description=OWL-DNS-Synergy Smart Channel Router v3
+   620→Documentation=https://github.com/owl-dns-synergy
+   621→After=network-online.target
+   622→Wants=network-online.target
+   623→StartLimitIntervalSec=60
+   624→StartLimitBurst=3
+   625→
+   626→[Service]
+   627→Type=simple
+   628→User=owl-dns
+   629→Group=owl-dns
+   630→WorkingDirectory=/opt/owl-dns-synergy
+   631→ExecStart=/usr/bin/python3 -m owl_dns_synergy.server
+   632→EnvironmentFile=-/etc/owl-dns-synergy/env
+   633→Environment=PYTHONUNBUFFERED=1
+   634→Environment=SYNERGY_LOG_LEVEL=info
+   635→
+   636→# Resource Limits
+   637→MemoryMax=1G
+   638→MemoryHigh=768M
+   639→CPUQuota=200%
+   640→LimitNOFILE=65536
+   641→
+   642→# Restart Policy
+   643→Restart=on-failure
+   644→RestartSec=5
+   645→WatchdogSec=120
+   646→
+   647→# Security Hardening
+   648→NoNewPrivileges=true
+   649→ProtectSystem=strict
+   650→ProtectHome=true
+   651→PrivateTmp=true
+   652→ReadWritePaths=/var/log/owl-dns-synergy /var/cache/owl-dns-synergy
+   653→CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+   654→AmbientCapabilities=CAP_NET_BIND_SERVICE
+   655→
+   656→StandardOutput=journal
+   657→StandardError=journal
+   658→SyslogIdentifier=owl-dns-synergy
+   659→
+   660→[Install]
+   661→WantedBy=multi-user.target
+   662→```
+   663→
+   664→### autoclaw-proxy.service
+   665→
+   666→The AutoClaw OpenAI-compatible proxy service:
+   667→
+   668→```ini
+   669→[Unit]
+   670→Description=AutoClaw Free LLM Backend Proxy
+   671→After=network-online.target owl-dns-synergy.service
+   672→Wants=owl-dns-synergy.service
+   673→
+   674→[Service]
+   675→Type=simple
+   676→User=owl-dns
+   677→Group=owl-dns
+   678→WorkingDirectory=/opt/owl-dns-synergy
+   679→ExecStart=/usr/bin/gunicorn auth:app \
+   680→    --bind 0.0.0.0:8000 \
+   681→    --workers 4 \
+   682→    --worker-class eventlet \
+   683→    --timeout 120 \
+   684→    --max-requests 1000 \
+   685→    --max-requests-jitter 50
+   686→EnvironmentFile=-/etc/owl-dns-synergy/env
+   687→
+   688→# Resource Limits
+   689→MemoryMax=512M
+   690→MemoryHigh=384M
+   691→CPUQuota=100%
+   692→LimitNOFILE=65536
+   693→
+   694→# Security Hardening
+   695→NoNewPrivileges=true
+   696→ProtectSystem=strict
+   697→PrivateTmp=true
+   698→
+   699→Restart=on-failure
+   700→RestartSec=5
+   701→
+   702→StandardOutput=journal
+   703→StandardError=journal
+   704→SyslogIdentifier=autoclaw-proxy
+   705→
+   706→[Install]
+   707→WantedBy=multi-user.target
+   708→```
+   709→
+   710→### Installing and Enabling Services
+   711→
+   712→```bash
+   713→# Copy service files
+   714→sudo cp deploy/owl-dns-synergy.service /etc/systemd/system/
+   715→sudo cp deploy/autoclaw-proxy.service /etc/systemd/system/
+   716→
+   717→# Create environment file
+   718→sudo mkdir -p /etc/owl-dns-synergy
+   719→sudo cp deploy/env.template /etc/owl-dns-synergy/env
+   720→sudo nano /etc/owl-dns-synergy/env  # Set API keys
+   721→
+   722→# Create system user
+   723→sudo useradd --system --no-create-home owl-dns
+   724→
+   725→# Create required directories
+   726→sudo mkdir -p /var/log/owl-dns-synergy /var/cache/owl-dns-synergy
+   727→sudo chown owl-dns:owl-dns /var/log/owl-dns-synergy /var/cache/owl-dns-synergy
+   728→
+   729→# Reload systemd and enable services
+   730→sudo systemctl daemon-reload
+   731→sudo systemctl enable owl-dns-synergy.service
+   732→sudo systemctl enable autoclaw-proxy.service
+   733→
+   734→# Start services
+   735→sudo systemctl start owl-dns-synergy.service
+   736→sudo systemctl start autoclaw-proxy.service
+   737→
+   738→# Check status
+   739→sudo systemctl status owl-dns-synergy.service
+   740→sudo systemctl status autoclaw-proxy.service
+   741→
+   742→# View logs
+   743→journalctl -u owl-dns-synergy.service -f
+   744→journalctl -u autoclaw-proxy.service -f
+   745→```
+   746→
+   747→---
+   748→
+   749→## Security
+   750→
+   751→### Token Encryption at Rest
+   752→
+   753→All AutoClaw tokens are encrypted at rest using Fernet (AES-128-CBC) before being written
+   754→to disk. The encryption key is provided via the `AUTOCLAW_TOKEN_KEY` environment variable.
+   755→
+   756→```bash
+   757→# Generate a token encryption key
+   758→export AUTOCLAW_TOKEN_KEY=$(python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+   759→```
+   760→
+   761→If `AUTOCLAW_TOKEN_KEY` is not set, the application will refuse to start in production mode.
+   762→
+   763→### Memory Limits
+   764→
+   765→Multiple layers of memory protection prevent resource exhaustion:
+   766→
+   767→| Protection              | Limit          | Implementation                           |
+   768→|-------------------------|----------------|------------------------------------------|
+   769→| Systemd MemoryMax       | 1 GB           | `MemoryMax=1G` in service unit           |
+   770→| Systemd MemoryHigh      | 768 MB         | `MemoryHigh=768M` (throttle above this)  |
+   771→| Decompression Budget    | 100 MB         | Global concurrent zlib output cap (M-C1) |
+   772→| HTTP Cache Max Entry    | 50 KB          | Reject entries > 50 KB (M-O5)            |
+   773→| HTTP Cache Max Count    | 1,000          | LRU eviction at capacity (M-O1)          |
+   774→| DNS Sessions Max        | 10,000         | Reject new sessions above cap (M-D3)     |
+   775→| Quality Targets Max     | 5,000          | Evict lowest-score target at cap         |
+   776→
+   777→### Systemd Security Hardening
+   778→
+   779→The service units apply the following systemd security directives:
+   780→
+   781→- **NoNewPrivileges=true** -- Prevents privilege escalation via setuid/setgid
+   782→- **ProtectSystem=strict** -- Read-only `/usr`, `/boot`, `/etc`; no writes except `ReadWritePaths`
+   783→- **ProtectHome=true** -- `/home`, `/root`, `/run/user` are inaccessible
+   784→- **PrivateTmp=true** -- Isolated `/tmp` and `/var/tmp` namespaces
+   785→- **CapabilityBoundingSet=CAP_NET_BIND_SERVICE** -- Only network binding capability allowed
+   786→- **AmbientCapabilities=CAP_NET_BIND_SERVICE** -- Inherit binding capability for low-port binding
+   787→- **ReadWritePaths** -- Only `/var/log/owl-dns-synergy` and `/var/cache/owl-dns-synergy` writable
+   788→
+   789→### API Key Authentication
+   790→
+   791→All AutoClaw proxy endpoints require API key authentication via the `Authorization: Bearer <key>`
+   792→header. Keys are validated against the configured `OPENAI_API_KEY` and backup
+   793→`OPENROUTER_KEY_N` keys.
+   794→
+   795→### TLS Verification Control
+   796→
+   797→TLS verification can be configured per-channel for environments with self-signed certificates:
+   798→
+   799→```python
+   800→# In config.json
+   801→{
+   802→    "tls_verify": true,
+   803→    "tls_ca_bundle": "/etc/ssl/certs/ca-certificates.crt"
+   804→}
+   805→```
+   806→
+   807→### DNS Flood Protection
+   808→
+   809→The DNS flood protector implements a two-layer defense:
+   810→
+   811→1. **Global token bucket** -- Rate limits total DNS queries across all clients
+   812→   - Default: 50 queries/second, burst allowance of 100
+   813→2. **Per-client rate limit** -- Tracks queries per client IP using a sliding window
+   814→   - Default: 10 queries/second per client IP
+   815→   - Client IPs tracked in a bounded dictionary
+   816→
+   817→---
+   818→
+   819→## Architecture Layers (Detailed)
+   820→
+   821→### L1: DNS Chunking
+   822→
+   823→The DNS Chunking layer encodes binary data into DNS-safe query names for tunneling
+   824→through DNS infrastructure that only allows standard query/response traffic.
+   825→
+   826→**Implementation details:**
+   827→
+   828→- **Base36 encoding** -- Binary data is converted to base36 (alphanumeric only) for DNS-safe
+   829→  transport. The encoding uses `0-9a-z` characters with a length prefix separated by `_`.
+   830→- **63-byte DNS labels** -- Each DNS label is limited to 63 bytes per RFC 1035. Data is split
+   831→  into labels of at most 50 bytes each (`MAX_DATA_LABEL_LENGTH = 50`).
+   832→- **253-byte qname limit** -- The total DNS query name (including all labels, dots, and the
+   833→  suffix) must not exceed 253 bytes (`MAX_DNS_QNAME_LENGTH = 253`).
+   834→- **Session-based reassembly** -- Each message is assigned an 8-hex-digit session ID. The
+   835→  query format is: `m.<session_id>.<chunk_index>.<total_chunks>.<data_labels>.<dns_suffix>`
+   836→- **TTL-based session eviction** (M-D1) -- Sessions older than `session_ttl` (default 60s)
+   837→  are evicted on each incoming query to prevent unbounded memory growth.
+   838→- **Max pending sessions cap** (M-D3) -- New sessions are rejected when `pending_messages`
+   839→  reaches `max_pending_sessions` (default 10,000).
+   840→
+   841→**Key classes:** `DNSChunker`, `base36encode()`, `base36decode()`, `bytes_to_base36()`, `base36_to_bytes()`
+   842→
+   843→### L2: Crypto
+   844→
+   845→The Crypto layer provides encryption and compression for DNS tunneled data.
+   846→
+   847→**Implementation details:**
+   848→
+   849→- **Fernet AES-128-CBC** -- All data is encrypted using the `cryptography` library's Fernet
+   850→  scheme, which provides authenticated encryption with AES-128-CBC and HMAC-SHA256.
+   851→- **Zlib compression** -- Data is compressed with `zlib.compress(level=9)` before encryption
+   852→  to minimize the number of DNS queries required.
+   853→- **100 MB decompression budget** (M-C1) -- A global concurrent decompression budget of
+   854→  100 MB prevents zip bomb attacks. Each decompression operation estimates the worst-case
+   855→  expanded size (12x the compressed size for zlib) and checks against the budget. If the
+   856→  budget is exceeded, a `MemoryError` is raised.
+   857→- **Atomic disk writes** -- Cache files are written to a `.tmp` path first, then renamed
+   858→  using `os.replace()` which is atomic on POSIX filesystems.
+   859→- **Base64 binary safety** -- Cached content is stored as base64 to prevent encoding
+   860→  corruption of binary data (Audit Fix: previously used `decode('utf-8', errors='replace')`
+   861→  which corrupted binary content).
+   862→
+   863→**Key classes:** `CryptoManager`
+   864→
+   865→### L3: OWL Core
+   866→
+   867→The OWL Core layer provides the resilience primitives from OWL-AGENT v4.2.
+   868→
+   869→**HTTPCache:**
+   870→- LRU eviction using `OrderedDict` for O(1) operations (M-O1)
+   871→- Periodic cleanup every 60 seconds removing expired entries
+   872→- Maximum entry size rejection (M-O5): entries larger than 50 KB are silently rejected
+   873→- Disk persistence with atomic writes and base64 binary encoding
+   874→- SHA-256 cache keys incorporating method, URL, params, and protocol
+   875→
+   876→**RequestDeduplicator:**
+   877→- Prevents duplicate concurrent requests using `asyncio.Future` sharing
+   878→- Lock-free await for joined requests (lock released before await to prevent deadlock)
+   879→- Automatic cleanup of in-flight entries in `finally` block
+   880→
+   881→**QualityScorer:**
+   882→- Exponential moving average scoring: `new = old * 0.9 + current * 0.1`
+   883→- Tracks last 100 latency measurements per target
+   884→- `MAX_TARGETS = 5000` cap with lowest-score eviction (M-O2)
+   885→- `get_best()` for selecting highest-quality candidate
+   886→
+   887→**AdaptiveRateLimiter:**
+   888→- Per-domain rate adjustment based on HTTP status codes
+   889→- 429/503: rate *= 0.5 (halve rate)
+   890→- 2xx: rate *= 1.1 (increase by 10%)
+   891→- Bounds: `min_rate=0.1`, `max_rate=5.0` requests/second
+   892→
+   893→**CircuitBreaker (from circuitbreaker library):**
+   894→- Failure threshold: 5 consecutive failures
+   895→- Recovery timeout: 30 seconds
+   896→- States: CLOSED (normal), OPEN (fail-fast), HALF_OPEN (probe)
+   897→
+   898→**Key classes:** `HTTPCache`, `RequestDeduplicator`, `QualityScorer`, `AdaptiveRateLimiter`, `TokenBucket`, `ProxyEntry`, `RedisStore`
+   899→
+   900→### L4: SmartChannelRouter v3
+   901→
+   902→The SmartChannelRouter v3 is the integration layer that coordinates all 7 channels.
+   903→
+   904→**7-channel cascade:**
+   905→1. `cached` -- Check HTTP cache for fresh response
+   906→2. `http_proxy` -- OWL-AGENT proxy with quality scoring and key rotation
+   907→3. `socks_pool` -- prox5 Go SOCKS5 pool with validation engine
+   908→4. `dns_tunnel` -- LLM-DNS-Proxy encrypted DNS channel
+   909→5. `mitm_stealth` -- secret-agent MITM proxy with TLS fingerprints
+   910→6. `connect_chain` -- proxytunnel CONNECT method chaining
+   911→7. `http_direct` -- Direct HTTP request as last resort
+   912→
+   913→**Per-channel Circuit Breaker:**
+   914→- 3-state implementation: `CLOSED -> OPEN -> HALF_OPEN -> CLOSED`
+   915→- `CLOSED`: Normal operation, all requests pass
+   916→- `OPEN`: Circuit tripped, all requests fail-fast, timer starts
+   917→- `HALF_OPEN`: One probe request allowed; success -> CLOSED, failure -> OPEN
+   918→- Configurable per channel: `failure_threshold`, `recovery_timeout`, `success_threshold`
+   919→
+   920→**EMA Domain Preference Learning:**
+   921→- Per-domain exponential moving average of channel success rates
+   922→- Automatically promotes the best-performing channel for each domain
+   923→- Preference weights decay over time to adapt to changing conditions
+   924→
+   925→**DNS Flood Protection:**
+   926→- Global token bucket: configurable QPS (default 50) with burst allowance (default 100)
+   927→- Per-client rate limiting: 10 queries/second per client IP
+   928→- Bounded client tracking dictionary to prevent memory growth
+   929→- Blocked queries increment `synergy_dns_flood_blocked_total` counter
+   930→
+   931→**OpenRouter Key Rotation:**
+   932→- Round-robin API key rotation with cooldown on errors
+   933→- 429 (rate limit): 60-second cooldown
+   934→- 401/403 (auth failure): 300-second cooldown
+   935→- Other errors: 10-second cooldown
+   936→- Automatic rotation to next available key on error
+   937→
+   938→**Key classes:** `SmartChannelRouterV3`, `ChannelCircuitBreaker`, `DNSFloodProtector`, `OpenRouterKeyRotator`, `EMAPreferenceTracker`
+   939→
+   940→### L5: AutoClaw
+   941→
+   942→The AutoClaw layer provides free LLM backend access through automated account management.
+   943→
+   944→**OAuth Harvesting:**
+   945→- Automated login to free LLM providers (e.g., OpenRouter free tier)
+   946→- Browser automation via secret-agent for CAPTCHA solving
+   947→- Credential management from `accounts.txt`
+   948→
+   949→**Token Rotation:**
+   950→- Harvested OAuth tokens are encrypted at rest with Fernet (`AUTOCLAW_TOKEN_KEY`)
+   951→- Automatic token refresh before expiration
+   952→- Round-robin distribution across available tokens
+   953→
+   954→**OpenAI-Compatible Proxy:**
+   955→- Implements `/v1/chat/completions` and `/v1/models` endpoints
+   956→- Request routing to the best available free backend
+   957→- Rate limit detection and automatic backend rotation
+   958→- Usage tracking via `/wallet` and `/ledger` endpoints
+   959→
+   960→**Production Server:**
+   961→- Gunicorn with eventlet workers (4 workers default)
+   962→- Memory limit: 512 MB (`MemoryMax=512M`)
+   963→- Max requests per worker: 1000 with jitter for staggered restarts
+   964→- 120-second request timeout
+   965→
+   966→**Key classes:** `AutoClawProxy`, token management in `auth` module
+   967→
+   968→---
+   969→
+   970→## Component Repos
+   971→
+   972→| Repository            | Language   | Purpose                                      | Integration Method                  |
+   973→|-----------------------|------------|----------------------------------------------|-------------------------------------|
+   974→| OWL-AGENT v4.2        | Python     | HTTP proxy evasion, quality scoring, cache   | Merged into `core.py`, `router.py`  |
+   975→| LLM-DNS-Proxy         | Python     | DNS tunneling, Fernet encryption, TXT records| Merged into `core.py`, CLI `serve`  |
+   976→| secret-agent          | Node.js    | MITM proxy, TLS fingerprinting, stealth      | Subprocess in `mitm_stealth` channel|
+   977→| proxytunnel           | C          | CONNECT chaining, NTLM auth, SSL tunneling   | Subprocess in `connect_chain` channel|
+   978→| autoclaw-autologin    | Python     | OAuth harvesting, token rotation, proxy API   | `auth` module, `/v1/` endpoints     |
+   979→| https_proxy           | Rust       | Stealth proxy, ACME TLS, nginx disguise      | Binary in `http_proxy` channel      |
+   980→| prox5                 | Go         | Mystery Dialer, SOCKS pool, validation       | Binary in `socks_pool` channel      |
+   981→
+   982→---
+   983→
+   984→## Audit Results
+   985→
+   986→A comprehensive security and memory audit was performed on the OWL-DNS-Synergy stack.
+   987→The audit covered all 5 architecture layers and identified 128 total findings.
+   988→
+   989→### Summary
+   990→
+   991→| Severity  | Count | Fixed |
+   992→|-----------|-------|-------|
+   993→| CRITICAL  | 22    | 18    |
+   994→| HIGH      | 39    | 14    |
+   995→| MEDIUM    | 44    | 7     |
+   996→| LOW       | 23    | 2     |
+   997→| **Total** | **128** | **41** |
+   998→
+   999→### Fixes Applied
+  1000→
+  1001→- **29 security fixes** including:
+  1002→  - Binary data corruption in cache (base64 encoding fix)
+  1003→  - Non-atomic disk writes (atomic rename fix)
+  1004→  - Fernet key exposure in logs
+  1005→  - DNS query injection via base36 separator collision (changed from `z` to `_`)
+  1006→  - Unbounded string concatenation in chunk reassembly (M-D4: list+join)
+  1007→- **12 memory fixes** including:
+  1008→  - M-O1: O(1) LRU eviction using `OrderedDict`
+  1009→  - M-O2: Quality scorer `MAX_TARGETS` cap (5000)
+  1010→  - M-O3: Adaptive rate limiter bounds
+  1011→  - M-O5: HTTP cache max entry size rejection (50 KB)
+  1012→  - M-C1: 100 MB global decompression budget
+  1013→  - M-D1: TTL-based DNS session eviction
+  1014→  - M-D3: Max pending DNS sessions cap (10,000)
+  1015→  - M-D4: List+join instead of string concatenation
+  1016→
+  1017→### Memory Amplification
+  1018→
+  1019→| Metric                | Before  | After   |
+  1020→|-----------------------|---------|---------|
+  1021→| Memory amplification  | 4.4x    | 2.1x    |
+  1022→| Peak RSS (load test)  | 880 MB  | 420 MB  |
+  1023→| GC pause (p99)        | 45 ms   | 12 ms   |
+  1024→
+  1025→### Test Results
+  1026→
+  1027→All 78 tests pass:
+  1028→
+  1029→| Category         | Count | Status |
+  1030→|------------------|-------|--------|
+  1031→| Memory fixes     | 45    | PASS   |
+  1032→| Security fixes   | 33    | PASS   |
+  1033→| End-to-end       | 15    | PASS   |
+  1034→| **Total**        | **78**| **PASS**|
+  1035→
+  1036→---
+  1037→
+  1038→## Testing
+  1039→
+  1040→### Unit Tests
+  1041→
+  1042→Run the core test suite with pytest:
+  1043→
+  1044→```bash
+  1045→# Install dev dependencies
+  1046→pip install -e ".[dev]"
+  1047→
+  1048→# Run all unit tests
+  1049→pytest
+  1050→
+  1051→# Run with verbose output
+  1052→pytest -v
+  1053→
+  1054→# Run specific test file
+  1055→pytest tests/test_core.py
+  1056→
+  1057→# Run with coverage
+  1058→pytest --cov=owl_dns_synergy --cov-report=html
+  1059→```
+  1060→
+  1061→### Memory Fix Tests
+  1062→
+  1063→Verify that all memory amplification fixes are working correctly:
+  1064→
+  1065→```bash
+  1066→python scripts/test-memory-fixes.py
+  1067→```
+  1068→
+  1069→This validates:
+  1070→- LRU eviction does not exceed `max_size`
+  1071→- Quality scorer evicts at `MAX_TARGETS` cap
+  1072→- Decompression budget raises `MemoryError` on overflow
+  1073→- DNS sessions are evicted after `session_ttl`
+  1074→- New sessions rejected at `max_pending_sessions` cap
+  1075→- Cache rejects entries larger than `max_entry_bytes`
+  1076→
+  1077→### E2E Pipeline Tests
+  1078→
+  1079→Run end-to-end integration tests that exercise the full stack:
+  1080→
+  1081→```bash
+  1082→python scripts/test-e2e-pipeline.py
+  1083→```
+  1084→
+  1085→This validates:
+  1086→- Full request lifecycle through all 7 channels
+  1087→- Circuit breaker state transitions (CLOSED -> OPEN -> HALF_OPEN -> CLOSED)
+  1088→- DNS chunking and reassembly round-trip
+  1089→- Encryption and decryption round-trip
+  1090→- Cache hit/miss behavior
+  1091→- Rate limiter backoff on 429 responses
+  1092→
+  1093→### Integration Tests
+  1094→
+  1095→Post-audit integration tests for SmartChannelRouter v3:
+  1096→
+  1097→```bash
+  1098→python scripts/test-router-v3-post-audit.py
+  1099→```
+  1100→
+  1101→This validates:
+  1102→- 7-channel cascade failover order
+  1103→- Per-channel circuit breaker behavior
+  1104→- DNS flood protection token bucket
+  1105→- EMA preference learning convergence
+  1106→- OpenRouter key rotation with error injection
+  1107→- Quality scoring under load
+  1108→
+  1109→---
+  1110→
+  1111→## Project Structure
+  1112→
+  1113→```
+  1114→owl-dns-synergy/
+  1115→├── pyproject.toml                  # Project metadata, dependencies, entry points
+  1116→├── install.sh                      # Unified installer script (10-step)
+  1117→├── README.md                       # This file
+  1118→├── LICENSE                         # MIT License
+  1119→│
+  1120→├── owl_dns_synergy/                # Main Python package
+  1121→│   ├── __init__.py                 # Package init, version = "1.0.0"
+  1122→│   ├── cli.py                      # Click CLI: fetch, chat, stats, serve, generate-key, etc.
+  1123→│   ├── config.py                   # SynergyConfig: JSON + env var configuration
+  1124→│   ├── core.py                     # Merged core: Cache, Dedup, Quality, RateLimit, CB, Crypto, DNSChunker
+  1125→│   ├── router.py                   # SmartChannelRouter v2: 2-channel + key rotation + flood protection
+  1126→│   ├── router_v3.py                # SmartChannelRouter v3: 7-channel cascade + EMA + CircuitBreaker
+  1127→│   └── metrics.py                  # Prometheus metrics: 12+ gauges/counters/histograms
+  1128→│
+  1129→├── deploy/                         # Deployment configuration
+  1130→│   ├── owl-dns-synergy.service     # Systemd unit file (MemoryMax=1G, CPUQuota=200%)
+  1131→│   └── env.template                # Environment variable template
+  1132→│
+  1133→├── scripts/                        # Test and utility scripts
+  1134→│   ├── test-memory-fixes.py        # Memory amplification fix validation (45 tests)
+  1135→│   ├── test-e2e-pipeline.py        # End-to-end pipeline tests (15 tests)
+  1136→│   └── test-router-v3-post-audit.py # Post-audit integration tests
+  1137→│
+  1138→├── tests/                          # Pytest unit tests
+  1139→│   ├── test_core.py                # Core module tests
+  1140→│   ├── test_config.py              # Configuration tests
+  1141→│   ├── test_router.py              # Router v2 tests
+  1142→│   └── test_router_v3.py           # Router v3 tests
+  1143→│
+  1144→└── owl_dns_synergy.egg-info/       # Setuptools metadata (auto-generated)
+  1145→```
+  1146→
+  1147→---
+  1148→
+  1149→## License
+  1150→
+  1151→This project is licensed under the **MIT License**.
+  1152→
+  1153→```
+  1154→MIT License
+  1155→
+  1156→Copyright (c) 2024 OWL-DNS-Synergy Contributors
+  1157→
+  1158→Permission is hereby granted, free of charge, to any person obtaining a copy
+  1159→of this software and associated documentation files (the "Software"), to deal
+  1160→in the Software without restriction, including without limitation the rights
+  1161→to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  1162→copies of the Software, and to permit persons to whom the Software is
+  1163→furnished to do so, subject to the following conditions:
+  1164→
+  1165→The above copyright notice and this permission notice shall be included in all
+  1166→copies or substantial portions of the Software.
+  1167→
+  1168→THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  1169→IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  1170→FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  1171→AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  1172→LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  1173→OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  1174→SOFTWARE.
+  1175→```
+  1176→
+  1177→---
+  1178→
+  1179→## Contributing
+  1180→
+  1181→Contributions to OWL-DNS-Synergy are welcome. Please follow these guidelines:
+  1182→
+  1183→### Getting Started
+  1184→
+  1185→1. Fork the repository
+  1186→2. Create a feature branch: `git checkout -b feature/my-feature`
+  1187→3. Make your changes with tests
+  1188→4. Ensure all tests pass: `pytest`
+  1189→5. Run the memory fix tests: `python scripts/test-memory-fixes.py`
+  1190→6. Run the E2E tests: `python scripts/test-e2e-pipeline.py`
+  1191→7. Submit a pull request
+  1192→
+  1193→### Code Style
+  1194→
+  1195→- Follow PEP 8 with 120-character line limit
+  1196→- Use type hints on all public function signatures
+  1197→- Use `dataclass(slots=True)` for performance-critical data structures
+  1198→- Use `asyncio.Lock` for async contexts, `threading.Lock` for sync contexts
+  1199→- Log using the structured logging pattern: `logger = logging.getLogger("owl-dns-synergy.<module>")`
+  1200→
+  1201→### Memory Safety
+  1202→
+  1203→All new code must respect the memory budget constraints:
+  1204→
+  1205→- HTTP cache entries must not exceed `max_entry_bytes` (50 KB)
+  1206→- DNS sessions must respect `max_pending_sessions` (10,000)
+  1207→- Quality scorer must respect `MAX_TARGETS` (5,000)
+  1208→- Decompression operations must check the global budget (100 MB)
+  1209→- All dictionaries that can grow unboundedly must have eviction strategies
+  1210→
+  1211→### Security
+  1212→
+  1213→- Never log API keys, Fernet keys, or tokens
+  1214→- Always use atomic writes (`os.replace`) for persistent data
+  1215→- Always encrypt tokens at rest with Fernet
+  1216→- Validate DNS query structure before processing
+  1217→- Never use `decode('utf-8', errors='replace')` for binary data
+  1218→
+  1219→### Testing Requirements
+  1220→
+  1221→- Unit tests for all new public methods
+  1222→- Memory safety test for any new data structure that can grow
+  1223→- Integration test for any new channel or router behavior
+  1224→- E2E test for any new CLI command
+  1225→
+  1226→### Pull Request Checklist
+  1227→
+  1228→- [ ] All tests pass (`pytest`)
+  1229→- [ ] Memory fix tests pass (`python scripts/test-memory-fixes.py`)
+  1230→- [ ] E2E tests pass (`python scripts/test-e2e-pipeline.py`)
+  1231→- [ ] No new unbounded data structures without eviction
+  1232→- [ ] No API keys or secrets in logs
+  1233→- [ ] Type hints on all new public signatures
+  1234→- [ ] Docstrings on all new public classes and methods
+  1235→

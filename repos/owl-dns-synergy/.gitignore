@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Secrets
+tokens.json
+.env
+*.key
+*.pem
+accounts.txt
+proxies.txt
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Cache
+.owl-dns-synergy/
+cache/
+
+# Logs
+*.log
+logs/
+
+# Test
+.pytest_cache/
+.coverage
+htmlcov/
