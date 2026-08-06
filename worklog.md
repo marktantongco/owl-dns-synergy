@@ -73,3 +73,34 @@ Stage Summary:
 - SmartChannelRouter v2: ChannelState enum, DomainPreference dataclass, hybrid retry
 - Flood protection: Blocked 15/25 excess queries in stress test
 - Deliverables: install-v2.sh, owl-dns-synergy.service, .env, start-dns-server.sh
+
+---
+Task ID: 1-3
+Agent: Super Z (main)
+Task: Deploy systemd service, test LLM chat via DNS tunnel, verify Prometheus metrics
+
+Work Log:
+- Recreated ~/.owl-dns-synergy/ directory structure (lost from previous session)
+- Patched llm-dns-proxy pyproject.toml: requires-python >=3.13 → >=3.10 (for Python 3.12 compat)
+- Installed all dependencies into fresh venv (openai 2.53.0, dnslib 0.9.26, prometheus_client 0.26.0)
+- Generated new Fernet encryption key and created .env with all 3 OpenRouter API keys
+- Attempted sudo cp to /etc/systemd/system/ — no root access in container
+- Created user-level systemd service at ~/.config/systemd/user/owl-dns-synergy.service
+- Tested DNS connectivity: t.test._sonos._udp.local → TXT "OK" PASS
+- Tested version query: v.info._sonos._udp.local → {"version": "git-32c7db4", "model": "openai/gpt-4o"} PASS
+- Tested LLM chat via DNS tunnel:
+  - openai/gpt-4o returned 403 (not available in region)
+  - Switched to google/gemma-4-26b-a4b-it:free
+  - Direct API test: "Say hello in one word." → "Hello" PASS
+  - DNS tunnel test: encrypt → base36 chunk → DNS TXT → server → decrypt → OpenRouter → "Hello" PASS
+- Started Prometheus metrics server on port 9090
+- Verified 14 synergy_* metrics exposed (requests_total, flood_blocked, key_rotation, etc.)
+- Tested key rotation: simulated 429 error → auto-rotated from index 0 to index 1
+- Updated .env with working model: google/gemma-4-26b-a4b-it:free
+
+Stage Summary:
+- DNS tunneling: FULLY OPERATIONAL (LLM responses received via DNS TXT records)
+- OpenRouter: Working with google/gemma-4-26b-a4b-it:free (3 keys configured)
+- Prometheus: 14 metrics on http://localhost:9090/metrics
+- Key rotation: Auto-rotates on 429/401/403 (verified with simulated 429)
+- Systemd: User-level service template at ~/.config/systemd/user/ (root access unavailable in container)

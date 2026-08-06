@@ -1,0 +1,622 @@
+[SERVER] Started
+[CLIENT] Sending 1 chunk(s) via DNS...
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'm.999.0.1.3cz4rpppdq5ndxbwlayd0t1yhv1u6d92c0qyu60t04zmybt0vi.b3tzu9fxpz9zoifx9c6hm003fzlgqfe3im41mduu9i38imwm4z.pnej21j5cixa59tvp5zux1m30bo2nx5eiiyviil2y612ovuusd.pc96emr6gj3txoysirvnftb2g6nl5fqvc5n4g1p._sonos._udp.local.' (TXT)
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'm.999.0.1.3cz4rpppdq5ndxbwlayd0t1yhv1u6d92c0qyu60t04zmybt0vi.b3tzu9fxpz9zoifx9c6hm003fzlgqfe3im41mduu9i38imwm4z.pnej21j5cixa59tvp5zux1m30bo2nx5eiiyviil2y612ovuusd.pc96emr6gj3txoysirvnftb2g6nl5fqvc5n4g1p._sonos._udp.local.' (TXT) / RRs: TXT
+  Chunk 1/1: sent OK
+[CLIENT] Polling for LLM response via DNS...
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.0._sonos._udp.local.' (TXT)
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.0._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.1._sonos._udp.local.' (TXT)
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.1._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.2._sonos._udp.local.' (TXT)
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.2._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.3._sonos._udp.local.' (TXT)
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.3._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.4._sonos._udp.local.' (TXT)
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.4._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.5._sonos._udp.local.' (TXT)
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.5._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.6._sonos._udp.local.' (TXT)
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.6._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.7._sonos._udp.local.' (TXT)
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.7._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.8._sonos._udp.local.' (TXT)
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.8._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.9._sonos._udp.local.' (TXT)
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.9._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.0._sonos._udp.local.' (TXT)
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.0._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.1._sonos._udp.local.' (TXT)
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.1._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.2._sonos._udp.local.' (TXT)
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.2._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.3._sonos._udp.local.' (TXT)
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.3._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.4._sonos._udp.local.' (TXT)
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.4._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.5._sonos._udp.local.' (TXT)
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.5._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.6._sonos._udp.local.' (TXT)
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.6._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.7._sonos._udp.local.' (TXT)
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.7._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.8._sonos._udp.local.' (TXT)
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.8._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.9._sonos._udp.local.' (TXT)
+2026-08-06 00:53:33 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.9._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.0._sonos._udp.local.' (TXT)
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.0._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.1._sonos._udp.local.' (TXT)
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.1._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.2._sonos._udp.local.' (TXT)
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.2._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.3._sonos._udp.local.' (TXT)
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.3._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.4._sonos._udp.local.' (TXT)
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.4._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.5._sonos._udp.local.' (TXT)
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.5._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.6._sonos._udp.local.' (TXT)
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.6._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.7._sonos._udp.local.' (TXT)
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.7._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.8._sonos._udp.local.' (TXT)
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.8._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.9._sonos._udp.local.' (TXT)
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.9._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.0._sonos._udp.local.' (TXT)
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.0._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.1._sonos._udp.local.' (TXT)
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.1._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.2._sonos._udp.local.' (TXT)
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.2._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.3._sonos._udp.local.' (TXT)
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.3._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.4._sonos._udp.local.' (TXT)
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.4._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.5._sonos._udp.local.' (TXT)
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.5._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.6._sonos._udp.local.' (TXT)
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.6._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.7._sonos._udp.local.' (TXT)
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.7._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.8._sonos._udp.local.' (TXT)
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.8._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.9._sonos._udp.local.' (TXT)
+2026-08-06 00:53:34 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.9._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.0._sonos._udp.local.' (TXT)
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.0._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.1._sonos._udp.local.' (TXT)
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.1._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.2._sonos._udp.local.' (TXT)
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.2._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.3._sonos._udp.local.' (TXT)
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.3._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.4._sonos._udp.local.' (TXT)
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.4._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.5._sonos._udp.local.' (TXT)
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.5._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.6._sonos._udp.local.' (TXT)
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.6._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.7._sonos._udp.local.' (TXT)
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.7._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.8._sonos._udp.local.' (TXT)
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.8._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.9._sonos._udp.local.' (TXT)
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.9._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.0._sonos._udp.local.' (TXT)
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.0._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.1._sonos._udp.local.' (TXT)
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.1._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.2._sonos._udp.local.' (TXT)
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.2._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.3._sonos._udp.local.' (TXT)
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.3._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.4._sonos._udp.local.' (TXT)
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.4._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.5._sonos._udp.local.' (TXT)
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.5._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.6._sonos._udp.local.' (TXT)
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.6._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.7._sonos._udp.local.' (TXT)
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.7._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.8._sonos._udp.local.' (TXT)
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.8._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.9._sonos._udp.local.' (TXT)
+2026-08-06 00:53:35 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.9._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.0._sonos._udp.local.' (TXT)
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.0._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.1._sonos._udp.local.' (TXT)
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.1._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.2._sonos._udp.local.' (TXT)
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.2._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.3._sonos._udp.local.' (TXT)
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.3._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.4._sonos._udp.local.' (TXT)
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.4._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.5._sonos._udp.local.' (TXT)
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.5._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.6._sonos._udp.local.' (TXT)
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.6._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.7._sonos._udp.local.' (TXT)
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.7._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.8._sonos._udp.local.' (TXT)
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.8._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.9._sonos._udp.local.' (TXT)
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.9._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.0._sonos._udp.local.' (TXT)
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.0._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.1._sonos._udp.local.' (TXT)
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.1._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.2._sonos._udp.local.' (TXT)
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.2._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.3._sonos._udp.local.' (TXT)
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.3._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.4._sonos._udp.local.' (TXT)
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.4._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.5._sonos._udp.local.' (TXT)
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.5._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.6._sonos._udp.local.' (TXT)
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.6._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.7._sonos._udp.local.' (TXT)
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.7._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.8._sonos._udp.local.' (TXT)
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.8._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.9._sonos._udp.local.' (TXT)
+2026-08-06 00:53:36 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.9._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.0._sonos._udp.local.' (TXT)
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.0._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.1._sonos._udp.local.' (TXT)
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.1._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.2._sonos._udp.local.' (TXT)
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.2._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.3._sonos._udp.local.' (TXT)
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.3._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.4._sonos._udp.local.' (TXT)
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.4._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.5._sonos._udp.local.' (TXT)
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.5._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.6._sonos._udp.local.' (TXT)
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.6._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.7._sonos._udp.local.' (TXT)
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.7._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.8._sonos._udp.local.' (TXT)
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.8._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.9._sonos._udp.local.' (TXT)
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.9._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.0._sonos._udp.local.' (TXT)
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.0._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.1._sonos._udp.local.' (TXT)
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.1._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.2._sonos._udp.local.' (TXT)
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.2._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.3._sonos._udp.local.' (TXT)
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.3._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.4._sonos._udp.local.' (TXT)
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.4._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.5._sonos._udp.local.' (TXT)
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.5._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.6._sonos._udp.local.' (TXT)
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.6._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.7._sonos._udp.local.' (TXT)
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.7._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.8._sonos._udp.local.' (TXT)
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.8._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.9._sonos._udp.local.' (TXT)
+2026-08-06 00:53:37 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.9._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.0._sonos._udp.local.' (TXT)
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.0._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.1._sonos._udp.local.' (TXT)
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.1._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.2._sonos._udp.local.' (TXT)
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.2._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.3._sonos._udp.local.' (TXT)
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.3._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.4._sonos._udp.local.' (TXT)
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.4._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.5._sonos._udp.local.' (TXT)
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.5._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.6._sonos._udp.local.' (TXT)
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.6._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.7._sonos._udp.local.' (TXT)
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.7._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.8._sonos._udp.local.' (TXT)
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.8._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.9._sonos._udp.local.' (TXT)
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.9._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.0._sonos._udp.local.' (TXT)
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.0._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.1._sonos._udp.local.' (TXT)
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.1._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.2._sonos._udp.local.' (TXT)
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.2._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.3._sonos._udp.local.' (TXT)
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.3._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.4._sonos._udp.local.' (TXT)
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.4._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.5._sonos._udp.local.' (TXT)
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.5._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.6._sonos._udp.local.' (TXT)
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.6._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.7._sonos._udp.local.' (TXT)
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.7._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.8._sonos._udp.local.' (TXT)
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.8._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.9._sonos._udp.local.' (TXT)
+2026-08-06 00:53:38 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.9._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.0._sonos._udp.local.' (TXT)
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.0._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.1._sonos._udp.local.' (TXT)
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.1._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.2._sonos._udp.local.' (TXT)
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.2._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.3._sonos._udp.local.' (TXT)
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.3._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.4._sonos._udp.local.' (TXT)
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.4._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.5._sonos._udp.local.' (TXT)
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.5._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.6._sonos._udp.local.' (TXT)
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.6._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.7._sonos._udp.local.' (TXT)
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.7._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.8._sonos._udp.local.' (TXT)
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.8._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.9._sonos._udp.local.' (TXT)
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.9._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.0._sonos._udp.local.' (TXT)
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.0._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.1._sonos._udp.local.' (TXT)
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.1._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.2._sonos._udp.local.' (TXT)
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.2._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.3._sonos._udp.local.' (TXT)
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.3._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.4._sonos._udp.local.' (TXT)
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.4._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.5._sonos._udp.local.' (TXT)
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.5._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.6._sonos._udp.local.' (TXT)
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.6._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.7._sonos._udp.local.' (TXT)
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.7._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.8._sonos._udp.local.' (TXT)
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.8._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.9._sonos._udp.local.' (TXT)
+2026-08-06 00:53:39 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.9._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:40 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.0._sonos._udp.local.' (TXT)
+2026-08-06 00:53:40 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.0._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:40 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.1._sonos._udp.local.' (TXT)
+2026-08-06 00:53:40 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.1._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:40 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.2._sonos._udp.local.' (TXT)
+2026-08-06 00:53:40 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.2._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:40 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.3._sonos._udp.local.' (TXT)
+2026-08-06 00:53:40 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.3._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:40 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.4._sonos._udp.local.' (TXT)
+2026-08-06 00:53:40 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.4._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:40 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.5._sonos._udp.local.' (TXT)
+2026-08-06 00:53:40 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.5._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:40 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.6._sonos._udp.local.' (TXT)
+2026-08-06 00:53:40 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.6._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:40 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.7._sonos._udp.local.' (TXT)
+2026-08-06 00:53:40 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.7._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:40 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.8._sonos._udp.local.' (TXT)
+2026-08-06 00:53:40 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.8._sonos._udp.local.' (TXT) / RRs: TXT
+2026-08-06 00:53:40 [DNSHandler:LLMDNSResolver] Request: [127.0.0.1:46006] (udp) / 'g.999.9._sonos._udp.local.' (TXT)
+2026-08-06 00:53:40 [DNSHandler:LLMDNSResolver] Reply: [127.0.0.1:46006] (udp) / 'g.999.9._sonos._udp.local.' (TXT) / RRs: TXT
+
+[RESPONSE] "Hello"
+
+*** SUCCESS *** Full DNS tunneling operational!
+
+stderr:
+INFO:llm_dns_proxy.server:Starting LLM DNS server on 127.0.0.1:5353 (git-32c7db4, model: google/gemma-4-26b-a4b-it:free)
+INFO:llm_dns_proxy.server:Server started successfully (git-32c7db4, model: google/gemma-4-26b-a4b-it:free)
+INFO:llm_dns_proxy.server:Received query: m.999.0.1.3cz4rpppdq5ndxbwlayd0t1yhv1u6d92c0qyu60t04zmybt0vi.b3tzu9fxpz9zoifx9c6hm003fzlgqfe3im41mduu9i38imwm4z.pnej21j5cixa59tvp5zux1m30bo2nx5eiiyviil2y612ovuusd.pc96emr6gj3txoysirvnftb2g6nl5fqvc5n4g1p._sonos._udp.local
+INFO:llm_dns_proxy.server:Complete message received for session 999
+INFO:llm_dns_proxy.server:Decrypted message: Say hello in one word....
+INFO:llm_dns_proxy.server:Client 127.0.0.1 has 0 messages in history
+INFO:llm_dns_proxy.server:Received query: g.999.0._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=0
+INFO:llm_dns_proxy.server:Received query: g.999.1._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=1
+INFO:llm_dns_proxy.server:Received query: g.999.2._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=2
+INFO:llm_dns_proxy.server:Received query: g.999.3._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=3
+INFO:llm_dns_proxy.server:Received query: g.999.4._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=4
+INFO:llm_dns_proxy.server:Received query: g.999.5._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=5
+INFO:llm_dns_proxy.server:Received query: g.999.6._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=6
+INFO:llm_dns_proxy.server:Received query: g.999.7._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=7
+INFO:llm_dns_proxy.server:Received query: g.999.8._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=8
+INFO:llm_dns_proxy.server:Received query: g.999.9._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=9
+INFO:llm_dns_proxy.server:Received query: g.999.0._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=0
+INFO:llm_dns_proxy.server:Received query: g.999.1._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=1
+INFO:llm_dns_proxy.server:Received query: g.999.2._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=2
+INFO:llm_dns_proxy.server:Received query: g.999.3._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=3
+INFO:llm_dns_proxy.server:Received query: g.999.4._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=4
+INFO:llm_dns_proxy.server:Received query: g.999.5._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=5
+INFO:llm_dns_proxy.server:Received query: g.999.6._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=6
+INFO:llm_dns_proxy.server:Received query: g.999.7._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=7
+INFO:llm_dns_proxy.server:Received query: g.999.8._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=8
+INFO:llm_dns_proxy.server:Received query: g.999.9._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=9
+INFO:llm_dns_proxy.server:Received query: g.999.0._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=0
+INFO:llm_dns_proxy.server:Received query: g.999.1._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=1
+INFO:llm_dns_proxy.server:Received query: g.999.2._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=2
+INFO:llm_dns_proxy.server:Received query: g.999.3._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=3
+INFO:llm_dns_proxy.server:Received query: g.999.4._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=4
+INFO:llm_dns_proxy.server:Received query: g.999.5._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=5
+INFO:llm_dns_proxy.server:Received query: g.999.6._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=6
+INFO:llm_dns_proxy.server:Received query: g.999.7._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=7
+INFO:llm_dns_proxy.server:Received query: g.999.8._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=8
+INFO:llm_dns_proxy.server:Received query: g.999.9._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=9
+INFO:llm_dns_proxy.server:Received query: g.999.0._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=0
+INFO:llm_dns_proxy.server:Received query: g.999.1._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=1
+INFO:llm_dns_proxy.server:Received query: g.999.2._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=2
+INFO:llm_dns_proxy.server:Received query: g.999.3._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=3
+INFO:llm_dns_proxy.server:Received query: g.999.4._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=4
+INFO:llm_dns_proxy.server:Received query: g.999.5._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=5
+INFO:llm_dns_proxy.server:Received query: g.999.6._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=6
+INFO:llm_dns_proxy.server:Received query: g.999.7._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=7
+INFO:llm_dns_proxy.server:Received query: g.999.8._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=8
+INFO:llm_dns_proxy.server:Received query: g.999.9._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=9
+INFO:llm_dns_proxy.server:Received query: g.999.0._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=0
+INFO:llm_dns_proxy.server:Received query: g.999.1._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=1
+INFO:llm_dns_proxy.server:Received query: g.999.2._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=2
+INFO:llm_dns_proxy.server:Received query: g.999.3._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=3
+INFO:llm_dns_proxy.server:Received query: g.999.4._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=4
+INFO:llm_dns_proxy.server:Received query: g.999.5._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=5
+INFO:llm_dns_proxy.server:Received query: g.999.6._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=6
+INFO:llm_dns_proxy.server:Received query: g.999.7._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=7
+INFO:llm_dns_proxy.server:Received query: g.999.8._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=8
+INFO:llm_dns_proxy.server:Received query: g.999.9._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=9
+INFO:llm_dns_proxy.server:Received query: g.999.0._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=0
+INFO:llm_dns_proxy.server:Received query: g.999.1._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=1
+INFO:llm_dns_proxy.server:Received query: g.999.2._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=2
+INFO:llm_dns_proxy.server:Received query: g.999.3._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=3
+INFO:llm_dns_proxy.server:Received query: g.999.4._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=4
+INFO:llm_dns_proxy.server:Received query: g.999.5._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=5
+INFO:llm_dns_proxy.server:Received query: g.999.6._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=6
+INFO:llm_dns_proxy.server:Received query: g.999.7._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=7
+INFO:llm_dns_proxy.server:Received query: g.999.8._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=8
+INFO:llm_dns_proxy.server:Received query: g.999.9._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=9
+INFO:llm_dns_proxy.server:Received query: g.999.0._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=0
+INFO:llm_dns_proxy.server:Received query: g.999.1._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=1
+INFO:llm_dns_proxy.server:Received query: g.999.2._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=2
+INFO:llm_dns_proxy.server:Received query: g.999.3._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=3
+INFO:llm_dns_proxy.server:Received query: g.999.4._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=4
+INFO:llm_dns_proxy.server:Received query: g.999.5._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=5
+INFO:llm_dns_proxy.server:Received query: g.999.6._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=6
+INFO:llm_dns_proxy.server:Received query: g.999.7._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=7
+INFO:llm_dns_proxy.server:Received query: g.999.8._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=8
+INFO:llm_dns_proxy.server:Received query: g.999.9._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=9
+INFO:llm_dns_proxy.server:Received query: g.999.0._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=0
+INFO:llm_dns_proxy.server:Received query: g.999.1._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=1
+INFO:llm_dns_proxy.server:Received query: g.999.2._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=2
+INFO:llm_dns_proxy.server:Received query: g.999.3._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=3
+INFO:llm_dns_proxy.server:Received query: g.999.4._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=4
+INFO:llm_dns_proxy.server:Received query: g.999.5._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=5
+INFO:llm_dns_proxy.server:Received query: g.999.6._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=6
+INFO:llm_dns_proxy.server:Received query: g.999.7._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=7
+INFO:llm_dns_proxy.server:Received query: g.999.8._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=8
+INFO:llm_dns_proxy.server:Received query: g.999.9._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=9
+INFO:llm_dns_proxy.server:Received query: g.999.0._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=0
+INFO:llm_dns_proxy.server:Received query: g.999.1._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=1
+INFO:llm_dns_proxy.server:Received query: g.999.2._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=2
+INFO:llm_dns_proxy.server:Received query: g.999.3._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=3
+INFO:llm_dns_proxy.server:Received query: g.999.4._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=4
+INFO:llm_dns_proxy.server:Received query: g.999.5._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=5
+INFO:llm_dns_proxy.server:Received query: g.999.6._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=6
+INFO:llm_dns_proxy.server:Received query: g.999.7._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=7
+INFO:llm_dns_proxy.server:Received query: g.999.8._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=8
+INFO:llm_dns_proxy.server:Received query: g.999.9._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=9
+INFO:llm_dns_proxy.server:Received query: g.999.0._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=0
+INFO:llm_dns_proxy.server:Received query: g.999.1._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=1
+INFO:llm_dns_proxy.server:Received query: g.999.2._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=2
+INFO:llm_dns_proxy.server:Received query: g.999.3._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=3
+INFO:llm_dns_proxy.server:Received query: g.999.4._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=4
+INFO:llm_dns_proxy.server:Received query: g.999.5._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=5
+INFO:llm_dns_proxy.server:Received query: g.999.6._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=6
+INFO:llm_dns_proxy.server:Received query: g.999.7._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=7
+INFO:llm_dns_proxy.server:Received query: g.999.8._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=8
+INFO:llm_dns_proxy.server:Received query: g.999.9._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=9
+INFO:httpx:HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+INFO:llm_dns_proxy.server:Received query: g.999.0._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=0
+INFO:llm_dns_proxy.server:Received query: g.999.1._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=1
+INFO:llm_dns_proxy.server:Received query: g.999.2._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=2
+INFO:llm_dns_proxy.server:Received query: g.999.3._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=3
+INFO:llm_dns_proxy.server:Received query: g.999.4._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=4
+INFO:llm_dns_proxy.server:Received query: g.999.5._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=5
+INFO:llm_dns_proxy.server:Received query: g.999.6._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=6
+INFO:llm_dns_proxy.server:Received query: g.999.7._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=7
+INFO:llm_dns_proxy.server:Received query: g.999.8._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=8
+INFO:llm_dns_proxy.server:Received query: g.999.9._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=9
+INFO:llm_dns_proxy.server:Received query: g.999.0._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=0
+INFO:llm_dns_proxy.server:Received query: g.999.1._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=1
+INFO:llm_dns_proxy.server:Received query: g.999.2._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=2
+INFO:llm_dns_proxy.server:Received query: g.999.3._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=3
+INFO:llm_dns_proxy.server:Received query: g.999.4._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=4
+INFO:llm_dns_proxy.server:Received query: g.999.5._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=5
+INFO:llm_dns_proxy.server:Received query: g.999.6._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=6
+INFO:llm_dns_proxy.server:Received query: g.999.7._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=7
+INFO:llm_dns_proxy.server:Received query: g.999.8._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=8
+INFO:llm_dns_proxy.server:Received query: g.999.9._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=9
+INFO:llm_dns_proxy.server:Received query: g.999.0._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=0
+INFO:llm_dns_proxy.server:Received query: g.999.1._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=1
+INFO:llm_dns_proxy.server:Received query: g.999.2._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=2
+INFO:llm_dns_proxy.server:Received query: g.999.3._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=3
+INFO:llm_dns_proxy.server:Received query: g.999.4._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=4
+INFO:llm_dns_proxy.server:Received query: g.999.5._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=5
+INFO:llm_dns_proxy.server:Received query: g.999.6._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=6
+INFO:llm_dns_proxy.server:Received query: g.999.7._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=7
+INFO:llm_dns_proxy.server:Received query: g.999.8._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=8
+INFO:llm_dns_proxy.server:Received query: g.999.9._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=9
+INFO:llm_dns_proxy.server:Received query: g.999.0._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=0
+INFO:llm_dns_proxy.server:Received query: g.999.1._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=1
+INFO:llm_dns_proxy.server:Received query: g.999.2._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=2
+INFO:llm_dns_proxy.server:Received query: g.999.3._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=3
+INFO:llm_dns_proxy.server:Received query: g.999.4._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=4
+INFO:llm_dns_proxy.server:Received query: g.999.5._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=5
+INFO:llm_dns_proxy.server:Received query: g.999.6._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=6
+INFO:llm_dns_proxy.server:Received query: g.999.7._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=7
+INFO:llm_dns_proxy.server:Received query: g.999.8._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=8
+INFO:llm_dns_proxy.server:Received query: g.999.9._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=9
+INFO:llm_dns_proxy.server:LLM response: Hello
+INFO:llm_dns_proxy.server:Streaming complete. Final response has 1 chunks for session 999
+INFO:llm_dns_proxy.server:Received query: g.999.0._sonos._udp.local
+INFO:llm_dns_proxy.server:Served chunk 0 for session 999
+INFO:llm_dns_proxy.server:Received query: g.999.1._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=1
+INFO:llm_dns_proxy.server:Received query: g.999.2._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=2
+INFO:llm_dns_proxy.server:Received query: g.999.3._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=3
+INFO:llm_dns_proxy.server:Received query: g.999.4._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=4
+INFO:llm_dns_proxy.server:Received query: g.999.5._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=5
+INFO:llm_dns_proxy.server:Received query: g.999.6._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=6
+INFO:llm_dns_proxy.server:Received query: g.999.7._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=7
+INFO:llm_dns_proxy.server:Received query: g.999.8._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=8
+INFO:llm_dns_proxy.server:Received query: g.999.9._sonos._udp.local
+WARNING:llm_dns_proxy.server:Chunk not found: session=999, chunk=9
+INFO:llm_dns_proxy.server:Server stopped
