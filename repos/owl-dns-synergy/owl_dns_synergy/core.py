@@ -163,16 +163,20 @@ class HTTPCache:
 
     async def get(self, method, url, params=None, protocol="http/1.1") -> Optional[CachedResponse]:
         key = self._key(method, url, params, protocol)
-        if key in self._memory and self._memory[key].is_fresh():
-            return self._memory[key]
+        async with self._lock:
+            if key in self._memory and self._memory[key].is_fresh():
+                return self._memory[key]
         path = CACHE_DIR / f"{key}.json"
         if path.exists():
             try:
                 async with aiofiles.open(path, 'r') as f:
                     data = json.loads(await f.read())
+                # Decode base64 content (Audit Fix: was decode utf-8 with replace, corrupting binary)
+                import base64 as _b64
+                content_bytes = _b64.b64decode(data["content_b64"])
                 cached = CachedResponse(
                     status=data["status"],
-                    content=data["content"].encode('utf-8', errors='replace'),
+                    content=content_bytes,
                     headers=data["headers"],
                     timestamp=data["timestamp"],
                     ttl=data["ttl"],
@@ -192,17 +196,23 @@ class HTTPCache:
         key = self._key(method, url, params, response.protocol)
         async with self._lock:
             self._memory[key] = response
+        # Atomic disk write (Audit Fix: was non-atomic, crash could corrupt)
+        import base64 as _b64
         path = CACHE_DIR / f"{key}.json"
+        tmp_path = CACHE_DIR / f"{key}.json.tmp"
         data = {
             "status": response.status,
-            "content": response.content.decode('utf-8', errors='replace'),
+            "content_b64": _b64.b64encode(response.content).decode('ascii'),  # base64 for binary safety
             "headers": response.headers,
             "timestamp": response.timestamp,
             "ttl": response.ttl,
             "protocol": response.protocol,
         }
-        async with aiofiles.open(path, 'w') as f:
+        async with aiofiles.open(tmp_path, 'w') as f:
             await f.write(json.dumps(data))
+        # Atomic rename (os.replace is atomic on POSIX)
+        import os as _os
+        _os.replace(str(tmp_path), str(path))
 
 
 class RequestDeduplicator:

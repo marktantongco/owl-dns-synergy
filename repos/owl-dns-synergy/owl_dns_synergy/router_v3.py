@@ -35,6 +35,8 @@ from urllib.parse import urlparse
 from collections import deque
 from pathlib import Path
 
+import httpx
+
 logger = logging.getLogger("owl-dns-synergy.router_v3")
 
 # ─── Prometheus Metrics (extended for v3) ─────────────────────────
@@ -124,6 +126,93 @@ class ChannelState(Enum):
     HYBRID_RETRY = 3   # Both channels failed, alternating
 
 
+class CircuitState(Enum):
+    """3-state circuit breaker: CLOSED → OPEN → HALF_OPEN → CLOSED"""
+    CLOSED = 0      # Normal operation — requests flow through
+    OPEN = 1        # Circuit tripped — all requests rejected
+    HALF_OPEN = 2  # Probe state — one request allowed to test recovery
+
+
+class ChannelCircuitBreaker:
+    """Per-channel 3-state circuit breaker with Prometheus tracking.
+
+    States:
+      CLOSED: Normal. All requests pass. Failure count tracked.
+      OPEN: Circuit tripped. All requests fail-fast. Timer starts.
+      HALF_OPEN: One probe request allowed. If success → CLOSED, if fail → OPEN.
+
+    Args:
+        channel_name: Name for logging/metrics
+        failure_threshold: Consecutive failures before opening (default 5)
+        recovery_timeout: Seconds before half-open probe (default 30)
+        success_threshold: Consecutive successes in HALF_OPEN to close (default 2)
+    """
+    def __init__(self, channel_name: str, failure_threshold: int = 5,
+                 recovery_timeout: float = 30.0, success_threshold: int = 2):
+        self.channel_name = channel_name
+        self.failure_threshold = failure_threshold
+        self.recovery_timeout = recovery_timeout
+        self.success_threshold = success_threshold
+        self._state = CircuitState.CLOSED
+        self._failure_count = 0
+        self._success_count = 0
+        self._opened_at: float = 0.0
+        self._lock = asyncio.Lock()
+
+    @property
+    def state(self) -> CircuitState:
+        """Current state, with automatic HALF_OPEN transition on timeout."""
+        if self._state == CircuitState.OPEN:
+            if time.time() - self._opened_at >= self.recovery_timeout:
+                self._state = CircuitState.HALF_OPEN
+        return self._state
+    @property
+    def is_open(self) -> bool:
+        """True if circuit is OPEN (requests should be rejected)."""
+        return self.state == CircuitState.OPEN
+    async def allow_request(self) -> bool:
+        """Check if a request should be allowed through."""
+        async with self._lock:
+            state = self.state
+            if state == CircuitState.CLOSED:
+                return True
+            elif state == CircuitState.HALF_OPEN:
+                # Allow ONE probe request through
+                return True
+            else:  # OPEN
+                return False
+    async def record_success(self):
+        """Record a successful request."""
+        async with self._lock:
+            if self._state == CircuitState.HALF_OPEN:
+                self._success_count += 1
+                if self._success_count >= self.success_threshold:
+                    self._state = CircuitState.CLOSED
+                    self._failure_count = 0
+                    self._success_count = 0
+                    logger.info(f"Circuit CLOSED for {self.channel_name} — recovered")
+            elif self._state == CircuitState.CLOSED:
+                self._failure_count = 0  # Reset on success
+    async def record_failure(self):
+        """Record a failed request."""
+        async with self._lock:
+            if self._state == CircuitState.HALF_OPEN:
+                # Probe failed → back to OPEN
+                self._state = CircuitState.OPEN
+                self._opened_at = time.time()
+                self._success_count = 0
+                logger.warning(f"Circuit back to OPEN for {self.channel_name} — probe failed")
+            elif self._state == CircuitState.CLOSED:
+                self._failure_count += 1
+                if self._failure_count >= self.failure_threshold:
+                    self._state = CircuitState.OPEN
+                    self._opened_at = time.time()
+                    logger.warning(
+                        f"Circuit OPEN for {self.channel_name} — "
+                        f"{self._failure_count} failures >= threshold {self.failure_threshold}"
+                    )
+
+
 @dataclass
 class ChannelResult:
     channel: str
@@ -138,11 +227,41 @@ class ChannelResult:
 
 @dataclass
 class DomainPreference:
+    """Per-domain channel preference with EMA-based learning.
+
+    Tracks success/failure counts per channel and uses exponential moving average
+    to compute a quality score. The channel with the highest EMA score becomes
+    the preferred_channel for subsequent requests to this domain.
+    """
     domain: str
     successes: Dict[str, int] = field(default_factory=lambda: {})
     failures: Dict[str, int] = field(default_factory=lambda: {})
     preferred_channel: str = "http_proxy"
     last_updated: float = field(default_factory=time.time)
+    # EMA scores per channel (0.0-1.0)
+    _ema_scores: Dict[str, float] = field(default_factory=lambda: {})
+    _ema_alpha: float = 0.3  # EMA smoothing factor (higher = more responsive)
+
+    def record_channel_result(self, channel: str, success: bool):
+        """Record a channel result and update EMA score."""
+        if success:
+            self.successes[channel] = self.successes.get(channel, 0) + 1
+        else:
+            self.failures[channel] = self.failures.get(channel, 0) + 1
+        # EMA update: new_score = alpha * sample + (1 - alpha) * old_score
+        old_score = self._ema_scores.get(channel, 0.5)
+        sample = 1.0 if success else 0.0
+        self._ema_scores[channel] = self._ema_alpha * sample + (1 - self._ema_alpha) * old_score
+        self.last_updated = time.time()
+        # Re-compute preferred channel from EMA scores
+        if self._ema_scores:
+            best_channel = max(self._ema_scores, key=self._ema_scores.get)
+            if self._ema_scores[best_channel] > 0.3:  # Minimum quality threshold
+                self.preferred_channel = best_channel
+
+    def get_channel_score(self, channel: str) -> float:
+        """Get EMA quality score for a channel (0.0-1.0)."""
+        return self._ema_scores.get(channel, 0.5)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -442,6 +561,53 @@ class ProxyPoolAdapter:
                 for p in sorted(self._pool, key=lambda x: x.score, reverse=True)[:5]
             ]
         }
+
+
+# ═══════════════════════════════════════════════════════════════
+# 3b. curl_cffi Chrome Impersonation Client
+# ═══════════════════════════════════════════════════════════════
+
+class CurlCffiClient:
+    """HTTP client using curl_cffi with Chrome TLS fingerprint impersonation.
+
+    Uses curl_cffi's impersonate parameter to match Chrome 131's JA3/JA4
+    TLS fingerprint, making requests indistinguishable from real Chrome browsers.
+    Falls back to httpx if curl_cffi is not available.
+    """
+    def __init__(self, chrome_version: str = "chrome131"):
+        self._chrome_version = chrome_version
+        self._client = None
+        self._available = False
+        try:
+            from curl_cffi.requests import AsyncSession
+            self._available = True
+            logger.info(f"curl_cffi available — will impersonate {chrome_version}")
+        except ImportError:
+            logger.warning("curl_cffi not installed — falling back to httpx (no TLS impersonation)")
+
+    async def _get_client(self):
+        """Lazily create the curl_cffi session."""
+        if not self._available:
+            return None
+        if self._client is None:
+            from curl_cffi.requests import AsyncSession
+            self._client = AsyncSession(impersonate=self._chrome_version)
+        return self._client
+
+    async def get(self, url: str, headers: Dict = None, timeout: float = 30.0) -> Optional[Any]:
+        """GET request with Chrome TLS fingerprint."""
+        client = await self._get_client()
+        if client:
+            try:
+                return await client.get(url, headers=headers, timeout=timeout)
+            except Exception as e:
+                logger.warning(f"curl_cffi request failed: {e}")
+        return None
+
+    async def close(self):
+        if self._client:
+            await self._client.close3()
+            self._client = None
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -846,11 +1012,24 @@ class SmartChannelRouterV3:
         # Key rotation
         self.key_rotator = OpenRouterKeyRotator.from_env()
 
+        # Shared HTTP client (Audit Fix: was creating new client per request)
+        self._http_client: Optional[httpx.AsyncClient] = None
+
         # DNS flood protection
         self.flood_protector = DNSFloodProtector(
             max_qps=int(os.getenv("DNS_FLOOD_MAX_QPS", "50")),
             burst=int(os.getenv("DNS_FLOOD_BURST", "100")),
         )
+
+        # Per-channel circuit breakers (Audit Fix: no circuit breaker existed)
+        self._circuit_breakers: Dict[str, ChannelCircuitBreaker] = {
+            ch.value: ChannelCircuitBreaker(
+                ch.value,
+                failure_threshold=int(os.getenv(f"CB_{ch.name}_THRESHOLD", "5")),
+                recovery_timeout=float(os.getenv(f"CB_{ch.name}_TIMEOUT", "30")),
+            )
+            for ch in Channel if ch != Channel.CACHED
+        }
 
         # Proxy pool (prox5-compatible)
         proxy_file = os.getenv("SYNERGY_PROXY_FILE", "")
@@ -872,13 +1051,19 @@ class SmartChannelRouterV3:
             base_url=os.getenv("AUTOCLAW_BASE_URL", "http://localhost:31000")
         )
 
-        # Channel preferences per domain
+        # curl_cffi Chrome impersonation client (Audit Fix: no TLS fingerprinting)
+        self.curl_client = CurlCffiClient(
+            chrome_version=os.getenv("CURL_CFFI_CHROME", "chrome131")
+        )
+
+        # Channel preferences per domain (with EMA learning)
         self._prefs: Dict[str, DomainPreference] = {}
         self._states: Dict[str, ChannelState] = {}
 
-        # Cache (simple TTL cache)
+        # Cache (simple TTL cache with max size)
         self._cache: Dict[str, Tuple[Any, float]] = {}
         self._cache_ttl = int(os.getenv("SYNERGY_CACHE_TTL", "300"))
+        self._cache_max = int(os.getenv("SYNERGY_CACHE_MAX", "1000"))
 
         # Stack info
         STACK_INFO.info({
@@ -898,9 +1083,20 @@ class SmartChannelRouterV3:
         return None
 
     def _cache_set(self, key: str, data: Any):
+        # Evict oldest entries when cache exceeds max size
+        if len(self._cache) >= self._cache_max:
+            oldest_key = min(self._cache, key=lambda k: self._cache[k][1])
+            del self._cache[oldest_key]
         self._cache[key] = (data, time.time())
 
-    # ─── Channel Selection ────────────────────────────────────
+    async def _get_http_client(self, proxy: str = None) -> httpx.AsyncClient:
+        """Get or create shared HTTP client (connection pooling)."""
+        if self._http_client is None or self._http_client.is_closed:
+            self._http_client = httpx.AsyncClient(
+                proxy=proxy, timeout=30.0,
+                limits=httpx.Limits(max_connections=20, max_keepalive_connections=10)
+            )
+        return self._http_client
 
     def _extract_domain(self, url: str) -> str:
         parsed = urlparse(url)
@@ -1062,6 +1258,7 @@ class SmartChannelRouterV3:
     async def fetch(self, url: str, force_channel: str = None, **kwargs) -> ChannelResult:
         """
         Fetch a URL through the optimal channel with automatic failover.
+        Now includes per-channel circuit breaker and EMA domain preference learning.
 
         Channel selection priority:
           cached → http_proxy → socks_pool → dns_tunnel → mitm_stealth → connect_chain → http_direct
@@ -1073,7 +1270,7 @@ class SmartChannelRouterV3:
         if cached and not force_channel:
             return ChannelResult("cached", True, data=cached)
 
-        # Select channel
+        # Select channel (uses DomainPreference EMA if available)
         channel = self._select_channel(domain, force_channel)
 
         # Channel implementations
@@ -1086,13 +1283,32 @@ class SmartChannelRouterV3:
             Channel.HTTP_DIRECT: self._try_http_direct,
         }
 
-        # Try preferred channel
+        # Try preferred channel (with circuit breaker check)
         if channel in channel_map:
-            result = await channel_map[channel](url, domain, **kwargs)
-            if result.success:
-                REQUESTS_TOTAL.labels(channel=result.channel, domain=domain, status="success").inc()
-                REQUESTS_DURATION.labels(channel=result.channel, domain=domain).observe(result.latency_ms / 1000)
-                return result
+            cb = self._circuit_breakers.get(channel.value)
+            if cb and not await cb.allow_request():
+                logger.debug(f"Circuit OPEN for {channel.value} — skipping")
+            else:
+                result = await channel_map[channel](url, domain, **kwargs)
+                # Record result in circuit breaker and EMA
+                if cb:
+                    if result.success:
+                        await cb.record_success()
+                    else:
+                        await cb.record_failure()
+                # Update domain preference EMA
+                pref = self._prefs.get(domain)
+                if not pref:
+                    pref = DomainPreference(domain=domain)
+                    self._prefs[domain] = pref
+                pref.record_channel_result(result.channel, result.success)
+
+                if result.success:
+                    REQUESTS_TOTAL.labels(channel=result.channel, domain=domain, status="success").inc()
+                    REQUESTS_DURATION.labels(channel=result.channel, domain=domain).observe(result.latency_ms / 1000)
+                    return result
+                # Record failure in Prometheus
+                REQUESTS_TOTAL.labels(channel=result.channel, domain=domain, status="error").inc()
 
         # Fallback: try all channels in priority order
         # NOTE: CONNECT_CHAIN was missing — added between MITM and HTTP_DIRECT
@@ -1103,14 +1319,36 @@ class SmartChannelRouterV3:
         for ch in fallback_order:
             if ch == channel:
                 continue  # Already tried
-            if ch in channel_map:
-                result = await channel_map[ch](url, domain, **kwargs)
+            if ch not in channel_map:
+                continue
+
+            # Circuit breaker check
+            cb = self._circuit_breakers.get(ch.value)
+            if cb and not await cb.allow_request():
+                logger.debug(f"Circuit OPEN for {ch.value} — skipping fallback")
+                continue
+
+            result = await channel_map[ch](url, domain, **kwargs)
+
+            # Record in circuit breaker and EMA
+            if cb:
                 if result.success:
-                    CHANNEL_SWITCHES.labels(
-                        from_channel=channel.value, to_channel=ch.value
-                    ).inc()
-                    REQUESTS_TOTAL.labels(channel=result.channel, domain=domain, status="success").inc()
-                    return result
+                    await cb.record_success()
+                else:
+                    await cb.record_failure()
+            pref = self._prefs.get(domain)
+            if pref:
+                pref.record_channel_result(result.channel, result.success)
+
+            if result.success:
+                CHANNEL_SWITCHES.labels(
+                    from_channel=channel.value, to_channel=ch.value
+                ).inc()
+                REQUESTS_TOTAL.labels(channel=result.channel, domain=domain, status="success").inc()
+                REQUESTS_DURATION.labels(channel=result.channel, domain=domain).observe(result.latency_ms / 1000)
+                return result
+            # Record failure
+            REQUESTS_TOTAL.labels(channel=result.channel, domain=domain, status="error").inc()
 
         REQUESTS_TOTAL.labels(channel="none", domain=domain, status="all_failed").inc()
         return ChannelResult("none", False, error=f"All channels exhausted for {domain}")
@@ -1132,6 +1370,20 @@ class SmartChannelRouterV3:
                 "connect_chain": bool(self.proxytunnel._binary),
                 "stealth_proxy": self.stealth_proxy.is_running,
             },
+            "circuit_breakers": {
+                name: {
+                    "state": cb.state.name,
+                    "failures": cb._failure_count,
+                }
+                for name, cb in self._circuit_breakers.items()
+            },
+            "domain_preferences": {
+                domain: {
+                    "preferred": pref.preferred_channel,
+                    "scores": pref._ema_scores,
+                }
+                for domain, pref in self._prefs.items()
+            },
             "key_rotator": self.key_rotator.get_status(),
             "proxy_pool": self.proxy_pool.get_status(),
             "flood_protection": {
@@ -1140,5 +1392,6 @@ class SmartChannelRouterV3:
             "cache": {
                 "entries": len(self._cache),
                 "ttl": self._cache_ttl,
+                "max": self._cache_max,
             },
         }

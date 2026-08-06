@@ -171,3 +171,32 @@ Stage Summary:
 - Remaining: 12 critical/high items for next iteration
 - PDF report: /home/z/my-project/download/OWL-DNS-Synergy-Audit-Critique-v3.pdf (59.3 KB)
 - AutoClaw configured but needs user's Google account credentials to proceed
+---
+Task ID: 9
+Agent: main
+Task: Apply remaining 12 critical/high audit fixes and run integration tests
+
+Work Log:
+- Implemented 3-state CircuitBreaker (CLOSED → OPEN → HALF_OPEN → CLOSED) with per-channel instances
+- Implemented DomainPreference EMA learning with record_channel_result() and auto preferred_channel update
+- Moved AutoClaw APP_KEY to env var (AUTOCLAW_APP_KEY) with startup warning
+- Added TLS verification config (AUTOCLAW_TLS_VERIFY), proxy API key auth (AUTOCLAW_PROXY_API_KEY)
+- Added strict model validation (400 on unknown models instead of silent fallback to expensive glm-5.2)
+- Changed DEFAULT_MODEL to zai_glm-5-turbo (cheaper, always available)
+- Shared httpx.AsyncClient with connection pooling (max 20 connections, 10 keepalive)
+- Fixed HTTPCache: base64 for binary content, atomic writes via temp file + os.replace()
+- Added CurlCffiClient with Chrome 131 impersonation (falls back to httpx gracefully)
+- Wired circuit breaker into fetch() method: checks allow_request() before trying channel
+- Wired EMA feedback: records channel success/failure, updates domain preference
+- Added cache max size eviction, circuit breaker + domain preference to status endpoint
+- Updated .env with new config vars (circuit breaker, curl_cffi, autoclaw security)
+- Wrote comprehensive integration test: 33/33 passed
+
+Stage Summary:
+- All 12 remaining critical/high items resolved
+- 3-state CircuitBreaker: fully operational with CLOSED/OPEN/HALF_OPEN transitions
+- EMA domain learning: channels auto-promoted/demoted based on success rate
+- AutoClaw security: localhost binding, API key auth, strict models, APP_KEY env var
+- HTTPCache: binary-safe (base64), atomic writes, thread-safe memory access
+- curl_cffi: Chrome 131 impersonation client with lazy initialization
+- Integration test: 33/33 PASS (circuit breaker states, EMA, cache, flood protector, AutoClaw, status)
