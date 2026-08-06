@@ -123,3 +123,24 @@ Stage Summary:
 - Merged stack installer v3.0.0: /home/z/my-project/scripts/owl-dns-synergy-install-v3.sh
 - All 7 repos cloned: /home/z/my-project/repos/{owl-agent,llm-dns-proxy,secret-agent,proxytunnel,autoclaw-autologin,https_proxy,prox5}
 - Runtime directory: /home/z/.owl-dns-synergy/ with .env, config, systemd templates
+---
+Task ID: 6
+Agent: main
+Task: Set up and integrate AutoClaw autologin into OWL-DNS-Synergy stack
+
+Work Log:
+- Analyzed full autoclaw-autologin codebase: config.py, auth.py, proxy.py, login.py, autoclaw_autologin.py
+- Installed dependencies: flask, aiohttp, cloakbrowser (stealth Chromium with 58 C++ patches)
+- Set up autoclaw working directory at ~/.owl-dns-synergy/autoclaw/ with all Python files
+- Started AutoClaw proxy server — verified all endpoints: /health, /v1/models, /accounts
+- Tested 6 model aliases: glm-5.2, glm-5.2-true, glm-5-turbo, cheap, auto, deepseek
+- Integrated AutoClawAdapter into SmartChannelRouter v3
+- Created .env with AUTOCLAW_BASE_URL=http://localhost:31000
+- Verified OpenAI SDK compatibility (models.list() works)
+- Chat completions pending Google account login
+
+Stage Summary:
+- AutoClaw proxy server operational on port 31000
+- 6 free models available via Google SSO: GLM-5.2, GLM-5 Turbo, DeepSeek
+- SmartChannelRouter v3 AutoClawAdapter wired in
+- Next: Add Google accounts via login.py or autoclaw_autologin.py --batch
