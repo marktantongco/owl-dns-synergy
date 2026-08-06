@@ -200,3 +200,28 @@ Stage Summary:
 - HTTPCache: binary-safe (base64), atomic writes, thread-safe memory access
 - curl_cffi: Chrome 131 impersonation client with lazy initialization
 - Integration test: 33/33 PASS (circuit breaker states, EMA, cache, flood protector, AutoClaw, status)
+---
+Task ID: 6
+Agent: main
+Task: Memory consumption deep analysis per layer + apply CRITICAL fixes
+
+Work Log:
+- Read and analyzed all 5 core source files (chunking.py, crypto.py, core.py, router_v3.py, proxy.py)
+- Identified 47 functions across 5 layers with 23 memory hotspots (12 CRITICAL, 8 HIGH, 3 LOW)
+- Generated 20-page PDF report: OWL-DNS-Synergy-Memory-Analysis-Deep-Dive.pdf
+- Applied 7 CRITICAL memory fixes across 3 files:
+  - M-D1: DNSChunker TTL-based session eviction (_evict_stale_sessions + _session_time)
+  - M-D3: DNSChunker max_pending_sessions cap (default 10000)
+  - M-D4: String concatenation → list+join in all reassembly functions
+  - M-O1: HTTPCache OrderedDict LRU eviction on set() instead of cleanup-only
+  - M-O5: HTTPCache max_entry_bytes (50KB) to reject oversized entries
+  - M-R1: SmartChannelRouter _evict_stale_preferences with TTL (1h) + hard cap (10000)
+  - M-R2: DNSFloodProtector client IP TTL eviction (5min) + max_clients cap (50000)
+  - M-R3: Shared httpx.AsyncClient in _try_http_proxy and _try_socks_pool
+- Applied fixes to both chunking.py (standalone) and core.py (merged copy)
+- Verified all modified files pass Python syntax check
+
+Stage Summary:
+- PDF report: /home/z/my-project/download/OWL-DNS-Synergy-Memory-Analysis-Deep-Dive.pdf (20 pages)
+- 7 CRITICAL fixes applied, 8 files modified
+- Remaining: 8 HIGH items (AutoClaw JSON reload, Flask→gunicorn, tokens encryption, etc.)

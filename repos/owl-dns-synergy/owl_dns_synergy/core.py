@@ -132,10 +132,14 @@ class ProxyEntry:
 class HTTPCache:
     """LRU + disk cache with periodic cleanup."""
 
-    def __init__(self, ttl: int = DEFAULT_TTL, max_size: int = MAX_CACHED_RESPONSES):
+    def __init__(self, ttl: int = DEFAULT_TTL, max_size: int = MAX_CACHED_RESPONSES,
+                 max_entry_bytes: int = 50 * 1024):
         self.ttl = ttl
         self._max_size = max_size
-        self._memory: Dict[str, CachedResponse] = {}
+        # Memory Fix M-O1: Use OrderedDict for O(1) LRU eviction
+        self._memory: OrderedDict[str, CachedResponse] = OrderedDict()
+        # Memory Fix M-O5: Reject entries larger than max_entry_bytes
+        self._max_entry_bytes = max_entry_bytes
         self._lock = asyncio.Lock()
         self._cleanup_task: Optional[asyncio.Task] = None
 
@@ -194,7 +198,16 @@ class HTTPCache:
 
     async def set(self, method, url, response: CachedResponse, params=None):
         key = self._key(method, url, params, response.protocol)
+        # Memory Fix M-O5: Reject oversized entries to prevent memory bloat
+        if len(response.content) > self._max_entry_bytes:
+            logger.debug(f"Cache skip: {len(response.content)}B > {self._max_entry_bytes}B limit")
+            return
         async with self._lock:
+            # Memory Fix M-O1: LRU eviction on set() — evict oldest when at capacity
+            if key in self._memory:
+                self._memory.move_to_end(key)  # Promote to most-recent
+            elif len(self._memory) >= self._max_size:
+                self._memory.popitem(last=False)  # Evict oldest (LRU)
             self._memory[key] = response
         # Atomic disk write (Audit Fix: was non-atomic, crash could corrupt)
         import base64 as _b64
@@ -440,10 +453,15 @@ class DNSChunker:
     MAX_DNS_QNAME_LENGTH = 253
     MAX_DATA_LABEL_LENGTH = 50
 
-    def __init__(self, config: SynergyConfig = None):
+    def __init__(self, config: SynergyConfig = None,
+                 max_pending_sessions: int = 10000, session_ttl: float = 60.0):
         self.config = config or SynergyConfig()
         self.pending_messages: Dict[str, Dict[int, str]] = {}
         self.total_chunks: Dict[str, int] = {}
+        # Memory Fix M-D1/M-D3: TTL-based session eviction + max session cap
+        self._session_time: Dict[str, float] = {}
+        self._max_pending_sessions = max_pending_sessions
+        self._session_ttl = session_ttl
 
     def _split_data_into_labels(self, data: str, max_per_label: int) -> List[str]:
         labels = []
@@ -484,6 +502,16 @@ class DNSChunker:
             chunks.append(query)
         return chunks
 
+    def _evict_stale_sessions(self) -> None:
+        """Memory Fix M-D1: Evict sessions older than session_ttl to prevent unbounded growth."""
+        now = time.time()
+        stale = [sid for sid, t in self._session_time.items()
+                 if now - t > self._session_ttl]
+        for sid in stale:
+            self.pending_messages.pop(sid, None)
+            self.total_chunks.pop(sid, None)
+            self._session_time.pop(sid, None)
+
     def process_chunk_query(self, query: str) -> Tuple[Optional[str], Optional[bytes]]:
         parts = query.split('.')
         if len(parts) < 6 or parts[0] != 'm' or not self.config.validate_dns_suffix_in_query(parts):
@@ -492,25 +520,36 @@ class DNSChunker:
             session_id = parts[1]
             chunk_index = int(parts[2])
             total_chunks = int(parts[3])
+
+            # Memory Fix M-D1: Evict stale sessions on each query
+            self._evict_stale_sessions()
+
             suffix_parts = self.config.get_dns_suffix_parts()
             data_labels = parts[4:-len(suffix_parts)]
             chunk_data = ''.join(data_labels)
 
             if session_id not in self.pending_messages:
+                # Memory Fix M-D3: Reject new sessions when at capacity
+                if len(self.pending_messages) >= self._max_pending_sessions:
+                    return None, None  # Too many pending sessions — reject
                 self.pending_messages[session_id] = {}
                 self.total_chunks[session_id] = total_chunks
+                self._session_time[session_id] = time.time()
             elif self.total_chunks[session_id] != total_chunks:
                 return None, None  # total_chunks mismatch — reject
 
             self.pending_messages[session_id][chunk_index] = chunk_data
+            self._session_time[session_id] = time.time()  # Refresh TTL
 
             # Verify ALL expected indices present (not just count)
             if set(self.pending_messages[session_id].keys()) == set(range(self.total_chunks[session_id])):
-                complete_data = ''
-                for i in range(self.total_chunks[session_id]):
-                    complete_data += self.pending_messages[session_id][i]
+                # Memory Fix M-D4: Use list+join instead of string concat
+                parts_list = [self.pending_messages[session_id][i]
+                              for i in range(self.total_chunks[session_id])]
+                complete_data = ''.join(parts_list)
                 del self.pending_messages[session_id]
                 del self.total_chunks[session_id]
+                self._session_time.pop(session_id, None)
                 return session_id, base36_to_bytes(complete_data)
 
             return session_id, None
@@ -556,9 +595,10 @@ class DNSChunker:
         if expected != available:
             return b''
         sorted_chunks = sorted(chunks.items())
-        complete_data = ''
+        # Memory Fix M-D4: Use list+join instead of string concat
+        parts_list = []
         for _, chunk in sorted_chunks:
             parts = chunk.split(':', 2)
             if len(parts) == 3:
-                complete_data += parts[2]
-        return complete_data.encode('ascii')
+                parts_list.append(parts[2])
+        return ''.join(parts_list).encode('ascii')

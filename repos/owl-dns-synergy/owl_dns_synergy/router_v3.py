@@ -367,7 +367,8 @@ class OpenRouterKeyRotator:
 class DNSFloodProtector:
     """Token-bucket + per-client rate limiting for DNS queries."""
 
-    def __init__(self, max_qps: int = 50, burst: int = 100):
+    def __init__(self, max_qps: int = 50, burst: int = 100,
+                 max_clients: int = 50000, client_ttl: float = 300.0):
         self.max_qps = max_qps
         self.burst = burst
         self._tokens: float = float(burst)
@@ -375,14 +376,36 @@ class DNSFloodProtector:
         self._lock = asyncio.Lock()
         self._blocked_count = 0
         self._client_queries: Dict[str, deque] = {}
+        # Memory Fix M-R2: Client IP eviction + max client cap
+        self._client_last_seen: Dict[str, float] = {}
+        self._max_clients = max_clients
+        self._client_ttl = client_ttl
+
+    def _evict_stale_clients(self) -> None:
+        """Memory Fix M-R2: Evict client IPs idle > client_ttl to prevent unbounded growth."""
+        now = time.time()
+        stale = [ip for ip, t in self._client_last_seen.items()
+                 if now - t > self._client_ttl]
+        for ip in stale:
+            self._client_queries.pop(ip, None)
+            self._client_last_seen.pop(ip, None)
 
     async def allow(self, client_ip: str = "default") -> bool:
         async with self._lock:
             now = time.time()
+            # Memory Fix M-R2: Evict idle clients periodically
+            self._evict_stale_clients()
             # Per-client rate check FIRST (before consuming global token)
             if client_ip not in self._client_queries:
+                # Memory Fix M-R2: Cap total tracked clients
+                if len(self._client_queries) >= self._max_clients:
+                    # Evict oldest client to make room
+                    oldest_ip = min(self._client_last_seen, key=self._client_last_seen.get)
+                    self._client_queries.pop(oldest_ip, None)
+                    self._client_last_seen.pop(oldest_ip, None)
                 self._client_queries[client_ip] = deque(maxlen=100)
             self._client_queries[client_ip].append(now)
+            self._client_last_seen[client_ip] = now  # Track last activity
             recent = sum(1 for t in self._client_queries[client_ip] if now - t < 1.0)
             if recent > 10:
                 self._blocked_count += 1
@@ -1059,6 +1082,9 @@ class SmartChannelRouterV3:
         # Channel preferences per domain (with EMA learning)
         self._prefs: Dict[str, DomainPreference] = {}
         self._states: Dict[str, ChannelState] = {}
+        # Memory Fix M-R1: DomainPreference TTL eviction + max domain cap
+        self._max_prefs = int(os.getenv("SYNERGY_MAX_DOMAINS", "10000"))
+        self._pref_ttl = float(os.getenv("SYNERGY_DOMAIN_TTL", "3600"))
 
         # Cache (simple TTL cache with max size)
         self._cache: Dict[str, Tuple[Any, float]] = {}
@@ -1073,6 +1099,19 @@ class SmartChannelRouterV3:
         })
 
     # ─── Cache ────────────────────────────────────────────────
+
+    def _evict_stale_preferences(self) -> None:
+        """Memory Fix M-R1: Evict DomainPreference entries idle > pref_ttl; hard cap at max_prefs."""
+        now = time.time()
+        stale = [d for d, p in self._prefs.items()
+                 if now - p.last_updated > self._pref_ttl]
+        for d in stale:
+            del self._prefs[d]
+        # Hard cap: evict oldest if still over limit
+        if len(self._prefs) > self._max_prefs:
+            sorted_d = sorted(self._prefs.items(), key=lambda x: x[1].last_updated)
+            for d, _ in sorted_d[:len(self._prefs) - self._max_prefs]:
+                del self._prefs[d]
 
     def _cache_get(self, key: str) -> Optional[Any]:
         if key in self._cache:
@@ -1126,7 +1165,6 @@ class SmartChannelRouterV3:
 
     async def _try_http_proxy(self, url: str, domain: str, **kwargs) -> ChannelResult:
         """Route through proxy pool (prox5/https_proxy)."""
-        import httpx
         start = time.time()
         proxy = self.proxy_pool.get_next()
 
@@ -1139,30 +1177,29 @@ class SmartChannelRouterV3:
             if api_key:
                 headers["Authorization"] = f"Bearer {api_key}"
 
-            async with httpx.AsyncClient(
-                proxy=proxy.url, timeout=30.0
-            ) as client:
-                resp = await client.get(url, headers=headers)
-                latency = (time.time() - start) * 1000
+            # Memory Fix M-R3: Use shared httpx client instead of per-request creation
+            client = await self._get_http_client(proxy=proxy.url)
+            resp = await client.get(url, headers=headers)
+            latency = (time.time() - start) * 1000
 
-                if resp.status_code in (401, 403, 429):
-                    self.key_rotator.report_error(
-                        resp.status_code,
-                        "rate_limit" if resp.status_code == 429 else "auth_error"
-                    )
-
-                self.proxy_pool.report_success(proxy.endpoint, latency)
-
-                # Only treat 2xx as success — non-2xx should trigger failover
-                is_success = 200 <= resp.status_code < 300
-                if is_success:
-                    self._cache_set(url, resp.content)
-
-                return ChannelResult(
-                    "http_proxy", is_success,
-                    data=resp.content, latency_ms=latency,
-                    status_code=resp.status_code, proxy_used=proxy.endpoint
+            if resp.status_code in (401, 403, 429):
+                self.key_rotator.report_error(
+                    resp.status_code,
+                    "rate_limit" if resp.status_code == 429 else "auth_error"
                 )
+
+            self.proxy_pool.report_success(proxy.endpoint, latency)
+
+            # Only treat 2xx as success — non-2xx should trigger failover
+            is_success = 200 <= resp.status_code < 300
+            if is_success:
+                self._cache_set(url, resp.content)
+
+            return ChannelResult(
+                "http_proxy", is_success,
+                data=resp.content, latency_ms=latency,
+                status_code=resp.status_code, proxy_used=proxy.endpoint
+            )
         except Exception as e:
             latency = (time.time() - start) * 1000
             self.proxy_pool.report_failure(proxy.endpoint)
@@ -1170,7 +1207,6 @@ class SmartChannelRouterV3:
 
     async def _try_socks_pool(self, url: str, domain: str, **kwargs) -> ChannelResult:
         """Route through SOCKS5 pool directly (prox5 Mystery Dialer pattern)."""
-        import httpx
         start = time.time()
         proxy = self.proxy_pool.get_next()
 
@@ -1178,15 +1214,16 @@ class SmartChannelRouterV3:
             return ChannelResult("socks_pool", False, error="No SOCKS proxies available")
 
         try:
-            async with httpx.AsyncClient(proxy=proxy.url, timeout=30.0) as client:
-                resp = await client.get(url)
-                latency = (time.time() - start) * 1000
-                self.proxy_pool.report_success(proxy.endpoint, latency)
-                return ChannelResult(
-                    "socks_pool", True, data=resp.content,
-                    latency_ms=latency, status_code=resp.status_code,
-                    proxy_used=proxy.endpoint
-                )
+            # Memory Fix M-R3: Use shared httpx client instead of per-request creation
+            client = await self._get_http_client(proxy=proxy.url)
+            resp = await client.get(url)
+            latency = (time.time() - start) * 1000
+            self.proxy_pool.report_success(proxy.endpoint, latency)
+            return ChannelResult(
+                "socks_pool", True, data=resp.content,
+                latency_ms=latency, status_code=resp.status_code,
+                proxy_used=proxy.endpoint
+            )
         except Exception as e:
             latency = (time.time() - start) * 1000
             self.proxy_pool.report_failure(proxy.endpoint)
@@ -1264,6 +1301,9 @@ class SmartChannelRouterV3:
           cached → http_proxy → socks_pool → dns_tunnel → mitm_stealth → connect_chain → http_direct
         """
         domain = self._extract_domain(url)
+
+        # Memory Fix M-R1: Evict stale domain preferences on each request
+        self._evict_stale_preferences()
 
         # Check cache
         cached = self._cache_get(url)
