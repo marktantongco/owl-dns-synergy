@@ -260,15 +260,7 @@ class DNSFloodProtector:
     async def allow(self, client_ip: str = "default") -> bool:
         async with self._lock:
             now = time.time()
-            elapsed = now - self._last_refill
-            self._tokens = min(self.burst, self._tokens + elapsed * self.max_qps)
-            self._last_refill = now
-            if self._tokens >= 1.0:
-                self._tokens -= 1.0
-            else:
-                self._blocked_count += 1
-                DNS_FLOOD_BLOCKED.inc()
-                return False
+            # Per-client rate check FIRST (before consuming global token)
             if client_ip not in self._client_queries:
                 self._client_queries[client_ip] = deque(maxlen=100)
             self._client_queries[client_ip].append(now)
@@ -277,7 +269,16 @@ class DNSFloodProtector:
                 self._blocked_count += 1
                 DNS_FLOOD_BLOCKED.inc()
                 return False
-            return True
+            # Global token bucket check (after per-client passes)
+            elapsed = now - self._last_refill
+            self._tokens = min(self.burst, self._tokens + elapsed * self.max_qps)
+            self._last_refill = now
+            if self._tokens >= 1.0:
+                self._tokens -= 1.0
+                return True
+            self._blocked_count += 1
+            DNS_FLOOD_BLOCKED.inc()
+            return False
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -778,9 +779,9 @@ class AutoClawAdapter:
                     timeout=10.0,
                 )
                 if resp.status_code == 200:
-                    return {"source": "autoclaw", "status": "active"}
-        except Exception:
-            pass
+                    return {"source": "autoclaw", "status": "active", "url": self._base_url}
+        except Exception as e:
+            logger.warning(f"AutoClaw token check failed: {e}")
         return None
 
     async def chat_completion(
@@ -806,20 +807,20 @@ class AutoClawAdapter:
                 latency = (time.time() - start) * 1000
                 if resp.status_code == 200:
                     return ChannelResult(
-                        "http_proxy", True,
+                        "autoclaw", True,
                         data=resp.json(),
                         latency_ms=latency,
                         status_code=200
                     )
                 else:
                     return ChannelResult(
-                        "http_proxy", False,
+                        "autoclaw", False,
                         error=f"HTTP {resp.status_code}",
                         latency_ms=latency,
                         status_code=resp.status_code
                     )
         except Exception as e:
-            return ChannelResult("http_proxy", False, error=str(e))
+            return ChannelResult("autoclaw", False, error=str(e))
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -955,10 +956,14 @@ class SmartChannelRouterV3:
                     )
 
                 self.proxy_pool.report_success(proxy.endpoint, latency)
-                self._cache_set(url, resp.content)
+
+                # Only treat 2xx as success — non-2xx should trigger failover
+                is_success = 200 <= resp.status_code < 300
+                if is_success:
+                    self._cache_set(url, resp.content)
 
                 return ChannelResult(
-                    "http_proxy", True,
+                    "http_proxy", is_success,
                     data=resp.content, latency_ms=latency,
                     status_code=resp.status_code, proxy_used=proxy.endpoint
                 )
@@ -992,21 +997,33 @@ class SmartChannelRouterV3:
             return ChannelResult("socks_pool", False, error=str(e), latency_ms=latency)
 
     async def _try_dns_tunnel(self, url: str, domain: str, **kwargs) -> ChannelResult:
-        """Fall back to DNS tunneling (llm-dns-proxy)."""
+        """Fall back to DNS tunneling (llm-dns-proxy).
+        Verifies DNS server is actually reachable by sending a health-check query."""
         start = time.time()
-        # DNS tunnel is primarily for LLM chat — for URL fetch, we'd need
-        # a DNS-tunneled HTTP client. For now, return the channel as available.
         try:
-            # Check if DNS server is running
             import socket
+            dns_host = os.getenv("DNS_SERVER_HOST", "127.0.0.1")
+            dns_port = int(os.getenv("DNS_SERVER_PORT", "5353"))
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             sock.settimeout(2)
+            # Send a minimal DNS query to verify the server is actually running
+            # DNS header: ID=0x1234, RD=1, QDCOUNT=1, QNAME=., QTYPE=TXT, QCLASS=IN
+            query = b'\x12\x34\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x10\x00\x01'
+            sock.sendto(query, (dns_host, dns_port))
+            # Wait for any response (even SERVFAIL proves the server is alive)
+            data, _ = sock.recvfrom(512)
             sock.close()
+            if not data:
+                return ChannelResult("dns_tunnel", False, error="DNS server returned empty response")
             return ChannelResult(
                 "dns_tunnel", True,
-                data=f"[DNS tunnel available for {domain}]",
+                data=f"[DNS tunnel verified for {domain}]",
                 latency_ms=(time.time() - start) * 1000
             )
+        except socket.timeout:
+            return ChannelResult("dns_tunnel", False, error="DNS server not reachable (timeout)")
+        except ConnectionRefusedError:
+            return ChannelResult("dns_tunnel", False, error="DNS server not running (connection refused)")
         except Exception as e:
             return ChannelResult("dns_tunnel", False, error=str(e))
 
@@ -1078,9 +1095,10 @@ class SmartChannelRouterV3:
                 return result
 
         # Fallback: try all channels in priority order
+        # NOTE: CONNECT_CHAIN was missing — added between MITM and HTTP_DIRECT
         fallback_order = [
             Channel.HTTP_PROXY, Channel.SOCKS_POOL, Channel.DNS_TUNNEL,
-            Channel.MITM_STEALTH, Channel.HTTP_DIRECT,
+            Channel.MITM_STEALTH, Channel.CONNECT_CHAIN, Channel.HTTP_DIRECT,
         ]
         for ch in fallback_order:
             if ch == channel:

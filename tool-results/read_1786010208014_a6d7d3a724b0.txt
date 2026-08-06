@@ -1,0 +1,803 @@
+     1→     1→"""AutoClaw Proxy — OpenAI-compatible reverse proxy for AutoGLM/Z.ai
+     2→     2→
+     3→     3→Endpoints:
+     4→     4→  POST /v1/chat/completions   — OpenAI chat completions (stream + non-stream)
+     5→     5→  GET  /v1/models             — list available models
+     6→     6→  GET  /health                — health check
+     7→     7→  GET  /accounts              — list stored accounts
+     8→     8→  POST /refresh-all           — force refresh all tokens
+     9→     9→  GET  /wallet                — check wallet balance
+    10→    10→  GET  /ledger                — check billing ledger
+    11→    11→  GET  /auth/callback-google  — OAuth callback handler (auto-captures code)
+    12→    12→"""
+    13→    13→
+    14→    14→import json
+    15→    15→import time
+    16→    16→import uuid
+    17→    17→import threading
+    18→    18→from flask import Flask, request, Response, jsonify
+    19→    19→import requests as req_lib
+    20→    20→import urllib3
+    21→    21→urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    22→    22→
+    23→    23→from config import (
+    24→    24→    CHAT_COMPLETIONS, MODEL_MAP, DEFAULT_MODEL,
+    25→    25→    PROXY_HOST, PROXY_PORT, TOKENS_FILE,
+    26→    26→)
+    27→    27→from auth import (
+    28→    28→    get_valid_token, refresh_all, list_accounts,
+    29→    29→    check_wallet, check_ledger, load_tokens, save_tokens,
+    30→    30→)
+    31→    31→
+    32→    32→TOKENS_FILE_FULL = TOKENS_FILE  # full path for backup operations
+    33→    33→
+    34→    34→app = Flask(__name__)
+    35→    35→
+    36→    36→# ── Pending OAuth login state (supports concurrent logins) ──
+    37→    37→_pending_logins = {}  # keyed by state: {state: {"device_id":..., "result":..., "error":...}}
+    38→    38→
+    39→    39→# ── Round-robin token rotation ──
+    40→    40→_token_idx = 0
+    41→    41→_token_lock = threading.Lock()
+    42→    42→_token_exchange_lock = threading.Lock()  # Serialize AutoClaw token exchanges (avoid 630014)
+    43→    43→
+    44→    44→# ── Request counter per account ──
+    45→    45→_request_counts = {}  # email → int
+    46→    46→
+    47→    47→
+    48→    48→def get_next_token():
+    49→    49→    """Round-robin token selection across all accounts.
+    50→    50→    Auto-refreshes expired tokens. Skips known-exhausted accounts (from cache only)."""
+    51→    51→    global _token_idx
+    52→    52→    data = load_tokens()
+    53→    53→    if not data["accounts"]:
+    54→    54→        return None, None
+    55→    55→
+    56→    56→    n = len(data["accounts"])
+    57→    57→    with _token_lock:
+    58→    58→        idx = _token_idx % n
+    59→    59→        _token_idx += 1
+    60→    60→
+    61→    61→    # Try each account starting from idx
+    62→    62→    for i in range(n):
+    63→    63→        acc = data["accounts"][(idx + i) % n]
+    64→    64→        # Check token validity
+    65→    65→        from config import ACCESS_TOKEN_TTL, REFRESH_MARGIN
+    66→    66→        age = time.time() - acc.get("last_refreshed", 0)
+    67→    67→        if age < ACCESS_TOKEN_TTL - REFRESH_MARGIN:
+    68→    68→            # Token still valid — check exhausted cache (non-blocking, cached only)
+    69→    69→            if not _is_cached_exhausted(acc):
+    70→    70→                return acc["access_token"], acc
+    71→    71→            else:
+    72→    72→                continue
+    73→    73→        # Try refresh
+    74→    74→        from auth import refresh_token
+    75→    75→        new_token = refresh_token(acc)
+    76→    76→        if new_token:
+    77→    77→            if not _is_cached_exhausted(acc):
+    78→    78→                return new_token, acc
+    79→    79→            else:
+    80→    80→                continue
+    81→    81→
+    82→    82→    # Fallback: return first valid token even if exhausted
+    83→    83→    for acc in data["accounts"]:
+    84→    84→        return acc["access_token"], acc
+    85→    85→    return None, None
+    86→    86→
+    87→    87→
+    88→    88→# ── Exhausted accounts cache (wallet balance=0) ──
+    89→    89→# Only uses cache — does NOT make API calls during chat requests
+    90→    90→_exhausted_cache = {}  # email → {"balance": int, "checked": timestamp}
+    91→    91→_EXHAUSTED_CACHE_TTL = 300  # cache valid for 5 min
+    92→    92→
+    93→    93→
+    94→    94→def _is_cached_exhausted(acc):
+    95→    95→    """Check if account is known to be exhausted (cache only, no API call)."""
+    96→    96→    email = acc.get("email", "")
+    97→    97→    now = time.time()
+    98→    98→    cached = _exhausted_cache.get(email)
+    99→    99→    if cached and (now - cached["checked"]) < _EXHAUSTED_CACHE_TTL:
+   100→   100→        return cached["balance"] <= 0
+   101→   101→    # No cache or expired — assume NOT exhausted (don't block chat)
+   102→   102→    return False
+   103→   103→
+   104→   104→
+   105→   105→def _refresh_exhausted_cache():
+   106→   106→    """Background: check all accounts' wallet balances and update cache.
+   107→   107→    Called periodically, not during chat requests."""
+   108→   108→    data = load_tokens()
+   109→   109→    for acc in data["accounts"]:
+   110→   110→        email = acc.get("email", "")
+   111→   111→        try:
+   112→   112→            result = check_wallet(acc["access_token"])
+   113→   113→            if result.get("code") == 0:
+   114→   114→                balance = result["data"]["total_balance"]
+   115→   115→                _exhausted_cache[email] = {"balance": balance, "checked": time.time()}
+   116→   116→                if balance <= 0:
+   117→   117→                    print(f"[proxy] Exhausted: {email} (0 pts)")
+   118→   118→        except:
+   119→   119→            pass
+   120→   120→
+   121→   121→
+   122→   122→def _bg_wallet_checker():
+   123→   123→    """Background thread: refresh exhausted cache every 5 minutes."""
+   124→   124→    while True:
+   125→   125→        try:
+   126→   126→            _refresh_exhausted_cache()
+   127→   127→        except Exception as e:
+   128→   128→            print(f"[proxy] Wallet checker error: {e}")
+   129→   129→        time.sleep(_EXHAUSTED_CACHE_TTL)
+   130→   130→
+   131→   131→
+   132→   132→def _sign_headers():
+   133→   133→    import hashlib
+   134→   134→    from config import APP_ID, APP_KEY, PRODUCT, VERSION, PLATFORM
+   135→   135→    ts = str(int(time.time()))
+   136→   136→    sign = hashlib.md5(f"{APP_ID}&{ts}&{APP_KEY}".encode()).hexdigest()
+   137→   137→    return {
+   138→   138→        "X-Auth-Appid": APP_ID,
+   139→   139→        "X-Auth-TimeStamp": ts,
+   140→   140→        "X-Auth-Sign": sign,
+   141→   141→        "X-Product": PRODUCT,
+   142→   142→        "X-Version": VERSION,
+   143→   143→        "X-Tm": PLATFORM,
+   144→   144→        "X-Trace-Id": str(uuid.uuid4()),
+   145→   145→        "Content-Type": "application/json",
+   146→   146→    }
+   147→   147→
+   148→   148→
+   149→   149→@app.route("/v1/chat/completions", methods=["POST"])
+   150→   150→def chat_completions():
+   151→   151→    """OpenAI-compatible chat completions proxy."""
+   152→   152→    body = request.get_json(force=True)
+   153→   153→    if not body:
+   154→   154→        return jsonify({"error": {"message": "Invalid JSON body"}}), 400
+   155→   155→
+   156→   156→    # Model mapping
+   157→   157→    client_model = body.get("model", DEFAULT_MODEL)
+   158→   158→    upstream_model = MODEL_MAP.get(client_model, DEFAULT_MODEL)
+   159→   159→
+   160→   160→    # Force stream=True for upstream (DeepSeek models 500 on non-stream)
+   161→   161→    upstream_body = dict(body)
+   162→   162→    upstream_body["stream"] = True
+   163→   163→    upstream_body["model"] = "x"  # ignored by upstream, but fill it
+   164→   164→
+   165→   165→    # Get token (round-robin)
+   166→   166→    access_token, acc = get_next_token()
+   167→   167→    if not access_token:
+   168→   168→        return jsonify({
+   169→   169→            "error": {
+   170→   170→                "message": "No valid tokens. Add accounts first via /login or manually edit tokens.json",
+   171→   171→                "type": "auth_error",
+   172→   172→            }
+   173→   173→        }), 401
+   174→   174→
+   175→   175→    # Increment request counter for this account
+   176→   176→    used_email = acc.get("email", "unknown")
+   177→   177→    _request_counts[used_email] = _request_counts.get(used_email, 0) + 1
+   178→   178→
+   179→   179→    headers = _sign_headers()
+   180→   180→    # Token already has "Bearer " prefix — don't double it
+   181→   181→    raw_token = access_token.replace("Bearer ", "")
+   182→   182→    headers["X-Authorization"] = f"Bearer {raw_token}"
+   183→   183→    headers["X-Request-Id"] = str(uuid.uuid4())
+   184→   184→    headers["X-Request-Model"] = upstream_model
+   185→   185→
+   186→   186→    client_wants_stream = body.get("stream", False)
+   187→   187→
+   188→   188→    try:
+   189→   189→        # Always request stream from upstream
+   190→   190→        upstream_resp = req_lib.post(
+   191→   191→            CHAT_COMPLETIONS,
+   192→   192→            json=upstream_body,
+   193→   193→            headers=headers,
+   194→   194→            stream=True,
+   195→   195→            timeout=600,
+   196→   196→            verify=False,
+   197→   197→        )
+   198→   198→
+   199→   199→        if upstream_resp.status_code != 200:
+   200→   200→            error_text = upstream_resp.text[:1000]
+   201→   201→            return jsonify({
+   202→   202→                "error": {
+   203→   203→                    "message": f"Upstream error {upstream_resp.status_code}: {error_text}",
+   204→   204→                    "type": "upstream_error",
+   205→   205→                    "code": upstream_resp.status_code,
+   206→   206→                }
+   207→   207→            }), upstream_resp.status_code
+   208→   208→
+   209→   209→        if client_wants_stream:
+   210→   210→            # Pass through SSE stream — filter reasoning, only forward content chunks
+   211→   211→            def generate():
+   212→   212→                for line in upstream_resp.iter_lines():
+   213→   213→                    if line:
+   214→   214→                        if line.startswith(b"data:"):
+   215→   215→                            raw = line[5:].strip()
+   216→   216→                            if raw == b"[DONE]":
+   217→   217→                                yield line + b"\n\n"
+   218→   218→                                continue
+   219→   219→                            try:
+   220→   220→                                chunk = json.loads(raw)
+   221→   221→                                choices = chunk.get("choices", [])
+   222→   222→                                if choices:
+   223→   223→                                    delta = choices[0].get("delta", {})
+   224→   224→                                    # Strip reasoning fields — Cline/OpenAI clients don't understand them
+   225→   225→                                    if "reasoning" in delta:
+   226→   226→                                        del delta["reasoning"]
+   227→   227→                                    if "reasoning_details" in delta:
+   228→   228→                                        del delta["reasoning_details"]
+   229→   229→                                    if "reasoning_content" in delta:
+   230→   230→                                        del delta["reasoning_content"]
+   231→   231→                                    # Skip chunks with empty content and no tool_calls (pure thinking)
+   232→   232→                                    has_content = bool(delta.get("content"))
+   233→   233→                                    has_tool_calls = bool(delta.get("tool_calls"))
+   234→   234→                                    has_finish = bool(choices[0].get("finish_reason"))
+   235→   235→                                    # Only forward if there's actual content/tool_calls/finish
+   236→   236→                                    if not has_content and not has_tool_calls and not has_finish:
+   237→   237→                                        continue
+   238→   238→                                    # Clean native_finish_reason
+   239→   239→                                    if "native_finish_reason" in choices[0]:
+   240→   240→                                        del choices[0]["native_finish_reason"]
+   241→   241→                                yield b"data: " + json.dumps(chunk).encode() + b"\n\n"
+   242→   242→                            except (json.JSONDecodeError, KeyError):
+   243→   243→                                yield line + b"\n\n"
+   244→   244→                yield b"data: [DONE]\n\n"
+   245→   245→            return Response(
+   246→   246→                generate(),
+   247→   247→                mimetype="text/event-stream",
+   248→   248→                headers={
+   249→   249→                    "Cache-Control": "no-cache",
+   250→   250→                    "X-Accel-Buffering": "no",
+   251→   251→                },
+   252→   252→            )
+   253→   253→        else:
+   254→   254→            # Aggregate stream → single JSON response (OpenAI non-stream format)
+   255→   255→            full_content = ""
+   256→   256→            full_tool_calls = []
+   257→   257→            finish_reason = None
+   258→   258→            model_name = upstream_model
+   259→   259→
+   260→   260→            for line in upstream_resp.iter_lines():
+   261→   261→                if not line:
+   262→   262→                    continue
+   263→   263→                line_str = line.decode("utf-8", errors="replace")
+   264→   264→                if line_str.startswith("data: "):
+   265→   265→                    data_str = line_str[6:]
+   266→   266→                    if data_str.strip() == "[DONE]":
+   267→   267→                        break
+   268→   268→                    try:
+   269→   269→                        chunk = json.loads(data_str)
+   270→   270→                        choices = chunk.get("choices", [])
+   271→   271→                        if choices:
+   272→   272→                            delta = choices[0].get("delta", {})
+   273→   273→                            if "content" in delta and delta["content"]:
+   274→   274→                                full_content += delta["content"]
+   275→   275→                            if "tool_calls" in delta and delta["tool_calls"]:
+   276→   276→                                for tc in delta["tool_calls"]:
+   277→   277→                                    idx = tc.get("index", 0)
+   278→   278→                                    while len(full_tool_calls) <= idx:
+   279→   279→                                        full_tool_calls.append({"id": "", "type": "function", "function": {"name": "", "arguments": ""}})
+   280→   280→                                    if "id" in tc and tc["id"]:
+   281→   281→                                        full_tool_calls[idx]["id"] = tc["id"]
+   282→   282→                                    if "type" in tc and tc["type"]:
+   283→   283→                                        full_tool_calls[idx]["type"] = tc["type"]
+   284→   284→                                    if "function" in tc:
+   285→   285→                                        fn = tc["function"]
+   286→   286→                                        if "name" in fn and fn["name"]:
+   287→   287→                                            full_tool_calls[idx]["function"]["name"] += fn["name"]
+   288→   288→                                        if "arguments" in fn and fn["arguments"]:
+   289→   289→                                            full_tool_calls[idx]["function"]["arguments"] += fn["arguments"]
+   290→   290→                            if choices[0].get("finish_reason"):
+   291→   291→                                finish_reason = choices[0]["finish_reason"]
+   292→   292→                        if chunk.get("model"):
+   293→   293→                            model_name = chunk["model"]
+   294→   294→                        if chunk.get("usage"):
+   295→   295→                            usage = chunk["usage"]
+   296→   296→                    except json.JSONDecodeError:
+   297→   297→                        pass
+   298→   298→
+   299→   299→            message = {"role": "assistant", "content": full_content if full_content else None}
+   300→   300→            if full_tool_calls:
+   301→   301→                message["tool_calls"] = full_tool_calls
+   302→   302→                if not finish_reason:
+   303→   303→                    finish_reason = "tool_calls"
+   304→   304→
+   305→   305→            response = {
+   306→   306→                "id": f"chatcmpl-{uuid.uuid4().hex[:12]}",
+   307→   307→                "object": "chat.completion",
+   308→   308→                "created": int(time.time()),
+   309→   309→                "model": client_model,
+   310→   310→                "choices": [{
+   311→   311→                    "index": 0,
+   312→   312→                    "message": message,
+   313→   313→                    "finish_reason": finish_reason or "stop",
+   314→   314→                }],
+   315→   315→                "usage": usage if 'usage' in dir() else {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+   316→   316→            }
+   317→   317→            return jsonify(response)
+   318→   318→
+   319→   319→    except req_lib.exceptions.Timeout:
+   320→   320→        return jsonify({"error": {"message": "Upstream timeout"}}), 504
+   321→   321→    except Exception as e:
+   322→   322→        return jsonify({"error": {"message": f"Proxy error: {str(e)}"}}), 500
+   323→   323→
+   324→   324→
+   325→   325→@app.route("/v1/models", methods=["GET"])
+   326→   326→def list_models():
+   327→   327→    """List available models (OpenAI-compatible)."""
+   328→   328→    models = []
+   329→   329→    for alias, upstream in MODEL_MAP.items():
+   330→   330→        models.append({
+   331→   331→            "id": alias,
+   332→   332→            "object": "model",
+   333→   333→            "created": 1700000000,
+   334→   334→            "owned_by": "autoclaw",
+   335→   335→            "upstream": upstream,
+   336→   336→        })
+   337→   337→    return jsonify({"object": "list", "data": models})
+   338→   338→
+   339→   339→
+   340→   340→@app.route("/health", methods=["GET"])
+   341→   341→def health():
+   342→   342→    data = load_tokens()
+   343→   343→    return jsonify({
+   344→   344→        "status": "ok",
+   345→   345→        "accounts": len(data["accounts"]),
+   346→   346→        "port": PROXY_PORT,
+   347→   347→    })
+   348→   348→
+   349→   349→
+   350→   350→@app.route("/accounts", methods=["GET"])
+   351→   351→def accounts():
+   352→   352→    """List all stored accounts."""
+   353→   353→    list_accounts()
+   354→   354→    data = load_tokens()
+   355→   355→    safe = []
+   356→   356→    for acc in data["accounts"]:
+   357→   357→        safe.append({
+   358→   358→            "email": acc["email"],
+   359→   359→            "user_id": acc.get("user_id"),
+   360→   360→            "added_at": acc.get("added_at"),
+   361→   361→            "last_refreshed": acc.get("last_refreshed"),
+   362→   362→            "token_preview": acc["access_token"][:30] + "..." if acc.get("access_token") else None,
+   363→   363→        })
+   364→   364→    return jsonify({"accounts": safe})
+   365→   365→
+   366→   366→
+   367→   367→@app.route("/api/accounts-detail", methods=["GET"])
+   368→   368→def accounts_detail():
+   369→   369→    """List all accounts with wallet balance + token expiry (bulk)."""
+   370→   370→    import base64 as _b64
+   371→   371→    data = load_tokens()
+   372→   372→    result = []
+   373→   373→    for acc in data["accounts"]:
+   374→   374→        # Decode JWT for expiry
+   375→   375→        exp = 0
+   376→   376→        iat = 0
+   377→   377→        try:
+   378→   378→            token = acc["access_token"].replace("Bearer ", "")
+   379→   379→            parts = token.split(".")
+   380→   380→            payload = parts[1] + "=" * (4 - len(parts[1]) % 4)
+   381→   381→            decoded = json.loads(_b64.urlsafe_b64decode(payload))
+   382→   382→            exp = decoded.get("exp", 0)
+   383→   383→            iat = decoded.get("iat", 0)
+   384→   384→        except:
+   385→   385→            pass
+   386→   386→
+   387→   387→        now = time.time()
+   388→   388→        remaining_h = max(0, (exp - now) / 3600) if exp else 0
+   389→   389→        expired = remaining_h <= 0
+   390→   390→
+   391→   391→        result.append({
+   392→   392→            "email": acc["email"],
+   393→   393→            "user_id": acc.get("user_id", ""),
+   394→   394→            "device_id": acc.get("device_id", ""),
+   395→   395→            "added_at": acc.get("added_at", 0),
+   396→   396→            "last_refreshed": acc.get("last_refreshed", 0),
+   397→   397→            "expires_at": exp,
+   398→   398→            "remaining_hours": round(remaining_h, 1),
+   399→   399→            "expired": expired,
+   400→   400→            "has_refresh_token": bool(acc.get("refresh_token")),
+   401→   401→            "request_count": _request_counts.get(acc.get("email", ""), 0),
+   402→   402→        })
+   403→   403→    return jsonify({"accounts": result, "total": len(result)})
+   404→   404→
+   405→   405→
+   406→   406→@app.route("/api/refresh/<path:email>", methods=["POST"])
+   407→   407→def refresh_single(email):
+   408→   408→    """Refresh access token for a single account."""
+   409→   409→    import traceback
+   410→   410→    from auth import refresh_token as do_refresh
+   411→   411→    try:
+   412→   412→        data = load_tokens()
+   413→   413→        acc = None
+   414→   414→        for a in data["accounts"]:
+   415→   415→            if a.get("email") == email:
+   416→   416→                acc = a
+   417→   417→                break
+   418→   418→        if not acc:
+   419→   419→            return jsonify({"error": "Account not found"}), 404
+   420→   420→
+   421→   421→        new_token = do_refresh(acc)
+   422→   422→        if new_token:
+   423→   423→            return jsonify({"success": True, "email": email, "message": "Token refreshed"})
+   424→   424→        return jsonify({"success": False, "email": email, "error": "Refresh failed"}), 500
+   425→   425→    except Exception as e:
+   426→   426→        tb = traceback.format_exc()
+   427→   427→        print(f"[proxy] refresh_single error: {tb}")
+   428→   428→        return jsonify({"success": False, "email": email, "error": str(e), "traceback": tb}), 500
+   429→   429→
+   430→   430→
+   431→   431→@app.route("/api/wallet-bulk", methods=["GET"])
+   432→   432→def wallet_bulk():
+   433→   433→    """Get wallet balance for all accounts (bulk)."""
+   434→   434→    data = load_tokens()
+   435→   435→    result = []
+   436→   436→    for acc in data["accounts"]:
+   437→   437→        balance = None
+   438→   438→        status = "active"
+   439→   439→        try:
+   440→   440→            wallet_data = check_wallet(acc["access_token"])
+   441→   441→            if wallet_data.get("code") == 0:
+   442→   442→                balance = wallet_data["data"]["total_balance"]
+   443→   443→                if balance <= 0:
+   444→   444→                    status = "exhausted"
+   445→   445→        except:
+   446→   446→            status = "error"
+   447→   447→        result.append({
+   448→   448→            "email": acc["email"],
+   449→   449→            "balance": balance,
+   450→   450→            "status": status,
+   451→   451→        })
+   452→   452→    return jsonify({"accounts": result})
+   453→   453→
+   454→   454→
+   455→   455→@app.route("/api/delete/<path:email>", methods=["DELETE"])
+   456→   456→def delete_account(email):
+   457→   457→    """Remove an account from tokens.json."""
+   458→   458→    data = load_tokens()
+   459→   459→    before = len(data["accounts"])
+   460→   460→    data["accounts"] = [a for a in data["accounts"] if a.get("email") != email]
+   461→   461→    after = len(data["accounts"])
+   462→   462→    if after < before:
+   463→   463→        save_tokens(data)
+   464→   464→        return jsonify({"success": True, "email": email})
+   465→   465→    return jsonify({"error": "Account not found"}), 404
+   466→   466→
+   467→   467→
+   468→   468→# ── Refresh-all progress tracking (for UI counter) ──
+   469→   469→_refresh_progress = {"total": 0, "done": 0, "success": 0, "fail": 0, "running": False}
+   470→   470→
+   471→   471→
+   472→   472→@app.route("/refresh-all", methods=["POST"])
+   473→   473→def do_refresh_all():
+   474→   474→    # If already running, return current progress
+   475→   475→    if _refresh_progress["running"]:
+   476→   476→        return jsonify({"status": "running", **_refresh_progress})
+   477→   477→
+   478→   478→    # Backup tokens.json before refresh (preventive)
+   479→   479→    import shutil
+   480→   480→    try:
+   481→   481→        shutil.copy2(TOKENS_FILE_FULL, TOKENS_FILE_FULL + ".bak")
+   482→   482→    except Exception as e:
+   483→   483→        print(f"[proxy] Backup before refresh-all failed: {e}")
+   484→   484→
+   485→   485→    # Start refresh in background thread
+   486→   486→    data = load_tokens()
+   487→   487→    _refresh_progress["total"] = len(data["accounts"])
+   488→   488→    _refresh_progress["done"] = 0
+   489→   489→    _refresh_progress["success"] = 0
+   490→   490→    _refresh_progress["fail"] = 0
+   491→   491→    _refresh_progress["running"] = True
+   492→   492→
+   493→   493→    def _bg_refresh():
+   494→   494→        import auth as _auth
+   495→   495→        from config import REFRESH_URL
+   496→   496→        import requests as _req
+   497→   497→        d = _auth.load_tokens()
+   498→   498→        now = int(time.time())
+   499→   499→        for acc in d["accounts"]:
+   500→   500→            try:
+   501→   501→                headers = _auth._sign_headers()
+   502→   502→                body = {
+   503→   503→                    "source_id": acc.get("source_id", "autoclaw"),
+   504→   504→                    "device_id": acc["device_id"],
+   505→   505→                    "refresh_token": acc["refresh_token"],
+   506→   506→                }
+   507→   507→                resp = _req.post(REFRESH_URL, json=body, headers=headers, timeout=15, verify=False)
+   508→   508→                resp_data = resp.json()
+   509→   509→                if resp_data.get("code") == 0 and "data" in resp_data:
+   510→   510→                    new_access = resp_data["data"].get("access_token")
+   511→   511→                    new_refresh = resp_data["data"].get("refresh_token", acc["refresh_token"])
+   512→   512→                    if new_access:
+   513→   513→                        acc["access_token"] = new_access
+   514→   514→                        if new_refresh:
+   515→   515→                            acc["refresh_token"] = new_refresh
+   516→   516→                        acc["last_refreshed"] = now
+   517→   517→                        _refresh_progress["success"] += 1
+   518→   518→                    else:
+   519→   519→                        _refresh_progress["fail"] += 1
+   520→   520→                else:
+   521→   521→                    _refresh_progress["fail"] += 1
+   522→   522→            except Exception:
+   523→   523→                _refresh_progress["fail"] += 1
+   524→   524→            _refresh_progress["done"] += 1
+   525→   525→        # Save once at end
+   526→   526→        _auth.save_tokens(d)
+   527→   527→        _refresh_progress["running"] = False
+   528→   528→        print(f"[proxy] Refresh all done: {_refresh_progress['success']} ok, {_refresh_progress['fail']} fail")
+   529→   529→
+   530→   530→    t = threading.Thread(target=_bg_refresh, daemon=True)
+   531→   531→    t.start()
+   532→   532→
+   533→   533→    return jsonify({"status": "started", **_refresh_progress})
+   534→   534→
+   535→   535→
+   536→   536→@app.route("/api/refresh-progress", methods=["GET"])
+   537→   537→def refresh_progress():
+   538→   538→    return jsonify(_refresh_progress)
+   539→   539→
+   540→   540→
+   541→   541→@app.route("/wallet", methods=["GET"])
+   542→   542→def wallet():
+   543→   543→    """Check wallet balance for first account."""
+   544→   544→    data = load_tokens()
+   545→   545→    if not data["accounts"]:
+   546→   546→        return jsonify({"error": "No accounts"}), 404
+   547→   547→    acc = data["accounts"][0]
+   548→   548→    result = check_wallet(acc["access_token"])
+   549→   549→    return jsonify(result)
+   550→   550→
+   551→   551→
+   552→   552→@app.route("/ledger", methods=["GET"])
+   553→   553→def ledger():
+   554→   554→    """Check billing ledger for first account."""
+   555→   555→    data = load_tokens()
+   556→   556→    if not data["accounts"]:
+   557→   557→        return jsonify({"error": "No accounts"}), 404
+   558→   558→    acc = data["accounts"][0]
+   559→   559→    result = check_ledger(acc["access_token"])
+   560→   560→    return jsonify(result)
+   561→   561→
+   562→   562→
+   563→   563→# ── Web UI ──
+   564→   564→
+   565→   565→import os
+   566→   566→
+   567→   567→from flask import send_from_directory
+   568→   568→
+   569→   569→UI_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui")
+   570→   570→
+   571→   571→
+   572→   572→@app.route("/")
+   573→   573→def ui_dashboard():
+   574→   574→    return send_from_directory(UI_DIR, "index.html")
+   575→   575→
+   576→   576→
+   577→   577→@app.route("/ui/<path:path>")
+   578→   578→def ui_static(path):
+   579→   579→    return send_from_directory(UI_DIR, path)
+   580→   580→
+   581→   581→
+   582→   582→@app.route("/api/login-url", methods=["POST"])
+   583→   583→def api_login_url():
+   584→   584→    """Generate Google OAuth URL for browser-based login.
+   585→   585→    Stores pending state → auto-captured when /auth/callback-google is hit.
+   586→   586→    """
+   587→   587→    from auth import google_oauth_url, _next_proxy
+   588→   588→    # Get proxy BEFORE calling google_oauth_url so we can reuse it for token exchange
+   589→   589→    proxy_used = _next_proxy()
+   590→   590→    oauth_url, state, device_id, err_info = google_oauth_url(proxy=proxy_used)
+   591→   591→    if oauth_url:
+   592→   592→        _pending_logins[state] = {"device_id": device_id, "result": None, "error": None, "proxy": proxy_used}
+   593→   593→        return jsonify({"oauth_url": oauth_url, "state": state, "device_id": device_id})
+   594→   594→    # err_info = {"code": 400005, "msg": "Limit error", "retried": 5}
+   595→   595→    return jsonify({
+   596→   596→        "error": "Failed to get OAuth URL",
+   597→   597→        "detail": err_info,
+   598→   598→    }), 500
+   599→   599→
+   600→   600→
+   601→   601→@app.route("/auth/callback-google")
+   602→   602→def auth_callback_google():
+   603→   603→    """Google OAuth redirect target — auto-captures code+state, exchanges tokens."""
+   604→   604→    from auth import google_oauth_login, add_token
+   605→   605→
+   606→   606→    code = request.args.get("code")
+   607→   607→    state = request.args.get("state")
+   608→   608→    error = request.args.get("error")
+   609→   609→
+   610→   610→    # Find pending login by state — MUST match, no fallback in concurrent mode
+   611→   611→    pending = _pending_logins.get(state)
+   612→   612→    if not pending:
+   613→   613→        # No state match — do NOT fallback to "first pending" (causes cross-account
+   614→   614→        # contamination in concurrent mode). Just fail this callback.
+   615→   615→        print(f"[callback] Unknown state={state[:20]}... (not in {len(_pending_logins)} pending)")
+   616→   616→        return "<html><body><h1>Login Failed</h1><p>Unknown state</p></body></html>", 400
+   617→   617→
+   618→   618→    if error:
+   619→   619→        pending["error"] = error
+   620→   620→        return f"<html><body><h1>Login Failed</h1><p>{error}</p></body></html>", 400
+   621→   621→
+   622→   622→    if not code:
+   623→   623→        pending["error"] = "No code in callback"
+   624→   624→        return "<html><body><h1>Login Failed</h1><p>No code</p></body></html>", 400
+   625→   625→
+   626→   626→    device_id = pending.get("device_id")
+   627→   627→    proxy_used = pending.get("proxy")  # Reuse same proxy from URL generation
+   628→   628→
+   629→   629→    # Serialize token exchanges — AutoClaw API rate-limits per IP (630014).
+   630→   630→    # Without this, 3 concurrent callbacks all hit the API simultaneously → all fail.
+   631→   631→    # Lock ensures 1 exchange at a time, with small gap between.
+   632→   632→    with _token_exchange_lock:
+   633→   633→        print(f"[callback] Exchanging token for state={state[:12]}... device_id={device_id[:8]}... proxy={'yes' if proxy_used else 'none'}")
+   634→   634→        result = google_oauth_login(code, state, device_id, proxy=proxy_used)
+   635→   635→        time.sleep(2)  # Gap so next concurrent callback doesn't hit 630014
+   636→   636→    if not result:
+   637→   637→        print(f"[callback] Token exchange FAILED for state={state[:12]}... (google_oauth_login returned None)")
+   638→   638→        pending["error"] = "Token exchange failed"
+   639→   639→        return "<html><body><h1>Login Failed</h1><p>Token exchange failed</p></body></html>", 500
+   640→   640→    print(f"[callback] Token exchange OK for state={state[:12]}... user_id={result.get('user_id')}")
+   641→   641→
+   642→   642→    # Extract email from JWT jti field
+   643→   643→    import base64 as _b64
+   644→   644→    email = result.get("user_name") or f"user_{result['user_id']}"
+   645→   645→    try:
+   646→   646→        token_part = result["access_token"].replace("Bearer ", "").split(".")[1]
+   647→   647→        token_part += "=" * (4 - len(token_part) % 4)
+   648→   648→        payload = json.loads(_b64.urlsafe_b64decode(token_part))
+   649→   649→        if payload.get("jti"):
+   650→   650→            email = payload["jti"]
+   651→   651→    except:
+   652→   652→        pass
+   653→   653→
+   654→   654→    add_token(
+   655→   655→        email=email,
+   656→   656→        access_token=result["access_token"],
+   657→   657→        refresh_token=result["refresh_token"],
+   658→   658→        user_id=result["user_id"],
+   659→   659→        device_id=device_id,
+   660→   660→    )
+   661→   661→    pending["result"] = {
+   662→   662→        "email": email,
+   663→   663→        "user_id": result.get("user_id"),
+   664→   664→        "first_login": result.get("first_login"),
+   665→   665→    }
+   666→   666→    return f"""<html><body>
+   667→   667→<h1>Login Success!</h1>
+   668→   668→<p>Email: {email}</p>
+   669→   669→<p>User ID: {result.get('user_id')}</p>
+   670→   670→<p>You can close this tab.</p>
+   671→   671→</body></html>"""
+   672→   672→
+   673→   673→
+   674→   674→@app.route("/api/login-status", methods=["GET"])
+   675→   675→def api_login_status():
+   676→   676→    """Check if pending OAuth login completed.
+   677→   677→    Query param: state=<state> for concurrent login tracking.
+   678→   678→    """
+   679→   679→    state = request.args.get("state")
+   680→   680→
+   681→   681→    if state:
+   682→   682→        # Specific state lookup (concurrent mode)
+   683→   683→        pending = _pending_logins.get(state)
+   684→   684→        if not pending:
+   685→   685→            return jsonify({"status": "pending"})
+   686→   686→        if pending.get("result"):
+   687→   687→            return jsonify({"status": "ok", "account": pending["result"]})
+   688→   688→        if pending.get("error"):
+   689→   689→            return jsonify({"status": "error", "error": pending["error"]})
+   690→   690→        return jsonify({"status": "pending"})
+   691→   691→    else:
+   692→   692→        # Legacy: return first available result
+   693→   693→        for s, p in _pending_logins.items():
+   694→   694→            if p.get("result"):
+   695→   695→                return jsonify({"status": "ok", "account": p["result"]})
+   696→   696→            if p.get("error"):
+   697→   697→                return jsonify({"status": "error", "error": p["error"]})
+   698→   698→        return jsonify({"status": "pending"})
+   699→   699→
+   700→   700→
+   701→   701→@app.route("/api/login-callback", methods=["POST"])
+   702→   702→def api_login_callback():
+   703→   703→    """Exchange OAuth code for tokens (manual paste mode)."""
+   704→   704→    from auth import google_oauth_login, add_token
+   705→   705→    body = request.get_json(force=True)
+   706→   706→    code = body.get("code")
+   707→   707→    state = body.get("state")
+   708→   708→    device_id = body.get("device_id")
+   709→   709→
+   710→   710→    if not code or not state or not device_id:
+   711→   711→        return jsonify({"error": "Missing code, state, or device_id"}), 400
+   712→   712→
+   713→   713→    result = google_oauth_login(code, state, device_id)
+   714→   714→    if not result:
+   715→   715→        return jsonify({"error": "Token exchange failed"}), 500
+   716→   716→
+   717→   717→    email = result.get("user_name") or f"user_{result['user_id']}"
+   718→   718→    add_token(
+   719→   719→        email=email,
+   720→   720→        access_token=result["access_token"],
+   721→   721→        refresh_token=result["refresh_token"],
+   722→   722→        user_id=result["user_id"],
+   723→   723→        device_id=device_id,
+   724→   724→    )
+   725→   725→    return jsonify({
+   726→   726→        "success": True,
+   727→   727→        "email": email,
+   728→   728→        "user_id": result.get("user_id"),
+   729→   729→        "user_name": result.get("user_name"),
+   730→   730→        "first_login": result.get("first_login"),
+   731→   731→    })
+   732→   732→
+   733→   733→
+   734→   734→@app.route("/api/test-chat", methods=["POST"])
+   735→   735→def api_test_chat():
+   736→   736→    """Test chat from UI — returns response text."""
+   737→   737→    body = request.get_json(force=True)
+   738→   738→    model = body.get("model", "glm-5.2")
+   739→   739→    message = body.get("message", "Hello!")
+   740→   740→    stream = body.get("stream", False)
+   741→   741→
+   742→   742→    # Forward to our own /v1/chat/completions
+   743→   743→    import requests as r
+   744→   744→    try:
+   745→   745→        resp = r.post(
+   746→   746→            f"http://127.0.0.1:{PROXY_PORT}/v1/chat/completions",
+   747→   747→            json={
+   748→   748→                "model": model,
+   749→   749→                "messages": [{"role": "user", "content": message}],
+   750→   750→                "stream": False,
+   751→   751→            },
+   752→   752→            timeout=600,
+   753→   753→        )
+   754→   754→        if resp.status_code == 200:
+   755→   755→            data = resp.json()
+   756→   756→            content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+   757→   757→            usage = data.get("usage", {})
+   758→   758→            return jsonify({
+   759→   759→                "success": True,
+   760→   760→                "content": content,
+   761→   761→                "model": data.get("model"),
+   762→   762→                "usage": usage,
+   763→   763→            })
+   764→   764→        else:
+   765→   765→            return jsonify({"error": resp.json()}), resp.status_code
+   766→   766→    except Exception as e:
+   767→   767→        return jsonify({"error": str(e)}), 500
+   768→   768→
+   769→   769→
+   770→   770→@app.route("/api/wallet/<email>", methods=["GET"])
+   771→   771→def api_wallet_email(email=None):
+   772→   772→    """Check wallet for specific account by email."""
+   773→   773→    from auth import get_valid_token_for_email
+   774→   774→    token, acc = get_valid_token_for_email(email)
+   775→   775→    if not token:
+   776→   776→        return jsonify({"error": "No valid token for " + email}), 404
+   777→   777→    result = check_wallet(token)
+   778→   778→    return jsonify(result)
+   779→   779→
+   780→   780→
+   781→   781→if __name__ == "__main__":
+   782→   782→    print(f"AutoClaw Proxy starting on {PROXY_HOST}:{PROXY_PORT}")
+   783→   783→    print(f"Dashboard: http://localhost:{PROXY_PORT}")
+   784→   784→    print(f"API: http://localhost:{PROXY_PORT}/v1/chat/completions")
+   785→   785→    print(f"Models: {', '.join(MODEL_MAP.keys())}")
+   786→   786→    list_accounts()
+   787→   787→
+   788→   788→    # Start background wallet checker (every 5 min, non-blocking)
+   789→   789→    wallet_thread = threading.Thread(target=_bg_wallet_checker, daemon=True)
+   790→   790→    wallet_thread.start()
+   791→   791→    print(f"Background wallet checker started (interval={_EXHAUSTED_CACHE_TTL}s)")
+   792→   792→
+   793→   793→    # Start OAuth callback server on port 18432 in background thread
+   794→   794→    # (Google registered redirect_uri = localhost:18432)
+   795→   795→    from werkzeug.serving import make_server
+   796→   796→    callback_server = make_server(PROXY_HOST, 18432, app, threaded=True)
+   797→   797→    callback_thread = threading.Thread(target=callback_server.serve_forever, daemon=True)
+   798→   798→    callback_thread.start()
+   799→   799→    print(f"OAuth callback server on port 18432")
+   800→   800→
+   801→   801→    # Main proxy server (blocking)
+   802→   802→    app.run(host=PROXY_HOST, port=PROXY_PORT, threaded=True)
+   803→   803→

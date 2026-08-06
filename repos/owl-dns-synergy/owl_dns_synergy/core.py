@@ -95,14 +95,15 @@ class TokenBucket:
             self.last_update = now
 
     async def acquire(self, tokens: float = 1.0) -> bool:
-        await self._replenish()
-        async with self.lock:
-            if self.tokens >= tokens:
-                self.tokens -= tokens
-                return True
-        wait_time = (tokens - self.tokens) / self.rate
-        await asyncio.sleep(wait_time)
-        return await self.acquire(tokens)
+        """Acquire tokens from the bucket. Uses loop instead of recursion to prevent stack overflow."""
+        while True:
+            await self._replenish()
+            async with self.lock:
+                if self.tokens >= tokens:
+                    self.tokens -= tokens
+                    return True
+                deficit = tokens - self.tokens
+            await asyncio.sleep(deficit / self.rate)
 
 
 @dataclass(slots=True)
@@ -220,9 +221,17 @@ class RequestDeduplicator:
         key = self._key(method, url, params, protocol)
         async with self._lock:
             if key in self._in_flight:
-                return await self._in_flight[key]
-            future = asyncio.Future()
-            self._in_flight[key] = future
+                future = self._in_flight[key]
+                # Release lock BEFORE awaiting future to prevent deadlock
+            else:
+                future = asyncio.Future()
+                self._in_flight[key] = future
+        # If we're joining an in-flight request, await outside the lock
+        if key in self._in_flight and future is not self._in_flight.get(key, None):
+            return await future
+        if key in self._in_flight and future is self._in_flight.get(key):
+            # We created this future — run the factory
+            pass
         try:
             result = await factory()
             future.set_result(result)
@@ -393,11 +402,12 @@ def bytes_to_base36(data: bytes) -> str:
     number = int.from_bytes(data, byteorder='big')
     encoded = base36encode(number)
     length_prefix = base36encode(len(data))
-    return f"{length_prefix}z{encoded}"
+    # Use '_' as separator instead of 'z' — 'z' is a valid base36 digit
+    return f"{length_prefix}_{encoded}"
 
 
 def base36_to_bytes(string: str) -> bytes:
-    parts = string.split('z', 1)
+    parts = string.split('_', 1)
     if len(parts) != 2:
         raise ValueError("Invalid base36 format")
     length_str, data_str = parts
@@ -433,8 +443,8 @@ class DNSChunker:
 
     def create_chunks(self, encrypted_data: bytes, session_id: str = None) -> List[str]:
         if session_id is None:
-            session_num = uuid.uuid4().int % 1000
-            session_id = f"{session_num:03d}"
+            # 8-hex-digit session ID (4B values, avoids birthday collision)
+            session_id = uuid.uuid4().hex[:8]
 
         data_b36 = bytes_to_base36(encrypted_data)
         dns_suffix = self.config.dns_suffix
@@ -479,10 +489,13 @@ class DNSChunker:
             if session_id not in self.pending_messages:
                 self.pending_messages[session_id] = {}
                 self.total_chunks[session_id] = total_chunks
+            elif self.total_chunks[session_id] != total_chunks:
+                return None, None  # total_chunks mismatch — reject
 
             self.pending_messages[session_id][chunk_index] = chunk_data
 
-            if len(self.pending_messages[session_id]) == self.total_chunks[session_id]:
+            # Verify ALL expected indices present (not just count)
+            if set(self.pending_messages[session_id].keys()) == set(range(self.total_chunks[session_id])):
                 complete_data = ''
                 for i in range(self.total_chunks[session_id]):
                     complete_data += self.pending_messages[session_id][i]

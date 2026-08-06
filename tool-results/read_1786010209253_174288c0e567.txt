@@ -1,0 +1,750 @@
+     1→     1→<!DOCTYPE html>
+     2→     2→<html lang="en">
+     3→     3→<head>
+     4→     4→<meta charset="UTF-8">
+     5→     5→<meta name="viewport" content="width=device-width, initial-scale=1.0">
+     6→     6→<title>AutoClaw Proxy</title>
+     7→     7→<style>
+     8→     8→:root {
+     9→     9→  --bg: #f0f2f5;
+    10→    10→  --card: #ffffff;
+    11→    11→  --border: #e4e7ec;
+    12→    12→  --text: #101828;
+    13→    13→  --muted: #667085;
+    14→    14→  --muted2: #98a2b3;
+    15→    15→  --accent: #1570ef;
+    16→    16→  --green: #12b76a;
+    17→    17→  --red: #f04438;
+    18→    18→  --yellow: #f79009;
+    19→    19→  --blue: #2e90fa;
+    20→    20→  --gray-bg: #f9fafb;
+    21→    21→}
+    22→    22→* { margin: 0; padding: 0; box-sizing: border-box; }
+    23→    23→body {
+    24→    24→  font-family: 'Inter', -apple-system, 'Segoe UI', system-ui, sans-serif;
+    25→    25→  background: var(--bg);
+    26→    26→  color: var(--text);
+    27→    27→  min-height: 100vh;
+    28→    28→  padding: 24px;
+    29→    29→}
+    30→    30→.container { max-width: 1200px; margin: 0 auto; }
+    31→    31→
+    32→    32→/* Header */
+    33→    33→.header {
+    34→    34→  display: flex;
+    35→    35→  align-items: center;
+    36→    36→  justify-content: space-between;
+    37→    37→  margin-bottom: 24px;
+    38→    38→  flex-wrap: wrap;
+    39→    39→  gap: 16px;
+    40→    40→}
+    41→    41→.header-left h1 {
+    42→    42→  font-size: 22px; font-weight: 700; color: var(--text);
+    43→    43→  display: flex; align-items: center; gap: 8px;
+    44→    44→}
+    45→    45→.header-left .subtitle {
+    46→    46→  color: var(--muted); font-size: 13px; margin-top: 4px;
+    47→    47→}
+    48→    48→.header-right {
+    49→    49→  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    50→    50→}
+    51→    51→
+    52→    52→/* Status dot */
+    53→    53→.status-dot {
+    54→    54→  width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0;
+    55→    55→}
+    56→    56→.dot-green { background: var(--green); box-shadow: 0 0 0 3px rgba(18,183,106,0.15); }
+    57→    57→.dot-red { background: var(--red); box-shadow: 0 0 0 3px rgba(240,68,56,0.15); }
+    58→    58→.dot-yellow { background: var(--yellow); box-shadow: 0 0 0 3px rgba(247,144,9,0.15); }
+    59→    59→
+    60→    60→/* Buttons */
+    61→    61→.btn {
+    62→    62→  display: inline-flex; align-items: center; gap: 6px;
+    63→    63→  padding: 7px 14px; border-radius: 8px;
+    64→    64→  font-size: 13px; font-weight: 500; border: 1px solid var(--border);
+    65→    65→  cursor: pointer; transition: all 0.15s;
+    66→    66→  background: var(--card); color: var(--text);
+    67→    67→}
+    68→    68→.btn:hover { background: var(--gray-bg); }
+    69→    69→.btn-primary { background: var(--accent); color: white; border-color: var(--accent); }
+    70→    70→.btn-primary:hover { background: #126cd6; }
+    71→    71→.btn-warning { background: rgba(247,144,9,0.08); color: var(--yellow); border-color: rgba(247,144,9,0.3); }
+    72→    72→.btn-warning:hover { background: rgba(247,144,9,0.15); }
+    73→    73→.btn-danger { background: rgba(240,68,56,0.08); color: var(--red); border-color: rgba(240,68,56,0.3); }
+    74→    74→.btn-danger:hover { background: rgba(240,68,56,0.15); }
+    75→    75→.btn-sm { padding: 4px 8px; font-size: 12px; }
+    76→    76→.btn-icon {
+    77→    77→  width: 28px; height: 28px; padding: 0;
+    78→    78→  display: inline-flex; align-items: center; justify-content: center;
+    79→    79→  border-radius: 6px; border: 1px solid var(--border);
+    80→    80→  background: transparent; cursor: pointer; color: var(--muted);
+    81→    81→  transition: all 0.15s;
+    82→    82→}
+    83→    83→.btn-icon:hover { background: var(--gray-bg); color: var(--text); }
+    84→    84→.btn-icon.danger:hover { background: rgba(240,68,56,0.08); color: var(--red); border-color: rgba(240,68,56,0.3); }
+    85→    85→.btn-icon svg { width: 14px; height: 14px; }
+    86→    86→.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    87→    87→
+    88→    88→/* Credits bar */
+    89→    89→.credits-bar {
+    90→    90→  display: inline-flex; align-items: center; gap: 10px;
+    91→    91→  padding: 6px 14px; border-radius: 8px;
+    92→    92→  background: var(--card); border: 1px solid var(--border);
+    93→    93→  font-size: 13px; font-weight: 600;
+    94→    94→}
+    95→    95→.credits-bar .credits-label { color: var(--muted2); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    96→    96→.credits-bar .credits-value { color: var(--text); }
+    97→    97→.credits-bar .credits-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+    98→    98→
+    99→    99→/* Card grid */
+   100→   100→.cards-grid {
+   101→   101→  display: grid;
+   102→   102→  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+   103→   103→  gap: 16px;
+   104→   104→}
+   105→   105→.account-card {
+   106→   106→  background: var(--card);
+   107→   107→  border: 1px solid var(--border);
+   108→   108→  border-radius: 12px;
+   109→   109→  padding: 18px;
+   110→   110→  transition: box-shadow 0.15s;
+   111→   111→}
+   112→   112→.account-card:hover { box-shadow: 0 2px 8px rgba(16,24,40,0.06); }
+   113→   113→
+   114→   114→.card-row1 {
+   115→   115→  display: flex; align-items: center; justify-content: space-between;
+   116→   116→  margin-bottom: 12px;
+   117→   117→}
+   118→   118→.card-name {
+   119→   119→  display: flex; align-items: center; gap: 8px;
+   120→   120→  font-size: 14px; font-weight: 600; color: var(--text);
+   121→   121→}
+   122→   122→.card-actions { display: flex; gap: 4px; }
+   123→   123→
+   124→   124→.card-row2 {
+   125→   125→  display: flex; align-items: center; gap: 8px;
+   126→   126→  margin-bottom: 14px;
+   127→   127→}
+   128→   128→.badge {
+   129→   129→  display: inline-flex; align-items: center;
+   130→   130→  padding: 2px 8px; border-radius: 4px;
+   131→   131→  font-size: 11px; font-weight: 600;
+   132→   132→}
+   133→   133→.badge-active { background: rgba(18,183,106,0.1); color: var(--green); }
+   134→   134→.badge-disabled { background: rgba(240,68,56,0.08); color: var(--red); }
+   135→   135→.badge-expiring { background: rgba(247,144,9,0.1); color: var(--yellow); }
+   136→   136→.req-count { font-size: 12px; color: var(--muted2); }
+   137→   137→
+   138→   138→.pill {
+   139→   139→  display: inline-flex; align-items: center;
+   140→   140→  padding: 2px 10px; border-radius: 12px;
+   141→   141→  font-size: 11px; font-weight: 500; color: var(--muted);
+   142→   142→  background: var(--gray-bg);
+   143→   143→}
+   144→   144→
+   145→   145→.card-row3 {
+   146→   146→  display: flex; align-items: center; justify-content: space-between;
+   147→   147→  margin-bottom: 6px;
+   148→   148→}
+   149→   149→.card-row3 .label { font-size: 12px; color: var(--muted); font-weight: 500; }
+   150→   150→.card-row3 .value { font-size: 12px; color: var(--text); font-weight: 600; }
+   151→   151→
+   152→   152→/* Quota bar */
+   153→   153→.quota-bar {
+   154→   154→  height: 8px; border-radius: 4px;
+   155→   155→  background: var(--gray-bg); overflow: hidden;
+   156→   156→}
+   157→   157→.quota-fill {
+   158→   158→  height: 100%; border-radius: 4px;
+   159→   159→  transition: width 0.4s ease;
+   160→   160→}
+   161→   161→.fill-blue { background: var(--blue); }
+   162→   162→.fill-green { background: var(--green); }
+   163→   163→.fill-yellow { background: var(--yellow); }
+   164→   164→.fill-red { background: var(--red); }
+   165→   165→
+   166→   166→/* Empty state */
+   167→   167→.empty-state {
+   168→   168→  text-align: center; padding: 48px;
+   169→   169→  color: var(--muted); font-size: 14px;
+   170→   170→}
+   171→   171→
+   172→   172→/* Toast */
+   173→   173→.toast {
+   174→   174→  position: fixed; bottom: 24px; right: 24px;
+   175→   175→  padding: 12px 20px; border-radius: 8px;
+   176→   176→  font-size: 13px; font-weight: 500; z-index: 2000;
+   177→   177→  background: var(--text); color: white;
+   178→   178→  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+   179→   179→  animation: slideIn 0.2s ease;
+   180→   180→}
+   181→   181→.toast-success { background: var(--green); }
+   182→   182→.toast-error { background: var(--red); }
+   183→   183→@keyframes slideIn {
+   184→   184→  from { transform: translateY(10px); opacity: 0; }
+   185→   185→  to { transform: translateY(0); opacity: 1; }
+   186→   186→}
+   187→   187→
+   188→   188→/* Spin */
+   189→   189→@keyframes spin { to { transform: rotate(360deg); } }
+   190→   190→.spinning svg { animation: spin 0.8s linear infinite; }
+   191→   191→
+   192→   192→/* Responsive */
+   193→   193→@media (max-width: 768px) {
+   194→   194→  .cards-grid { grid-template-columns: 1fr; }
+   195→   195→}
+   196→   196→</style>
+   197→   197→</head>
+   198→   198→<body>
+   199→   199→<div class="container">
+   200→   200→
+   201→   201→  <!-- Header -->
+   202→   202→  <div class="header">
+   203→   203→    <div class="header-left">
+   204→   204→      <h1>AutoClaw Proxy</h1>
+   205→   205→      <div class="subtitle">AutoClaw accounts — access GLM-5.2, GLM-5 Turbo, DeepSeek-V4-Pro</div>
+   206→   206→    </div>
+   207→   207→    <div class="header-right">
+   208→   208→      <div class="credits-bar" id="credits-bar" style="display:none;">
+   209→   209→        <span class="credits-dot"></span>
+   210→   210→        <span class="credits-label">All Credits</span>
+   211→   211→        <span class="credits-value"><span id="total-points">0</span> / <span id="total-max">0</span></span>
+   212→   212→        <span id="credits-progress" style="font-size:10px; color:var(--muted2); font-weight:500; margin-left:4px;"></span>
+   213→   213→      </div>
+   214→   214→      <button class="btn" onclick="refreshAllTokens()">
+   215→   215→        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
+   216→   216→        Refresh All
+   217→   217→      </button>
+   218→   218→      <button class="btn btn-warning" onclick="deleteExhausted()">Disable Exhausted</button>
+   219→   219→      <button class="btn btn-danger" onclick="deleteInactive()">Delete Inactive</button>
+   220→   220→    </div>
+   221→   221→  </div>
+   222→   222→
+   223→   223→  <div style="margin-bottom:16px; font-size:13px; color:var(--muted);">
+   224→   224→    Connected Accounts <span id="account-count" style="font-weight:600; color:var(--text);">0</span>
+   225→   225→  </div>
+   226→   226→
+   227→   227→  <!-- Cards Grid -->
+   228→   228→  <div id="cards-grid" class="cards-grid">
+   229→   229→    <div class="empty-state">Loading accounts...</div>
+   230→   230→  </div>
+   231→   231→
+   232→   232→  <!-- Pagination -->
+   233→   233→  <div id="pagination" style="display:none; margin-top:24px; display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap;">
+   234→   234→    <button class="btn btn-sm" id="prev-btn" onclick="changePage(-1)">Prev</button>
+   235→   235→    <span id="page-info" style="font-size:13px; color:var(--muted); padding:0 12px;">Page 1 / 1</span>
+   236→   236→    <button class="btn btn-sm" id="next-btn" onclick="changePage(1)">Next</button>
+   237→   237→    <select class="btn btn-sm" id="per-page" onchange="changePerPage()" style="margin-left:12px; padding:4px 8px;">
+   238→   238→      <option value="12">12 / page</option>
+   239→   239→      <option value="24" selected>24 / page</option>
+   240→   240→      <option value="48">48 / page</option>
+   241→   241→      <option value="9999">All</option>
+   242→   242→    </select>
+   243→   243→  </div>
+   244→   244→
+   245→   245→</div>
+   246→   246→
+   247→   247→<script>
+   248→   248→const API = '';
+   249→   249→let walletCache = {};
+   250→   250→let accountsData = [];
+   251→   251→let currentPage = 1;
+   252→   252→let perPage = 24;
+   253→   253→
+   254→   254→// ── Icons (SVG) ──
+   255→   255→const ICONS = {
+   256→   256→  refresh: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>',
+   257→   257→  wallet: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>',
+   258→   258→  trash: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+   259→   259→  ban: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 14.14 14.14"/></svg>',
+   260→   260→  check: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+   261→   261→};
+   262→   262→
+   263→   263→// ── Init ──
+   264→   264→document.addEventListener('DOMContentLoaded', () => {
+   265→   265→  loadAccounts();
+   266→   266→  setInterval(loadAccounts, 60000);
+   267→   267→});
+   268→   268→
+   269→   269→// ── Load accounts + wallet ──
+   270→   270→async function loadAccounts() {
+   271→   271→  try {
+   272→   272→    // 1. Fetch accounts-detail first (fast — no API calls)
+   273→   273→    const detailResp = await fetch(API + '/api/accounts-detail').then(r => r.json());
+   274→   274→    const wasFirstLoad = accountsData.length === 0;
+   275→   275→    accountsData = detailResp.accounts || [];
+   276→   276→
+   277→   277→    const grid = document.getElementById('cards-grid');
+   278→   278→    document.getElementById('account-count').textContent = accountsData.length;
+   279→   279→
+   280→   280→    if (accountsData.length === 0) {
+   281→   281→      grid.innerHTML = '<div class="empty-state">No accounts. Use autoclaw_autologin.py to add accounts.</div>';
+   282→   282→      document.getElementById('credits-bar').style.display = 'none';
+   283→   283→      document.getElementById('pagination').style.display = 'none';
+   284→   284→      return;
+   285→   285→    }
+   286→   286→
+   287→   287→    // 2. Show credits bar immediately (starts at 0 if first load)
+   288→   288→    if (wasFirstLoad) {
+   289→   289→      document.getElementById('credits-bar').style.display = 'inline-flex';
+   290→   290→      document.getElementById('total-points').textContent = '0';
+   291→   291→      document.getElementById('total-max').textContent = '0';
+   292→   292→      // Clear wallet cache on first load
+   293→   293→      walletCache = {};
+   294→   294→    }
+   295→   295→
+   296→   296→    // 3. Render current page
+   297→   297→    renderPage();
+   298→   298→
+   299→   299→    // 4. Update totals from existing cache (instant)
+   300→   300→    updateTotals();
+   301→   301→
+   302→   302→    // 5. Fetch ALL wallets in background (limited concurrency) — credits bar counts up live
+   303→   303→    fetchAllWalletsBackground();
+   304→   304→
+   305→   305→  } catch (e) {
+   306→   306→    document.getElementById('cards-grid').innerHTML =
+   307→   307→      `<div class="empty-state" style="color:var(--red);">Failed to load: ${e.message}</div>`;
+   308→   308→  }
+   309→   309→}
+   310→   310→
+   311→   311→// ── Fetch all wallets in background with limited concurrency ──
+   312→   312→let _walletFetchInFlight = false;
+   313→   313→let _walletFetchAbort = false;
+   314→   314→
+   315→   315→async function fetchAllWalletsBackground() {
+   316→   316→  // Prevent overlapping fetches
+   317→   317→  if (_walletFetchInFlight) {
+   318→   318→    _walletFetchAbort = true;
+   319→   319→    // Wait a bit for previous to notice abort
+   320→   320→    await new Promise(r => setTimeout(r, 200));
+   321→   321→  }
+   322→   322→  _walletFetchInFlight = true;
+   323→   323→  _walletFetchAbort = false;
+   324→   324→
+   325→   325→  const toFetch = accountsData.filter(acc => {
+   326→   326→    const w = walletCache[acc.email];
+   327→   327→    return !w || w.balance == null;
+   328→   328→  });
+   329→   329→
+   330→   330→  if (toFetch.length === 0) {
+   331→   331→    _walletFetchInFlight = false;
+   332→   332→    return;
+   333→   333→  }
+   334→   334→
+   335→   335→  // Process in small batches to avoid overwhelming the server
+   336→   336→  const BATCH = 5;
+   337→   337→  for (let i = 0; i < toFetch.length; i += BATCH) {
+   338→   338→    if (_walletFetchAbort) break;
+   339→   339→
+   340→   340→    const batch = toFetch.slice(i, i + BATCH);
+   341→   341→    const promises = batch.map(async (acc) => {
+   342→   342→      if (_walletFetchAbort) return;
+   343→   343→      try {
+   344→   344→        const resp = await fetch(API + '/api/wallet/' + encodeURIComponent(acc.email));
+   345→   345→        const data = await resp.json();
+   346→   346→        if (data.code === 0 && data.data) {
+   347→   347→          walletCache[acc.email] = { email: acc.email, balance: data.data.total_balance, status: data.data.total_balance > 0 ? 'active' : 'exhausted' };
+   348→   348→        } else {
+   349→   349→          walletCache[acc.email] = { email: acc.email, balance: 0, status: 'error' };
+   350→   350→        }
+   351→   351→      } catch (e) {
+   352→   352→        walletCache[acc.email] = { email: acc.email, balance: 0, status: 'error' };
+   353→   353→      }
+   354→   354→      // Update totals after each wallet completes — credits bar counts up live
+   355→   355→      updateTotals();
+   356→   356→    });
+   357→   357→
+   358→   358→    await Promise.all(promises);
+   359→   359→  }
+   360→   360→
+   361→   361→  _walletFetchInFlight = false;
+   362→   362→}
+   363→   363→
+   364→   364→// ── Render single page of cards ──
+   365→   365→function renderPage() {
+   366→   366→  const grid = document.getElementById('cards-grid');
+   367→   367→  const total = accountsData.length;
+   368→   368→  const totalPages = Math.ceil(total / perPage);
+   369→   369→  if (currentPage > totalPages) currentPage = totalPages;
+   370→   370→  if (currentPage < 1) currentPage = 1;
+   371→   371→
+   372→   372→  const start = (currentPage - 1) * perPage;
+   373→   373→  const end = Math.min(start + perPage, total);
+   374→   374→  const pageAccounts = accountsData.slice(start, end);
+   375→   375→
+   376→   376→  // Render cards for this page
+   377→   377→  grid.innerHTML = '';
+   378→   378→  for (let i = 0; i < pageAccounts.length; i++) {
+   379→   379→    const acc = pageAccounts[i];
+   380→   380→    const cardId = 'card-' + acc.email.replace(/[^a-zA-Z0-9]/g, '');
+   381→   381→    const emailShort = acc.email.length > 32 ? acc.email.substring(0, 29) + '...' : acc.email;
+   382→   382→
+   383→   383→    // Token status
+   384→   384→    let tokenBadge, tokenDot, tokenBadgeClass;
+   385→   385→    if (acc.expired) {
+   386→   386→      tokenBadge = 'disabled'; tokenDot = 'dot-red'; tokenBadgeClass = 'badge-disabled';
+   387→   387→    } else if (acc.remaining_hours < 2) {
+   388→   388→      tokenBadge = 'expiring'; tokenDot = 'dot-yellow'; tokenBadgeClass = 'badge-expiring';
+   389→   389→    } else {
+   390→   390→      tokenBadge = 'active'; tokenDot = 'dot-green'; tokenBadgeClass = 'badge-active';
+   391→   391→    }
+   392→   392→
+   393→   393→    const reqCount = (acc.request_count || 0) + ' req';
+   394→   394→
+   395→   395→    // Check if wallet already cached
+   396→   396→    const w = walletCache[acc.email];
+   397→   397→    const balance = w ? w.balance : null;
+   398→   398→    const isExhausted = balance !== null && balance <= 0;
+   399→   399→    const maxPoints = 2300;
+   400→   400→    const pct = balance != null ? Math.min(100, (balance / maxPoints) * 100) : 0;
+   401→   401→
+   402→   402→    let walletBadgeClass = isExhausted ? 'badge-disabled' : 'badge-active';
+   403→   403→    let fillClass = 'fill-blue';
+   404→   404→    if (balance != null) {
+   405→   405→      if (balance <= 0) fillClass = 'fill-red';
+   406→   406→      else if (balance < 500) fillClass = 'fill-yellow';
+   407→   407→      else fillClass = 'fill-blue';
+   408→   408→    }
+   409→   409→
+   410→   410→    const walletText = balance != null ? `${balance.toLocaleString()} / ${maxPoints.toLocaleString()}` : 'Loading...';
+   411→   411→    const cardOpacity = isExhausted ? '0.5' : '1';
+   412→   412→
+   413→   413→    // Card
+   414→   414→    const card = document.createElement('div');
+   415→   415→    card.className = 'account-card';
+   416→   416→    card.id = cardId;
+   417→   417→    card.style.opacity = '0';
+   418→   418→    card.style.transform = 'translateY(8px)';
+   419→   419→    card.style.transition = 'opacity 0.3s, transform 0.3s';
+   420→   420→    card.innerHTML = `
+   421→   421→      <div class="card-row1">
+   422→   422→        <div class="card-name">
+   423→   423→          <span class="status-dot ${tokenDot}"></span>
+   424→   424→          <span>${emailShort}</span>
+   425→   425→        </div>
+   426→   426→        <div class="card-actions">
+   427→   427→          <button class="btn-icon" onclick="refreshToken('${acc.email}', this)" title="Refresh token">${ICONS.refresh}</button>
+   428→   428→          <button class="btn-icon" onclick="checkWalletSingle('${acc.email}', this)" title="Check wallet">${ICONS.wallet}</button>
+   429→   429→          <button class="btn-icon danger" onclick="deleteAccount('${acc.email}', this)" title="Delete">${ICONS.trash}</button>
+   430→   430→        </div>
+   431→   431→      </div>
+   432→   432→      <div class="card-row2">
+   433→   433→        <span class="badge ${tokenBadgeClass}">${tokenBadge}</span>
+   434→   434→        <span class="req-count">${reqCount}</span>
+   435→   435→        <span class="pill">Reward Points</span>
+   436→   436→      </div>
+   437→   437→      <div class="card-row3">
+   438→   438→        <span class="label">Points</span>
+   439→   439→        <span class="value"><span class="badge ${walletBadgeClass}" id="wallet-${cardId}">${walletText}</span></span>
+   440→   440→      </div>
+   441→   441→      <div class="quota-bar">
+   442→   442→        <div class="quota-fill ${fillClass}" id="bar-${cardId}" style="width: ${pct}%"></div>
+   443→   443→      </div>
+   444→   444→    `;
+   445→   445→    grid.appendChild(card);
+   446→   446→
+   447→   447→    // Animate in
+   448→   448→    requestAnimationFrame(() => {
+   449→   449→      card.style.opacity = cardOpacity;
+   450→   450→      card.style.transform = 'translateY(0)';
+   451→   451→    });
+   452→   452→
+   453→   453→    // Fetch wallet if not cached
+   454→   454→    if (balance === null) {
+   455→   455→      fetchWalletForCard(acc.email, cardId);
+   456→   456→    }
+   457→   457→  }
+   458→   458→
+   459→   459→  // Update pagination controls
+   460→   460→  const pagDiv = document.getElementById('pagination');
+   461→   461→  if (total > perPage) {
+   462→   462→    pagDiv.style.display = 'flex';
+   463→   463→    document.getElementById('page-info').textContent = `Page ${currentPage} / ${totalPages} (${total} accounts)`;
+   464→   464→    document.getElementById('prev-btn').disabled = currentPage <= 1;
+   465→   465→    document.getElementById('next-btn').disabled = currentPage >= totalPages;
+   466→   466→  } else {
+   467→   467→    pagDiv.style.display = 'none';
+   468→   468→  }
+   469→   469→}
+   470→   470→
+   471→   471→// ── Pagination controls ──
+   472→   472→function changePage(dir) {
+   473→   473→  const totalPages = Math.ceil(accountsData.length / perPage);
+   474→   474→  currentPage = Math.max(1, Math.min(totalPages, currentPage + dir));
+   475→   475→  renderPage();
+   476→   476→}
+   477→   477→
+   478→   478→function changePerPage() {
+   479→   479→  perPage = parseInt(document.getElementById('per-page').value);
+   480→   480→  currentPage = 1;
+   481→   481→  renderPage();
+   482→   482→}
+   483→   483→
+   484→   484→// ── Fetch wallet for single card (called from renderPage if cache miss) ──
+   485→   485→// Note: background fetchAllWalletsBackground handles the actual API calls.
+   486→   486→// This function just polls cache and updates the card when data arrives.
+   487→   487→async function fetchWalletForCard(email, cardId) {
+   488→   488→  const walletEl = document.getElementById('wallet-' + cardId);
+   489→   489→  const barEl = document.getElementById('bar-' + cardId);
+   490→   490→  if (!walletEl) return;
+   491→   491→
+   492→   492→  // Wait for background fetch to populate cache (poll up to 30s)
+   493→   493→  for (let i = 0; i < 60; i++) {
+   494→   494→    const w = walletCache[email];
+   495→   495→    if (w && w.balance != null) {
+   496→   496→      const balance = w.balance;
+   497→   497→      const maxPoints = 2300;
+   498→   498→      const pct = Math.min(100, (balance / maxPoints) * 100);
+   499→   499→      const isExhausted = balance <= 0;
+   500→   500→
+   501→   501→      let walletBadgeClass = isExhausted ? 'badge-disabled' : 'badge-active';
+   502→   502→      let fillClass = 'fill-blue';
+   503→   503→      if (isExhausted) fillClass = 'fill-red';
+   504→   504→      else if (balance < 500) fillClass = 'fill-yellow';
+   505→   505→
+   506→   506→      walletEl.className = 'badge ' + walletBadgeClass;
+   507→   507→      walletEl.textContent = `${balance.toLocaleString()} / ${maxPoints.toLocaleString()}`;
+   508→   508→
+   509→   509→      if (barEl) {
+   510→   510→        barEl.className = 'quota-fill ' + fillClass;
+   511→   511→        barEl.style.width = pct + '%';
+   512→   512→      }
+   513→   513→
+   514→   514→      if (isExhausted) {
+   515→   515→        const card = document.getElementById(cardId);
+   516→   516→        if (card) card.style.opacity = '0.5';
+   517→   517→      }
+   518→   518→      return;
+   519→   519→    }
+   520→   520→    await new Promise(r => setTimeout(r, 500));
+   521→   521→  }
+   522→   522→
+   523→   523→  // Timeout — show dash
+   524→   524→  walletEl.textContent = '—';
+   525→   525→  walletEl.className = 'badge badge-disabled';
+   526→   526→}
+   527→   527→
+   528→   528→// ── Update totals bar (incremental, called per-wallet) ──
+   529→   529→function updateTotals() {
+   530→   530→  let totalPoints = 0, totalMax = 0, loaded = 0;
+   531→   531→  const target = accountsData.length;
+   532→   532→  for (const acc of accountsData) {
+   533→   533→    const w = walletCache[acc.email];
+   534→   534→    if (w && w.balance != null) {
+   535→   535→      totalPoints += w.balance;
+   536→   536→      totalMax += 2300;
+   537→   537→      loaded++;
+   538→   538→    }
+   539→   539→  }
+   540→   540→  const bar = document.getElementById('credits-bar');
+   541→   541→  if (totalMax > 0 || loaded > 0 || target > 0) {
+   542→   542→    bar.style.display = 'inline-flex';
+   543→   543→    // Animate the number — smooth count up
+   544→   544→    const pointsEl = document.getElementById('total-points');
+   545→   545→    const maxEl = document.getElementById('total-max');
+   546→   546→    const progEl = document.getElementById('credits-progress');
+   547→   547→    const current = parseInt(pointsEl.textContent.replace(/[^0-9]/g, '')) || 0;
+   548→   548→    const target_val = totalPoints;
+   549→   549→
+   550→   550→    // Show loading progress
+   551→   551→    if (loaded < target) {
+   552→   552→      progEl.textContent = `(${loaded}/${target})`;
+   553→   553→    } else {
+   554→   554→      progEl.textContent = '';
+   555→   555→    }
+   556→   556→
+   557→   557→    // Smooth count animation — only start if not already animating
+   558→   558→    if (current !== target_val && pointsEl.dataset.animating !== '1') {
+   559→   559→      pointsEl.dataset.animating = '1';
+   560→   560→      requestAnimationFrame(function tick() {
+   561→   561→        const cur = parseInt(pointsEl.textContent.replace(/[^0-9]/g, '')) || 0;
+   562→   562→        const d = target_val - cur;
+   563→   563→        if (d === 0) {
+   564→   564→          pointsEl.textContent = target_val.toLocaleString();
+   565→   565→          pointsEl.dataset.animating = '';
+   566→   566→          return;
+   567→   567→        }
+   568→   568→        // Adaptive step: bigger jumps for large diffs, small for precision
+   569→   569→        const s = Math.max(1, Math.ceil(Math.abs(d) / 15));
+   570→   570→        if (Math.abs(d) <= s) {
+   571→   571→          pointsEl.textContent = target_val.toLocaleString();
+   572→   572→          pointsEl.dataset.animating = '';
+   573→   573→        } else {
+   574→   574→          pointsEl.textContent = (cur + Math.sign(d) * s).toLocaleString();
+   575→   575→          requestAnimationFrame(tick);
+   576→   576→        }
+   577→   577→      });
+   578→   578→    }
+   579→   579→    maxEl.textContent = totalMax.toLocaleString();
+   580→   580→    // Update dot color based on progress
+   581→   581→    const dot = bar.querySelector('.credits-dot');
+   582→   582→    if (dot) {
+   583→   583→      const pct = totalMax > 0 ? (totalPoints / totalMax) * 100 : 0;
+   584→   584→      dot.style.background = pct > 50 ? 'var(--green)' : pct > 20 ? 'var(--yellow)' : 'var(--red)';
+   585→   585→    }
+   586→   586→  } else {
+   587→   587→    bar.style.display = 'none';
+   588→   588→  }
+   589→   589→}
+   590→   590→
+   591→   591→// ── Refresh single token ──
+   592→   592→async function refreshToken(email, btn) {
+   593→   593→  if (btn) { btn.classList.add('spinning'); btn.disabled = true; }
+   594→   594→  try {
+   595→   595→    const resp = await fetch(API + '/api/refresh/' + encodeURIComponent(email), { method: 'POST' });
+   596→   596→    const data = await resp.json();
+   597→   597→    if (data.success) {
+   598→   598→      showToast(`Refreshed: ${email}`, 'success');
+   599→   599→      loadAccounts();
+   600→   600→    } else {
+   601→   601→      showToast(`Refresh failed: ${email}`, 'error');
+   602→   602→    }
+   603→   603→  } catch (e) {
+   604→   604→    showToast('Error: ' + e.message, 'error');
+   605→   605→  }
+   606→   606→  if (btn) { btn.classList.remove('spinning'); btn.disabled = false; }
+   607→   607→}
+   608→   608→
+   609→   609→// ── Refresh all tokens (with live counter) ──
+   610→   610→let _refreshAllPolling = null;
+   611→   611→
+   612→   612→async function refreshAllTokens() {
+   613→   613→  // Disable button, show spinner
+   614→   614→  const btn = event.target.closest('button');
+   615→   615→  if (btn) { btn.classList.add('spinning'); btn.disabled = true; }
+   616→   616→
+   617→   617→  try {
+   618→   618→    const resp = await fetch(API + '/refresh-all', { method: 'POST' });
+   619→   619→    const data = await resp.json();
+   620→   620→
+   621→   621→    if (data.status === 'running') {
+   622→   622→      // Already running — start polling
+   623→   623→      showToast('Refresh already in progress...', 'success');
+   624→   624→    } else if (data.status === 'started') {
+   625→   625→      showToast(`Refreshing ${data.total} tokens...`, 'success');
+   626→   626→    }
+   627→   627→
+   628→   628→    // Start polling progress
+   629→   629→    if (_refreshAllPolling) clearInterval(_refreshAllPolling);
+   630→   630→    _refreshAllPolling = setInterval(async () => {
+   631→   631→      try {
+   632→   632→        const pr = await fetch(API + '/api/refresh-progress').then(r => r.json());
+   633→   633→        const pct = pr.total > 0 ? Math.round((pr.done / pr.total) * 100) : 0;
+   634→   634→
+   635→   635→        // Update button text to show counter
+   636→   636→        if (btn) {
+   637→   637→          btn.innerHTML = btn.querySelector('svg').outerHTML + ` ${pr.done}/${pr.total}`;
+   638→   638→        }
+   639→   639→
+   640→   640→        if (!pr.running) {
+   641→   641→          clearInterval(_refreshAllPolling);
+   642→   642→          _refreshAllPolling = null;
+   643→   643→          const msg = `Refreshed: ${pr.success} ok, ${pr.fail} failed`;
+   644→   644→          showToast(msg, pr.fail > 0 ? 'error' : 'success');
+   645→   645→          // Restore button
+   646→   646→          if (btn) {
+   647→   647→            btn.classList.remove('spinning');
+   648→   648→            btn.disabled = false;
+   649→   649→            btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg> Refresh All';
+   650→   650→          }
+   651→   651→          loadAccounts();
+   652→   652→        }
+   653→   653→      } catch (e) {
+   654→   654→        // Polling error — keep going
+   655→   655→      }
+   656→   656→    }, 500);
+   657→   657→
+   658→   658→  } catch (e) {
+   659→   659→    showToast('Error: ' + e.message, 'error');
+   660→   660→    if (btn) {
+   661→   661→      btn.classList.remove('spinning');
+   662→   662→      btn.disabled = false;
+   663→   663→    }
+   664→   664→  }
+   665→   665→}
+   666→   666→
+   667→   667→// ── Check wallet single ──
+   668→   668→async function checkWalletSingle(email, btn) {
+   669→   669→  if (btn) { btn.classList.add('spinning'); btn.disabled = true; }
+   670→   670→  try {
+   671→   671→    const resp = await fetch(API + '/api/wallet/' + encodeURIComponent(email));
+   672→   672→    const data = await resp.json();
+   673→   673→    if (data.code === 0 && data.data) {
+   674→   674→      showToast(`${email}: ${data.data.total_balance} pts`, 'success');
+   675→   675→      walletCache[email] = { email, balance: data.data.total_balance, status: data.data.total_balance > 0 ? 'active' : 'exhausted' };
+   676→   676→      loadAccounts();
+   677→   677→    } else {
+   678→   678→      showToast(`Wallet check failed: ${email}`, 'error');
+   679→   679→    }
+   680→   680→  } catch (e) {
+   681→   681→    showToast('Error: ' + e.message, 'error');
+   682→   682→  }
+   683→   683→  if (btn) { btn.classList.remove('spinning'); btn.disabled = false; }
+   684→   684→}
+   685→   685→
+   686→   686→// ── Delete account ──
+   687→   687→async function deleteAccount(email, btn) {
+   688→   688→  if (!confirm(`Delete ${email}?`)) return;
+   689→   689→  if (btn) { btn.disabled = true; }
+   690→   690→  try {
+   691→   691→    const resp = await fetch(API + '/api/delete/' + encodeURIComponent(email), { method: 'DELETE' });
+   692→   692→    const data = await resp.json();
+   693→   693→    if (data.success) {
+   694→   694→      showToast(`Deleted: ${email}`, 'success');
+   695→   695→      loadAccounts();
+   696→   696→    } else {
+   697→   697→      showToast('Delete failed', 'error');
+   698→   698→    }
+   699→   699→  } catch (e) {
+   700→   700→    showToast('Error: ' + e.message, 'error');
+   701→   701→  }
+   702→   702→}
+   703→   703→
+   704→   704→// ── Delete exhausted (balance=0) ──
+   705→   705→async function deleteExhausted() {
+   706→   706→  const exhausted = accountsData.filter(acc => {
+   707→   707→    const w = walletCache[acc.email];
+   708→   708→    return w && w.balance !== null && w.balance <= 0;
+   709→   709→  });
+   710→   710→  if (exhausted.length === 0) { showToast('No exhausted accounts', 'success'); return; }
+   711→   711→  if (!confirm(`Delete ${exhausted.length} exhausted accounts?`)) return;
+   712→   712→  for (const acc of exhausted) {
+   713→   713→    try {
+   714→   714→      await fetch(API + '/api/delete/' + encodeURIComponent(acc.email), { method: 'DELETE' });
+   715→   715→    } catch {}
+   716→   716→  }
+   717→   717→  showToast(`Deleted ${exhausted.length} exhausted accounts`, 'success');
+   718→   718→  loadAccounts();
+   719→   719→}
+   720→   720→
+   721→   721→// ── Delete inactive (expired tokens) ──
+   722→   722→async function deleteInactive() {
+   723→   723→  const inactive = accountsData.filter(acc => acc.expired);
+   724→   724→  if (inactive.length === 0) { showToast('No inactive accounts', 'success'); return; }
+   725→   725→  if (!confirm(`Delete ${inactive.length} inactive (expired) accounts?`)) return;
+   726→   726→  for (const acc of inactive) {
+   727→   727→    try {
+   728→   728→      await fetch(API + '/api/delete/' + encodeURIComponent(acc.email), { method: 'DELETE' });
+   729→   729→    } catch {}
+   730→   730→  }
+   731→   731→  showToast(`Deleted ${inactive.length} inactive accounts`, 'success');
+   732→   732→  loadAccounts();
+   733→   733→}
+   734→   734→
+   735→   735→// ── Toast ──
+   736→   736→function showToast(msg, type) {
+   737→   737→  const toast = document.createElement('div');
+   738→   738→  toast.className = 'toast toast-' + (type || 'success');
+   739→   739→  toast.textContent = msg;
+   740→   740→  document.body.appendChild(toast);
+   741→   741→  setTimeout(() => {
+   742→   742→    toast.style.opacity = '0';
+   743→   743→    toast.style.transition = 'opacity 0.3s';
+   744→   744→    setTimeout(() => toast.remove(), 300);
+   745→   745→  }, 3000);
+   746→   746→}
+   747→   747→</script>
+   748→   748→</body>
+   749→   749→</html>
+   750→   750→
