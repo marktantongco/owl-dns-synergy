@@ -1,0 +1,81 @@
+# AutoClaw × OWL-AGENT Integration (Synergy 6)
+
+**Shipped in:** `marktantongco/autoclaw-autologin` **v2.1.0** (2026-09-19)
+
+The OWL-AGENT v5.3 proxy defense stack is now the upstream network-resilience
+layer of AutoClaw: every upstream HTTP call (chat SSE, token refresh, profile,
+wallet, ledger) is routed **proxy-first** with hedged parallel racing and an
+always-available direct fallback.
+
+## Architecture
+
+```
+Flask proxy.py (sync)                     auth.py (sync)
+  chat_completions()                        refresh/profile/wallet/ledger
+    └─ owl_bridge.owl_stream_request()      └─ owl_bridge.owl_request()
+         │  (fallback: requests direct)          │  (fallback: requests direct)
+─────────┼───────────────────────────────────────┼──────────
+         │ run_coroutine_threadsafe (daemon loop thread)
+owl_bridge: hybrid backend loader
+  1. external  ~/.owl-agent/proxy_defense.py   ← wins if installed
+  2. vendored  owl_proxy.py (this integration) ← always-works fallback
+         │
+ResilientClient (OWL-AGENT v5.3-autoclaw)
+  ├─ ProxyPoolManager   seed(100) → dedup → validate → score → pool
+  ├─ hedged race        HEDGE_FANOUT=3 × PROXY_TIMEOUT=6s (headers only)
+  ├─ single-strike ban  idempotent, backoff 60s × fail_count (cap 10)
+  ├─ AdaptiveRateLimiter per-domain buckets; 429 halves, success grows
+  ├─ AsyncCircuitBreaker per-domain, NETWORK failures only
+  ├─ HTTPCache + dedup   GET-only, header-aware keys
+  └─ direct fallback     httpx/http2 or curl_cffi (TLS impersonation)
+```
+
+## Files in this directory
+
+| File | Role |
+|---|---|
+| `owl_proxy.py` | Vendored OWL-AGENT v5.3 core (adapted: streaming, header-aware cache, env-tunable) |
+| `owl_bridge.py` | Sync bridge: hybrid loader, background loop, fail-safe shims, SSE pump |
+| `test_owl_integration.py` | 61 offline tests (core, bridge, Flask routes, Phase-1 regression) |
+
+These are **synced copies** — the canonical versions live in
+`marktantongco/autoclaw-autologin` (v2.1.0 tag).
+
+## Integration adaptations vs upstream OWL-AGENT v5.3
+
+1. **Streaming** — upstream v5.3 buffers whole responses; AutoClaw needs SSE
+   passthrough. `stream_request()` races proxies for *connection
+   establishment* (time-to-headers) and streams the body through the winner.
+2. **Header-aware cache/dedup** — upstream keys omitted auth headers (two
+   accounts would collide). Keys now hash the full header map; only GETs are
+   cached/coalesced (token-refresh POSTs must never be merged).
+3. **Circuit breakers count network failures only** — HTTP 4xx/5xx are
+   application-level signals and never open the breaker.
+4. **Env-tunable** — 12 `OWL_*` variables; no code edits to tune.
+5. **Library-first** — importable module + standalone CLI retained.
+
+## Ops quick reference
+
+```bash
+# Exact v2.0.0 behavior (OWL off)
+OWL_PROXY_ENABLED=0 ./start-proxy.bat
+
+# TLS impersonation (Phase-3 uTLS path)
+pip install curl_cffi && OWL_TLS_IMPERSONATE=chrome110
+
+# Health / stats
+curl -s localhost:31000/health | jq .owl
+python owl_proxy.py stats
+python owl_proxy.py benchmark
+
+# Every chat response tells you the network path:
+#   X-Upstream-Via: direct | owl-proxy/vendored | owl-proxy/external
+```
+
+## Test evidence
+
+```
+61 passed, 0 failed (offline, mocked seams)
+Live smoke: vendored backend booted, 100 proxies seeded from proxifly CDN,
+validators running, /health owl block green (enabled, vendored, 100 total).
+```
