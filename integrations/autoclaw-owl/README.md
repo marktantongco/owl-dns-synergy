@@ -95,3 +95,19 @@ eroslifestyle/ai-router-switch #9):
 Live smoke: vendored backend booted, 100 proxies seeded from proxifly CDN,
 validators running, /health owl block green (enabled, vendored, 100 total).
 ```
+
+## Phase 3 (v2.3.0) — WS fallback × thermoptic × React dashboard
+
+| File | Purpose |
+|---|---|
+| `metrics.py` | Thread-safe dashboard registry: totals, per-status/via/model counters, block + feature counters, latency p95 window, capped request log, SHA-256 masked-IP client list |
+| `ws_fallback.py` | Synergy 13: cloud-to-local WebSocket transport (`autoclaw-ws-agent-v1`), local-agent discovery, network-only breaker; SSE reassembled requests-style so the DSML sieve works unchanged |
+| `thermoptic_bridge.py` | Synergy 14 via [mandatoryprogrammer/thermoptic](https://github.com/mandatoryprogrammer/thermoptic): real-browser JA4+ camouflage egress tier with probe + transport-only breaker |
+| `dashboard-src/` | Vite/React source of the operator dashboard (build → `ui/dashboard/`, served at `/dashboard`); WebSocket metrics stream + REST fallback + backend-switch control surface |
+| `scripts/smoke_test_dsml_live.py` | Live smoke: boots the real proxy, probes real egress, sends the banner+DSML envelope over the live wire; full tool-call round-trips when tokens.json exists |
+| `test_owl_integration.py` | 148 offline tests (Phase 1–3 regression + integration) |
+
+Egress chain order is runtime-switchable from the dashboard control
+surface: `owl-first` (default) | `thermoptic-first` | `direct-only`. The
+WS local-agent engages only after network-level faults on every HTTP
+tier; HTTP 4xx/5xx always pass through verbatim.
