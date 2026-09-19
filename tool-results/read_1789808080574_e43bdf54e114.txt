@@ -1,0 +1,757 @@
+     1→     1→/**
+     2→     2→ * AutoClaw Proxy — Anthropic-format entrypoint.
+     3→     3→ *
+     4→     4→ * Owns ONLY the endpoint surface and wire format:
+     5→     5→ *   POST /v1/messages (+ Anthropic SSE conversion state machine)
+     6→     6→ *   GET  /v1/models (Anthropic list shape), /v1/messages/count_tokens stub
+     7→     7→ * Claude aliases route by AutoClaw CREDIT TIER (opus→High, sonnet→Medium,
+     8→     8→ * haiku→Low) fetched from AutoClaw's remote model-config, degrading to
+     9→     9→ * heuristics when unreachable. Direct AutoClaw model IDs pass through.
+    10→    10→ *
+    11→    11→ * Claude Code CLI setup (~/.claude/settings.json):
+    12→    12→ *   {
+    13→    13→ *     "env": {
+    14→    14→ *       "ANTHROPIC_BASE_URL": "http://localhost:18792",
+    15→    15→ *       "ANTHROPIC_AUTH_TOKEN": "mewmew"
+    16→    16→ *     }
+    17→    17→ *   }
+    18→    18→ */
+    19→    19→
+    20→    20→import {
+    21→    21→  loadConfig, loadModelCatalog, getModelCatalog, createTokenLayer, createLogger,
+    22→    22→  createRateLimiter, createRequestLogger, createJsonlLogger,
+    23→    23→  makeHealthHandler, createGatewayServer, printStartupBanner, installProcessGuards,
+    24→    24→  sendJSON, sendErrorAnthropic, sendClassifiedErrorAnthropic, resolveClientIp,
+    25→    25→  readBody, validateChatPayload, generateId,
+    26→    26→  SSE_HEADERS, validateModelField, lastMessagePreview,
+    27→    27→  logUpstreamErrorBody, callUpstreamWithInvalidRequestRetry,
+    28→    28→  callUpstreamAnthropic, streamLocalGatewayAgent, getLocalGatewayToken,
+    29→    29→  classifyUpstreamError, classifyLocalAgentError, classifyTransportError,
+    30→    30→  shouldFallbackToLocal, createPermanentFailureCache,
+    31→    31→  fetchRemoteModelConfig, annotateCreditTiers, resolveTierTargets,
+    32→    32→  getClientHeaders, VERSION,
+    33→    33→} from "./lib/core.js";
+    34→    34→
+    35→    35→// Config (per-format log filenames come from `format`)
+    36→    36→const config = loadConfig({ format: "anthropic" });
+    37→    37→const { log } = createLogger(config.LOG_LEVEL);
+    38→    38→const { MODELS } = loadModelCatalog(config);
+    39→    39→const { getToken, invalidateToken, startWatch } = createTokenLayer(config, log);
+    40→    40→const { rateLimit, startBucketSweep } = createRateLimiter(config.RATE_LIMIT);
+    41→    41→const { logRequest } = createRequestLogger(config.REQUEST_LOG_FILE);
+    42→    42→const { logJsonl } = createJsonlLogger({ enabled: config.JSONL_LOG, sync: config.JSONL_SYNC, file: config.JSONL_FILE, maxBytes: config.JSONL_MAX_BYTES });
+    43→    43→
+    44→    44→// Remembers models that failed PERMANENTLY (quota exhausted, unknown id) so
+    45→    45→// repeat requests fail instantly instead of replaying doomed attempts.
+    46→    46→const permanentFailures = createPermanentFailureCache();
+    47→    47→
+    48→    48→function invalidateAuth() {
+    49→    49→  invalidateToken();
+    50→    50→  permanentFailures.clear();
+    51→    51→}
+    52→    52→
+    53→    53→startWatch();
+    54→    54→startBucketSweep();
+    55→    55→
+    56→    56→// ─── Credit-tier routing ────────────────────────────────────────────────────
+    57→    57→// Heuristic tiers apply immediately (startup never blocks on the network);
+    58→    58→// the remote model-config refresh lands in the background and re-computes
+    59→    59→// the targets once it arrives.
+    60→    60→
+    61→    61→let tierTargets = resolveTierTargets(annotateCreditTiers(MODELS, null));
+    62→    62→
+    63→    63→async function refreshTiers() {
+    64→    64→  let jwt = null;
+    65→    65→  try { jwt = getToken(); } catch { return; } // no token yet — heuristics only
+    66→    66→  const remote = await fetchRemoteModelConfig(config, jwt);
+    67→    67→  if (!remote) return;
+    68→    68→  tierTargets = resolveTierTargets(annotateCreditTiers(getModelCatalog(config).models, remote));
+    69→    69→  log.info(`Credit-tier routing: opus→${tierTargets.opus} sonnet→${tierTargets.sonnet} haiku→${tierTargets.haiku} default→${tierTargets.default}`);
+    70→    70→}
+    71→    71→refreshTiers();
+    72→    72→
+    73→    73→// Resolve any Anthropic model name to an AutoClaw model ID:
+    74→    74→// exact catalog IDs pass through untouched; claude-* names map by class.
+    75→    75→function resolveModel(anthropicModel) {
+    76→    76→  if (!anthropicModel) return tierTargets.default;
+    77→    77→  const { models } = getModelCatalog(config);
+    78→    78→  if (models.some((m) => m.id === anthropicModel)) return anthropicModel;
+    79→    79→  const CLASS_MAP = [
+    80→    80→    { pattern: /opus/i,   target: tierTargets.opus },
+    81→    81→    { pattern: /sonnet/i, target: tierTargets.sonnet },
+    82→    82→    { pattern: /haiku/i,  target: tierTargets.haiku },
+    83→    83→  ];
+    84→    84→  const match = CLASS_MAP.find((c) => c.pattern.test(anthropicModel));
+    85→    85→  return match ? match.target : tierTargets.default;
+    86→    86→}
+    87→    87→
+    88→    88→// ─── Format conversion (Anthropic <-> OpenAI) ───────────────────────────────
+    89→    89→
+    90→    90→// Convert an Anthropic Messages request body to OpenAI chat/completions format.
+    91→    91→function anthropicToOpenAI(body, modelId) {
+    92→    92→  const messages = [];
+    93→    93→
+    94→    94→  // System prompt
+    95→    95→  if (body.system) {
+    96→    96→    const text = typeof body.system === "string"
+    97→    97→      ? body.system
+    98→    98→      : body.system.filter((b) => b.type === "text").map((b) => b.text).join("\n");
+    99→    99→    if (text) messages.push({ role: "system", content: text });
+   100→   100→  }
+   101→   101→
+   102→   102→  // Convert messages
+   103→   103→  for (const msg of body.messages || []) {
+   104→   104→    const content = msg.content;
+   105→   105→
+   106→   106→    if (typeof content === "string") {
+   107→   107→      messages.push({ role: msg.role, content });
+   108→   108→      continue;
+   109→   109→    }
+   110→   110→
+   111→   111→    if (!Array.isArray(content)) continue;
+   112→   112→
+   113→   113→    const toolResults = [];
+   114→   114→    const toolUses = [];
+   115→   115→    const textParts = [];
+   116→   116→    const imageParts = [];
+   117→   117→
+   118→   118→    // Anthropic image block → OpenAI image_url part (AutoClaw's cloud accepts
+   119→   119→    // native vision parts on the chat/completions wire; probe-verified 2026-09-04).
+   120→   120→    const toOpenAIImage = (block) => {
+   121→   121→      const src = block?.source;
+   122→   122→      if (src?.type === "base64" && typeof src.data === "string") {
+   123→   123→        return { type: "image_url", image_url: { url: `data:${src.media_type || "image/png"};base64,${src.data}` } };
+   124→   124→      }
+   125→   125→      if (src?.type === "url" && typeof src.url === "string") {
+   126→   126→        return { type: "image_url", image_url: { url: src.url } };
+   127→   127→      }
+   128→   128→      return null;
+   129→   129→    };
+   130→   130→
+   131→   131→    for (const block of content) {
+   132→   132→      if (block.type === "tool_result")      toolResults.push(block);
+   133→   133→      else if (block.type === "tool_use")    toolUses.push(block);
+   134→   134→      else if (block.type === "text")        textParts.push(block.text);
+   135→   135→      else if (block.type === "image")       { const p = toOpenAIImage(block); if (p) imageParts.push(p); }
+   136→   136→      else if (block.type === "thinking")    { /* skip */ }
+   137→   137→    }
+   138→   138→
+   139→   139→    // tool_result blocks → "tool" role
+   140→   140→    for (const tr of toolResults) {
+   141→   141→      let resultText;
+   142→   142→      if (typeof tr.content === "string") {
+   143→   143→        resultText = tr.content;
+   144→   144→      } else if (Array.isArray(tr.content)) {
+   145→   145→        resultText = tr.content
+   146→   146→          .filter((b) => b.type === "text")
+   147→   147→          .map((b) => b.text)
+   148→   148→          .join("\n");
+   149→   149→      } else {
+   150→   150→        resultText = JSON.stringify(tr.content);
+   151→   151→      }
+   152→   152→      messages.push({ role: "tool", tool_call_id: tr.tool_use_id, content: resultText });
+   153→   153→    }
+   154→   154→
+   155→   155→    // Build the main message
+   156→   156→    if (msg.role === "assistant" && toolUses.length > 0) {
+   157→   157→      const msgObj = {
+   158→   158→        role: "assistant",
+   159→   159→        tool_calls: toolUses.map((tu) => ({
+   160→   160→          id: tu.id,
+   161→   161→          type: "function",
+   162→   162→          function: { name: tu.name, arguments: JSON.stringify(tu.input) },
+   163→   163→        })),
+   164→   164→      };
+   165→   165→      if (textParts.length > 0) msgObj.content = textParts.join("\n");
+   166→   166→      messages.push(msgObj);
+   167→   167→    } else if (imageParts.length > 0 && msg.role !== "assistant") {
+   168→   168→      // Multimodal user turn: OpenAI array content with text + image parts.
+   169→   169→      const parts = [
+   170→   170→        ...textParts.map((t) => ({ type: "text", text: t })),
+   171→   171→        ...imageParts,
+   172→   172→      ];
+   173→   173→      messages.push({ role: msg.role, content: parts });
+   174→   174→    } else if (textParts.length > 0) {
+   175→   175→      messages.push({ role: msg.role, content: textParts.join("\n") });
+   176→   176→    } else if (toolResults.length === 0 && toolUses.length === 0) {
+   177→   177→      messages.push({ role: msg.role, content: "" });
+   178→   178→    }
+   179→   179→  }
+   180→   180→
+   181→   181→  // Convert Anthropic tool definitions → OpenAI format
+   182→   182→  const openAITools = body.tools?.map((t) => ({
+   183→   183→    type: "function",
+   184→   184→    function: {
+   185→   185→      name: t.name,
+   186→   186→      description: t.description || "",
+   187→   187→      parameters: t.input_schema || { type: "object", properties: {} },
+   188→   188→    },
+   189→   189→  }));
+   190→   190→
+   191→   191→  let openAIToolChoice;
+   192→   192→  if (body.tool_choice) {
+   193→   193→    if (typeof body.tool_choice === "string") {
+   194→   194→      if (body.tool_choice === "any") openAIToolChoice = "required";
+   195→   195→      else if (body.tool_choice !== "auto") openAIToolChoice = body.tool_choice;
+   196→   196→    } else if (body.tool_choice?.type === "tool") {
+   197→   197→      openAIToolChoice = { type: "function", function: { name: body.tool_choice.name } };
+   198→   198→    } else if (body.tool_choice?.type === "any") {
+   199→   199→      openAIToolChoice = "required";
+   200→   200→    }
+   201→   201→  }
+   202→   202→
+   203→   203→  const result = {
+   204→   204→    model:       modelId,
+   205→   205→    messages,
+   206→   206→    stream:      true,
+   207→   207→    max_tokens:  body.max_tokens  ?? 4096,
+   208→   208→    temperature: body.temperature ?? undefined,
+   209→   209→    top_p:       body.top_p       ?? undefined,
+   210→   210→    stop:        body.stop_sequences?.length ? body.stop_sequences : undefined,
+   211→   211→  };
+   212→   212→  if (openAITools?.length)  result.tools = openAITools;
+   213→   213→  if (openAIToolChoice)     result.tool_choice = openAIToolChoice;
+   214→   214→
+   215→   215→  return result;
+   216→   216→}
+   217→   217→
+   218→   218→// Map an OpenAI finish_reason onto Anthropic stop_reason vocabulary
+   219→   219→function anthropicStopReason(finishReason) {
+   220→   220→  return finishReason === "stop" || !finishReason ? "end_turn" : finishReason;
+   221→   221→}
+   222→   222→
+   223→   223→// Buffer all OpenAI SSE chunks and assemble a single Anthropic response object.
+   224→   224→function openAIChunksToAnthropic(raw, modelId, inputTokens) {
+   225→   225→  let content = "", reasoning = "";
+   226→   226→  let id = `msg_${generateId()}`;
+   227→   227→  let model = modelId;
+   228→   228→  let outputTokens = 0;
+   229→   229→  let stopReason = "end_turn";
+   230→   230→  const toolCalls = {};
+   231→   231→
+   232→   232→  for (const line of raw.split("\n")) {
+   233→   233→    if (!line.startsWith("data: ") || line === "data: [DONE]") continue;
+   234→   234→    try {
+   235→   235→      const chunk = JSON.parse(line.slice(6));
+   236→   236→      if (chunk.id)    id    = chunk.id;
+   237→   237→      if (chunk.model) model = chunk.model;
+   238→   238→      const delta = chunk.choices?.[0]?.delta;
+   239→   239→      if (delta?.content)           content   += delta.content;
+   240→   240→      if (delta?.reasoning_content) reasoning += delta.reasoning_content;
+   241→   241→      for (const tc of delta?.tool_calls || []) {
+   242→   242→        if (!toolCalls[tc.index]) toolCalls[tc.index] = { id: "", name: "", arguments: "" };
+   243→   243→        if (tc.id)                  toolCalls[tc.index].id = tc.id;
+   244→   244→        if (tc.function?.name)      toolCalls[tc.index].name = tc.function.name;
+   245→   245→        if (tc.function?.arguments) toolCalls[tc.index].arguments += tc.function.arguments;
+   246→   246→      }
+   247→   247→      const fr = chunk.choices?.[0]?.finish_reason;
+   248→   248→      if (fr === "length") stopReason = "max_tokens";
+   249→   249→      if (fr === "tool_calls") stopReason = "tool_use";
+   250→   250→      if (chunk.usage) outputTokens = chunk.usage.completion_tokens ?? 0;
+   251→   251→    } catch { /* skip malformed lines */ }
+   252→   252→  }
+   253→   253→
+   254→   254→  const contentBlocks = [];
+   255→   255→  if (reasoning) contentBlocks.push({ type: "thinking", thinking: reasoning });
+   256→   256→
+   257→   257→  const sortedIndices = Object.keys(toolCalls).sort((a, b) => Number(a) - Number(b));
+   258→   258→  for (const idx of sortedIndices) {
+   259→   259→    const tc = toolCalls[idx];
+   260→   260→    let input = {};
+   261→   261→    try { input = JSON.parse(tc.arguments); } catch { /* partial JSON */ }
+   262→   262→    contentBlocks.push({ type: "tool_use", id: tc.id, name: tc.name, input });
+   263→   263→  }
+   264→   264→
+   265→   265→  if (content) contentBlocks.push({ type: "text", text: content });
+   266→   266→
+   267→   267→  return {
+   268→   268→    id,
+   269→   269→    type:          "message",
+   270→   270→    role:          "assistant",
+   271→   271→    model,
+   272→   272→    content:       contentBlocks,
+   273→   273→    stop_reason:   stopReason,
+   274→   274→    stop_sequence: null,
+   275→   275→    usage: {
+   276→   276→      input_tokens:  inputTokens ?? 0,
+   277→   277→      output_tokens: outputTokens,
+   278→   278→    },
+   279→   279→  };
+   280→   280→}
+   281→   281→
+   282→   282→// Convert a single OpenAI SSE line to one or more Anthropic SSE event strings.
+   283→   283→function openAIChunkToAnthropicEvents(line, state) {
+   284→   284→  if (!line.startsWith("data: ")) return [];
+   285→   285→
+   286→   286→  if (line === "data: [DONE]") {
+   287→   287→    const events = [];
+   288→   288→    for (const idx of Object.keys(state.toolState).sort((a, b) => Number(a) - Number(b))) {
+   289→   289→      const ts = state.toolState[idx];
+   290→   290→      if (ts.opened && !ts.closed) {
+   291→   291→        events.push(fmt("content_block_stop", { type: "content_block_stop", index: ts.blockIdx }));
+   292→   292→        ts.closed = true;
+   293→   293→      }
+   294→   294→    }
+   295→   295→    if (state.blockOpen) {
+   296→   296→      events.push(fmt("content_block_stop", { type: "content_block_stop", index: state.blockIndex }));
+   297→   297→      state.blockOpen = false;
+   298→   298→    }
+   299→   299→    events.push(fmt("message_delta", {
+   300→   300→      type:  "message_delta",
+   301→   301→      delta: { stop_reason: state.finishReason || "end_turn", stop_sequence: null },
+   302→   302→      usage: { output_tokens: state.outputTokens },
+   303→   303→    }));
+   304→   304→    events.push(fmt("message_stop", { type: "message_stop" }));
+   305→   305→    return events;
+   306→   306→  }
+   307→   307→
+   308→   308→  let chunk;
+   309→   309→  try { chunk = JSON.parse(line.slice(6)); } catch { return []; }
+   310→   310→
+   311→   311→  const delta = chunk.choices?.[0]?.delta;
+   312→   312→  if (!delta) return [];
+   313→   313→
+   314→   314→  const events    = [];
+   315→   315→  const content   = delta.content           ?? "";
+   316→   316→  const reasoning = delta.reasoning_content ?? "";
+   317→   317→  const toolCalls = delta.tool_calls        || [];
+   318→   318→  const fr        = chunk.choices?.[0]?.finish_reason;
+   319→   319→
+   320→   320→  if (chunk.usage) state.outputTokens = chunk.usage.completion_tokens ?? state.outputTokens;
+   321→   321→  if (fr === "length")     state.finishReason = "max_tokens";
+   322→   322→  if (fr === "stop")       state.finishReason = "end_turn";
+   323→   323→  if (fr === "tool_calls") state.finishReason = "tool_use";
+   324→   324→
+   325→   325→  // Tool calls
+   326→   326→  for (const tc of toolCalls) {
+   327→   327→    const idx = tc.index;
+   328→   328→    if (!state.toolState[idx]) {
+   329→   329→      state.toolState[idx] = { id: "", name: "", arguments: "", opened: false, closed: false, blockIdx: -1 };
+   330→   330→    }
+   331→   331→    const ts = state.toolState[idx];
+   332→   332→    if (tc.id)                  ts.id = tc.id;
+   333→   333→    if (tc.function?.name)      ts.name = tc.function.name;
+   334→   334→    if (tc.function?.arguments) ts.arguments += tc.function.arguments;
+   335→   335→
+   336→   336→    if (ts.name && !ts.opened) {
+   337→   337→      if (state.blockOpen) {
+   338→   338→        events.push(fmt("content_block_stop", { type: "content_block_stop", index: state.blockIndex }));
+   339→   339→        state.blockIndex++;
+   340→   340→        state.blockOpen = false;
+   341→   341→        state.thinkingOpen = false;
+   342→   342→        state.textOpen = false;
+   343→   343→      }
+   344→   344→      ts.blockIdx = state.blockIndex;
+   345→   345→      events.push(fmt("content_block_start", {
+   346→   346→        type: "content_block_start", index: state.blockIndex,
+   347→   347→        content_block: { type: "tool_use", id: ts.id, name: ts.name, input: {} },
+   348→   348→      }));
+   349→   349→      ts.opened = true;
+   350→   350→      state.blockOpen = true;
+   351→   351→    }
+   352→   352→
+   353→   353→    if (ts.opened && tc.function?.arguments) {
+   354→   354→      events.push(fmt("content_block_delta", {
+   355→   355→        type: "content_block_delta", index: ts.blockIdx,
+   356→   356→        delta: { type: "input_json_delta", partial_json: tc.function.arguments },
+   357→   357→      }));
+   358→   358→    }
+   359→   359→  }
+   360→   360→
+   361→   361→  // Reasoning
+   362→   362→  if (reasoning && !state.thinkingOpen) {
+   363→   363→    if (state.blockOpen) {
+   364→   364→      events.push(fmt("content_block_stop", { type: "content_block_stop", index: state.blockIndex }));
+   365→   365→      state.blockIndex++;
+   366→   366→      state.blockOpen = false;
+   367→   367→      state.textOpen = false;
+   368→   368→    }
+   369→   369→    events.push(fmt("content_block_start", {
+   370→   370→      type: "content_block_start", index: state.blockIndex,
+   371→   371→      content_block: { type: "thinking", thinking: "" },
+   372→   372→    }));
+   373→   373→    state.thinkingOpen = true;
+   374→   374→    state.blockOpen    = true;
+   375→   375→  }
+   376→   376→
+   377→   377→  if (reasoning) {
+   378→   378→    events.push(fmt("content_block_delta", {
+   379→   379→      type:  "content_block_delta", index: state.blockIndex,
+   380→   380→      delta: { type: "thinking_delta", thinking: reasoning },
+   381→   381→    }));
+   382→   382→  }
+   383→   383→
+   384→   384→  // Text
+   385→   385→  if (content && !state.textOpen) {
+   386→   386→    if (state.thinkingOpen) {
+   387→   387→      events.push(fmt("content_block_stop", { type: "content_block_stop", index: state.blockIndex }));
+   388→   388→      state.blockIndex++;
+   389→   389→      state.thinkingOpen = false;
+   390→   390→      state.blockOpen = false;
+   391→   391→    }
+   392→   392→    for (const idx of Object.keys(state.toolState).sort((a, b) => Number(a) - Number(b))) {
+   393→   393→      const ts = state.toolState[idx];
+   394→   394→      if (ts.opened && !ts.closed) {
+   395→   395→        events.push(fmt("content_block_stop", { type: "content_block_stop", index: ts.blockIdx }));
+   396→   396→        state.blockIndex++;
+   397→   397→        ts.closed = true;
+   398→   398→        state.blockOpen = false;
+   399→   399→      }
+   400→   400→    }
+   401→   401→    if (!state.blockOpen) {
+   402→   402→      events.push(fmt("content_block_start", {
+   403→   403→        type: "content_block_start", index: state.blockIndex,
+   404→   404→        content_block: { type: "text", text: "" },
+   405→   405→      }));
+   406→   406→      state.textOpen  = true;
+   407→   407→      state.blockOpen = true;
+   408→   408→    }
+   409→   409→  }
+   410→   410→
+   411→   411→  if (content) {
+   412→   412→    events.push(fmt("content_block_delta", {
+   413→   413→      type:  "content_block_delta", index: state.blockIndex,
+   414→   414→      delta: { type: "text_delta", text: content },
+   415→   415→    }));
+   416→   416→  }
+   417→   417→
+   418→   418→  return events;
+   419→   419→}
+   420→   420→
+   421→   421→function fmt(event, data) {
+   422→   422→  return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+   423→   423→}
+   424→   424→
+   425→   425→// ─── Routes ─────────────────────────────────────────────────────────────────
+   426→   426→
+   427→   427→function handleModels(req, res) {
+   428→   428→  const { models } = getModelCatalog(config);
+   429→   429→  const data = models.map((m) => ({
+   430→   430→    type:         "model",
+   431→   431→    id:           m.id,
+   432→   432→    display_name: m.name,
+   433→   433→    created_at:   new Date().toISOString(),
+   434→   434→  }));
+   435→   435→  sendJSON(res, {
+   436→   436→    data,
+   437→   437→    has_more: false,
+   438→   438→    first_id: data[0]?.id ?? null,
+   439→   439→    last_id:  data[data.length - 1]?.id ?? null,
+   440→   440→  });
+   441→   441→}
+   442→   442→
+   443→   443→async function handleMessages(req, res) {
+   444→   444→  const startTime = Date.now();
+   445→   445→  const clientIp  = resolveClientIp(req);
+   446→   446→
+   447→   447→  // Model identity isn't known until after conversion — keep these above
+   448→   448→  // record() so validation failures can still log safely (null = unknown).
+   449→   449→  let currentModelId = null;
+   450→   450→  let currentAnthropicModel = null;
+   451→   451→
+   452→   452→  // Exactly one observability entry per request (`via` marks cloud vs local).
+   453→   453→  let recorded = false;
+   454→   454→  function record(status, { lastMessage = null, messageCount = 0, error, via = "cloud", cloud_status, cloud_error } = {}) {
+   455→   455→    if (recorded) return;
+   456→   456→    recorded = true;
+   457→   457→    logRequest({
+   458→   458→      timestamp: new Date().toISOString(),
+   459→   459→      model: currentModelId, anthropic_model: currentAnthropicModel, status, via,
+   460→   460→      last_message: typeof lastMessage === "string"
+   461→   461→        ? lastMessage.substring(0, 300)
+   462→   462→        : JSON.stringify(lastMessage)?.substring(0, 300) ?? "",
+   463→   463→      ...(messageCount ? { message_count: messageCount } : {}),
+   464→   464→      ...(error ? { error } : {}),
+   465→   465→      ...(cloud_status ? { cloud_status, ...(cloud_error ? { cloud_error } : {}) } : {}),
+   466→   466→    });
+   467→   467→    logJsonl({ model: currentModelId, status, ip: clientIp, latencyMs: Date.now() - startTime, ...(via !== "cloud" ? { via } : {}), ...(error ? { error } : {}) });
+   468→   468→  }
+   469→   469→
+   470→   470→  // (logUpstreamErrorBody lives in lib/core.js — shared with openai.js)
+   471→   471→
+   472→   472→  let body;
+   473→   473→  try {
+   474→   474→    body = await readBody(req, config.MAX_BODY_BYTES);
+   475→   475→  } catch (err) {
+   476→   476→    record(err.statusCode || 400, { error: "invalid_request" });
+   477→   477→    return sendErrorAnthropic(res, err.message, "invalid_request_error", err.statusCode || 400, "invalid_request");
+   478→   478→  }
+   479→   479→
+   480→   480→  const modelFieldError = validateModelField(body);
+   481→   481→  if (modelFieldError) {
+   482→   482→    record(400, { error: "invalid_request" });
+   483→   483→    return sendErrorAnthropic(res, modelFieldError.message, modelFieldError.type, modelFieldError.status, modelFieldError.code);
+   484→   484→  }
+   485→   485→  if (!Array.isArray(body.messages) || body.messages.length === 0) {
+   486→   486→    record(400, { error: "invalid_request" });
+   487→   487→    return sendErrorAnthropic(res, "messages must be a non-empty array", "invalid_request_error", 400, "invalid_messages");
+   488→   488→  }
+   489→   489→
+   490→   490→  const modelId    = resolveModel(body.model);
+   491→   491→  const stream     = body.stream === true; // Anthropic defaults to non-streaming
+   492→   492→  const openAIBody = anthropicToOpenAI(body, modelId);
+   493→   493→  const payloadError = validateChatPayload(openAIBody, config.MAX_MESSAGES);
+   494→   494→  if (payloadError) {
+   495→   495→    record(payloadError.statusCode, { error: "payload_too_large" });
+   496→   496→    return sendErrorAnthropic(res, payloadError.message, "invalid_request_error", payloadError.statusCode, "invalid_payload");
+   497→   497→  }
+   498→   498→
+   499→   499→  currentModelId = modelId;
+   500→   500→  currentAnthropicModel = body.model;
+   501→   501→  log.info(`messages model=${body.model} -> ${modelId} stream=${stream}`);
+   502→   502→
+   503→   503→  const lastMsgForLog = () => lastMessagePreview(openAIBody.messages);
+   504→   504→
+   505→   505→  // Local AutoClaw WebSocket agent fallback (same trigger rules as the OpenAI
+   506→   506→  // entrypoint — this is what gives Anthropic its 402/403/5xx parity).
+   507→   507→  // Set when the cloud upstream rejects the request before fallback runs;
+   508→   508→  // consumed by record() so the terminal entry carries the cloud verdict.
+   509→   509→  let cloudEvidence = null;
+   510→   510→  const tryLocalAgent = () => {
+   511→   511→    if (!getLocalGatewayToken()) return Promise.resolve(false);
+   512→   512→    log.info(`Executing chat model=${modelId} via local AutoClaw WebSocket agent...`);
+   513→   513→    return new Promise((resolve) => {
+   514→   514→      let fullContent = "";
+   515→   515→      let streamedStart = false;
+   516→   516→      const startedAt = Date.now();
+   517→   517→
+   518→   518→      streamLocalGatewayAgent({
+   519→   519→        config,
+   520→   520→        modelId,
+   521→   521→        messages: openAIBody.messages,
+   522→   522→        onChunk: ({ delta }) => {
+   523→   523→          if (stream) {
+   524→   524→            if (!streamedStart) {
+   525→   525→              streamedStart = true;
+   526→   526→              res.writeHead(200, SSE_HEADERS);
+   527→   527→              res.write(fmt("message_start", {
+   528→   528→                type: "message_start",
+   529→   529→                message: {
+   530→   530→                  id: `msg_${generateId()}`, type: "message", role: "assistant",
+   531→   531→                  model: body.model, content: [], stop_reason: null, stop_sequence: null,
+   532→   532→                  usage: { input_tokens: 0, output_tokens: 0 },
+   533→   533→                },
+   534→   534→              }));
+   535→   535→              res.write(fmt("content_block_start", {
+   536→   536→                type: "content_block_start", index: 0,
+   537→   537→                content_block: { type: "text", text: "" },
+   538→   538→              }));
+   539→   539→            }
+   540→   540→            res.write(fmt("content_block_delta", {
+   541→   541→              type: "content_block_delta", index: 0,
+   542→   542→              delta: { type: "text_delta", text: delta },
+   543→   543→            }));
+   544→   544→          } else {
+   545→   545→            fullContent += delta;
+   546→   546→          }
+   547→   547→        },
+   548→   548→        onEnd: ({ finishReason }) => {
+   549→   549→          if (stream) {
+   550→   550→            res.write(fmt("content_block_stop", { type: "content_block_stop", index: 0 }));
+   551→   551→            res.write(fmt("message_delta", {
+   552→   552→              type: "message_delta",
+   553→   553→              delta: { stop_reason: anthropicStopReason(finishReason), stop_sequence: null },
+   554→   554→              usage: { output_tokens: 0 },
+   555→   555→            }));
+   556→   556→            res.write(fmt("message_stop", { type: "message_stop" }));
+   557→   557→            res.end();
+   558→   558→          } else {
+   559→   559→            sendJSON(res, {
+   560→   560→              id: `msg_${generateId()}`,
+   561→   561→              type: "message",
+   562→   562→              role: "assistant",
+   563→   563→              model: body.model,
+   564→   564→              content: [{ type: "text", text: fullContent }],
+   565→   565→              stop_reason: anthropicStopReason(finishReason),
+   566→   566→              stop_sequence: null,
+   567→   567→              usage: { input_tokens: 0, output_tokens: 0 },
+   568→   568→            });
+   569→   569→          }
+   570→   570→          log.info(`chat model=${modelId} served via local agent (${Date.now() - startedAt}ms)`);
+   571→   571→          record(200, {
+   572→   572→            lastMessage: fullContent,
+   573→   573→            messageCount: openAIBody.messages?.length || 0,
+   574→   574→            via: "local",
+   575→   575→            ...(cloudEvidence ? { cloud_status: cloudEvidence.status, cloud_error: cloudEvidence.code } : {}),
+   576→   576→          });
+   577→   577→          resolve(true);
+   578→   578→        },
+   579→   579→        onError: (err) => {
+   580→   580→          log.warn(`Local gateway execution failed: ${err.message}`);
+   581→   581→          const cls = classifyLocalAgentError(err, modelId);
+   582→   582→          permanentFailures.mark(modelId, cls);
+   583→   583→          if (res.headersSent) {
+   584→   584→            // Stream already started — close it rather than throwing a
+   585→   585→            // second writeHead onto a spent response.
+   586→   586→            try { res.end(); } catch (_) {}
+   587→   587→            record(cls.status, { error: `${cls.code} (mid-stream)`, via: "local", ...(cloudEvidence ? { cloud_status: cloudEvidence.status, cloud_error: cloudEvidence.code } : {}) });
+   588→   588→          } else {
+   589→   589→            record(cls.status, { error: cls.code, via: "local", ...(cloudEvidence ? { cloud_status: cloudEvidence.status, cloud_error: cloudEvidence.code } : {}) });
+   590→   590→            sendClassifiedErrorAnthropic(res, cls);
+   591→   591→          }
+   592→   592→          resolve(true);
+   593→   593→        },
+   594→   594→      });
+   595→   595→    });
+   596→   596→  };
+   597→   597→
+   598→   598→  try {
+   599→   599→    // PREFER_LOCAL=1 fast path — skip doomed cloud attempts entirely.
+   600→   600→    if (config.PREFER_LOCAL && getLocalGatewayToken()) {
+   601→   601→      if (await tryLocalAgent()) return;
+   602→   602→    }
+   603→   603→
+   604→   604→    const cachedFailure = permanentFailures.get(modelId);
+   605→   605→    if (cachedFailure) {
+   606→   606→      log.info(`chat model=${modelId} short-circuited: ${cachedFailure.code} (recently confirmed)`);
+   607→   607→      record(cachedFailure.status, { error: cachedFailure.code });
+   608→   608→      return sendClassifiedErrorAnthropic(res, cachedFailure);
+   609→   609→    }
+   610→   610→
+   611→   611→    // Cloud call with one retry on the flaky 400 "invalid request" hiccup;
+   612→   612→    // every >=400 body is buffered + logged (R1). Shared with openai.js.
+   613→   613→    const { res: upstreamRes, errBody: upstreamErrBody } = await callUpstreamWithInvalidRequestRetry(
+   614→   614→      () => callUpstreamAnthropic(config, getClientHeaders(config), getToken, openAIBody, modelId),
+   615→   615→      modelId, permanentFailures, log,
+   616→   616→    );
+   617→   617→
+   618→   618→    const statusCode = upstreamRes.statusCode;
+   619→   619→
+   620→   620→    // Rotate token caches BEFORE deciding fallback so the very next request
+   621→   621→    // picks up the fresh JWT regardless of who serves this one.
+   622→   622→    if (statusCode === 401) invalidateAuth();
+   623→   623→
+   624→   624→    if (shouldFallbackToLocal(statusCode)) {
+   625→   625→      const cls = classifyUpstreamError(statusCode, upstreamErrBody, modelId);
+   626→   626→      if (cls.permanent) permanentFailures.mark(modelId, cls);
+   627→   627→      log.error(`Upstream error ${statusCode}:`, cls.message);
+   628→   628→      cloudEvidence = { status: statusCode, code: cls.code };
+   629→   629→
+   630→   630→      // The desktop gateway shares this AutoClaw account — quota walls stop
+   631→   631→      // it too, so don't march known-permanent failures into it.
+   632→   632→      if (!cls.permanent || !permanentFailures.get(modelId)) {
+   633→   633→        if (await tryLocalAgent()) return;
+   634→   634→      } else {
+   635→   635→        log.info(`Skipping local fallback for ${modelId}: ${cls.code} is account-wide`);
+   636→   636→      }
+   637→   637→
+   638→   638→      record(cls.status, {
+   639→   639→        lastMessage: lastMsgForLog(),
+   640→   640→        messageCount: openAIBody.messages?.length || 0,
+   641→   641→        error: cls.code,
+   642→   642→        ...(statusCode !== cls.status ? { cloud_status: statusCode, cloud_error: cls.code } : {}),
+   643→   643→      });
+   644→   644→      return sendClassifiedErrorAnthropic(res, cls);
+   645→   645→    }
+   646→   646→
+   647→   647→    // Success paths
+   648→   648→    record(statusCode, { lastMessage: lastMsgForLog(), messageCount: openAIBody.messages?.length || 0 });
+   649→   649→
+   650→   650→    if (stream) {
+   651→   651→      res.writeHead(200, SSE_HEADERS);
+   652→   652→
+   653→   653→      res.write(fmt("message_start", {
+   654→   654→        type:    "message_start",
+   655→   655→        message: {
+   656→   656→          id: `msg_${generateId()}`, type: "message", role: "assistant",
+   657→   657→          model: modelId, content: [], stop_reason: null, stop_sequence: null,
+   658→   658→          usage: { input_tokens: 0, output_tokens: 0 },
+   659→   659→        },
+   660→   660→      }));
+   661→   661→      res.write(fmt("ping", { type: "ping" }));
+   662→   662→
+   663→   663→      const state = {
+   664→   664→        blockIndex: 0, blockOpen: false,
+   665→   665→        thinkingOpen: false, textOpen: false,
+   666→   666→        outputTokens: 0, finishReason: "end_turn",
+   667→   667→        toolState: {},
+   668→   668→      };
+   669→   669→
+   670→   670→      let buffer = "";
+   671→   671→      upstreamRes.on("data", (chunk) => {
+   672→   672→        buffer += chunk.toString();
+   673→   673→        const lines = buffer.split("\n");
+   674→   674→        buffer = lines.pop();
+   675→   675→        for (const line of lines) {
+   676→   676→          for (const e of openAIChunkToAnthropicEvents(line.trim(), state)) res.write(e);
+   677→   677→        }
+   678→   678→      });
+   679→   679→
+   680→   680→      upstreamRes.on("end", () => {
+   681→   681→        if (buffer.trim()) {
+   682→   682→          for (const e of openAIChunkToAnthropicEvents(buffer.trim(), state)) res.write(e);
+   683→   683→        }
+   684→   684→        for (const e of openAIChunkToAnthropicEvents("data: [DONE]", state)) res.write(e);
+   685→   685→        res.end();
+   686→   686→      });
+   687→   687→
+   688→   688→      upstreamRes.on("error", (err) => { log.error("Stream error:", err); res.end(); });
+   689→   689→      return;
+   690→   690→    }
+   691→   691→
+   692→   692→    // Non-stream: buffer everything into one Anthropic response object.
+   693→   693→    let raw = "";
+   694→   694→    upstreamRes.on("data", (c) => (raw += c));
+   695→   695→    upstreamRes.on("end", () => {
+   696→   696→      try {
+   697→   697→        const inputTokens = (body.messages?.length ?? 1) * 10; // rough estimate only
+   698→   698→        sendJSON(res, openAIChunksToAnthropic(raw, modelId, inputTokens));
+   699→   699→      } catch (err) {
+   700→   700→        if (!res.headersSent) sendErrorAnthropic(res, `Failed to parse upstream response: ${err.message}`, "api_error", 502, "upstream_parse_failed");
+   701→   701→        else { try { res.end(); } catch (_) {} }
+   702→   702→      }
+   703→   703→    });
+   704→   704→  } catch (err) {
+   705→   705→    const cls = classifyTransportError(err);
+   706→   706→    log.error(`messages model=${body.model} transport failure:`, cls.message);
+   707→   707→    if (!res.headersSent && shouldFallbackToLocal(cls.status)) {
+   708→   708→      if (await tryLocalAgent()) return;
+   709→   709→    }
+   710→   710→    if (res.headersSent) { try { res.end(); } catch (_) {} return; }
+   711→   711→    record(cls.status, { lastMessage: lastMsgForLog(), messageCount: openAIBody.messages?.length || 0, error: cls.code });
+   712→   712→    return sendClassifiedErrorAnthropic(res, cls);
+   713→   713→  }
+   714→   714→}
+   715→   715→
+   716→   716→// Server
+   717→   717→
+   718→   718→const server = createGatewayServer({
+   719→   719→  config, log, rateLimit,
+   720→   720→  sendError: sendErrorAnthropic,
+   721→   721→  routes: [
+   722→   722→    { method: "GET",  path: "/healthz",                     handler: makeHealthHandler(config, getToken) },
+   723→   723→    { method: "GET",  path: "/v1/models",                   handler: handleModels },
+   724→   724→    { method: "POST", path: "/v1/messages",                 handler: handleMessages },
+   725→   725→    // Claude Code probes token counts pre-flight; we don't tokenize locally,
+   726→   726→    // so report zero rather than 404-ing the whole session handshake.
+   727→   727→    { path: "/v1/messages/count_tokens", handler: (req, res) => sendJSON(res, { input_tokens: 0 }) },
+   728→   728→  ],
+   729→   729→});
+   730→   730→
+   731→   731→installProcessGuards(log);
+   732→   732→
+   733→   733→server.listen(config.PORT, config.HOST, () => {
+   734→   734→  printStartupBanner({
+   735→   735→    title: `🛸  AUTOCLAW GATEWAY PROXY (Anthropic Format v${VERSION})`,
+   736→   736→    rows: [
+   737→   737→      `Host     : ${config.HOST}`,
+   738→   738→      `Port     : ${config.PORT}`,
+   739→   739→      `Auth Key : ${config.PROXY_KEY}`,
+   740→   740→      `Rate Lim : ${config.RATE_LIMIT} req/s per IP`,
+   741→   741→      `Max Msgs : ${Number.isFinite(config.MAX_MESSAGES) ? `${config.MAX_MESSAGES} entries` : "unlimited"}`,
+   742→   742→      `Models   : ${MODELS.map(m => m.id).join(", ")}`,
+   743→   743→      "",
+   744→   744→      "Claude Code CLI Base URL:",
+   745→   745→      `http://${config.HOST}:${config.PORT}`,
+   746→   746→      `Routing  : opus→${tierTargets.opus} sonnet→${tierTargets.sonnet} haiku→${tierTargets.haiku}`,
+   747→   747→    ],
+   748→   748→  });
+   749→   749→
+   750→   750→  try {
+   751→   751→    getToken();
+   752→   752→    console.log("  ✅  Token loaded - ready\n");
+   753→   753→  } catch (e) {
+   754→   754→    console.warn(`  ⚠️   ${e.message}\n`);
+   755→   755→  }
+   756→   756→});
+   757→   757→

@@ -1,0 +1,1287 @@
+     1→/**
+     2→ * AutoClaw Proxy
+     3→ *
+     4→ * OpenAI-compatible HTTP proxy for AutoClaw's Zhipu AI backend.
+     5→ *
+     6→ * How it works (same pattern as antigravity-claude-proxy / acc):
+     7→ *   AutoClaw keeps a fresh JWT at ~/.openclaw-autoclaw/request-headers.json,
+     8→ *   auto-refreshed whenever it rotates. We read that file on startup and
+     9→ *   re-read it every TOKEN_TTL_MS — zero manual auth setup required.
+    10→ *
+    11→ *   Requests are forwarded to AutoClaw's real OpenAI-compatible API:
+    12→ *   https://autoglm-api.autoglm.ai/autoclaw-proxy/proxy/autoclaw/v1/chat/completions
+    13→ *
+    14→ * Usage:
+    15→ *   node main.js
+    16→ *   PORT=3001 node main.js
+    17→ *
+    18→ * OpenCode / any OpenAI-compatible client:
+    19→ *   baseURL : http://localhost:18791/v1
+    20→ *   apiKey  : (value of PROXY_KEY env, default "mewmew")
+    21→ */
+    22→
+    23→import http from "http";
+    24→import fs from "fs";
+    25→import os from "os";
+    26→import path from "path";
+    27→import { spawn, spawnSync } from "child_process";
+    28→import { fileURLToPath } from "url";
+    29→import {
+    30→  loadConfig, loadModelCatalog, createTokenLayer, createLogger,
+    31→  sendJSON, sendErrorOpenAI, readBody, isAuthorized, generateId,
+    32→  collectResponse, createRateLimiter, clientIpOpenAI,
+    33→  createRequestLogger, createJsonlLogger, createTelemetry, maskClientIp, callUpstreamOpenAI,
+    34→  callAutoClawWithRetry, resolveAutoClawModel, createOpenRouterLayer, callUpstreamOpenRouter,
+    35→  BOX_W, boxRow,
+    36→} from "./lib/core.js";
+    37→import {
+    38→  applyChatChunk, collectChatSse, createResponseFromChat,
+    39→  createLocalCompaction, createResponsesStream, parseChatSseLine, responsesToChat,
+    40→} from "./lib/responses.js";
+    41→import { upsertManagedPrompt, MANAGED_PROMPT_START } from "./lib/agent-prompt.js";
+    42→
+    43→const __dirname = path.dirname(fileURLToPath(import.meta.url));
+    44→const PUBLIC_DIR = path.join(__dirname, "public");
+    45→
+    46→// Config
+    47→const config = loadConfig({ defaultPort: 18791 });
+    48→const { log } = createLogger(config.LOG_LEVEL);
+    49→const { MODELS, KNOWN_IDS } = loadModelCatalog(config);
+    50→const { getToken, invalidateToken, startWatch } = createTokenLayer(config, log);
+    51→const openRouter = createOpenRouterLayer(config, log);
+    52→const { rateLimit, startBucketSweep, snapshot: rateLimitSnapshot } = createRateLimiter(config.RATE_LIMIT);
+    53→const { logRequest } = createRequestLogger(config.REQUEST_LOG_FILE);
+    54→const { logJsonl } = createJsonlLogger({ enabled: config.JSONL_LOG, file: config.JSONL_FILE, maxBytes: config.JSONL_MAX_BYTES });
+    55→const telemetry = createTelemetry({ file: config.TELEMETRY_FILE, maxBytes: config.TELEMETRY_MAX_BYTES });
+    56→
+    57→startWatch();
+    58→startBucketSweep();
+    59→
+    60→// Alias so all existing call sites stay unchanged
+    61→const sendError = sendErrorOpenAI;
+    62→
+    63→function numberOrZero(value) {
+    64→  const parsed = Number(value);
+    65→  return Number.isFinite(parsed) ? parsed : 0;
+    66→}
+    67→
+    68→function isSafeModelId(value) {
+    69→  return typeof value === "string"
+    70→    && value.length > 0
+    71→    && value.length <= 256
+    72→    && /^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(value);
+    73→}
+    74→
+    75→function recordProxyRequest({ protocol = "openai", model, status, ip, startTime, usage = {}, stream = false, upstream = "autoclaw" }) {
+    76→  const inputTokens = numberOrZero(usage.input_tokens ?? usage.inputTokens ?? usage.prompt_tokens);
+    77→  const outputTokens = numberOrZero(usage.output_tokens ?? usage.outputTokens ?? usage.completion_tokens);
+    78→  telemetry.record({
+    79→    protocol,
+    80→    upstream,
+    81→    model,
+    82→    status,
+    83→    client: maskClientIp(ip),
+    84→    latencyMs: Math.max(0, Date.now() - startTime),
+    85→    inputTokens,
+    86→    outputTokens,
+    87→    totalTokens: numberOrZero(usage.total_tokens ?? usage.totalTokens) || inputTokens + outputTokens,
+    88→    stream,
+    89→  });
+    90→}
+    91→
+    92→async function runOpenAIUpstream(body, modelId, { preferOpenRouter = false } = {}) {
+    93→  const fallback = openRouter.load();
+    94→  if (preferOpenRouter && fallback.configured) {
+    95→    const response = await callUpstreamOpenRouter(config, fallback, body, log);
+    96→    return { response, errorBody: "", provider: "openrouter", reason: "responses_primary" };
+    97→  }
+    98→  try {
+    99→    const autoclaw = await callAutoClawWithRetry({
+   100→      primary: () => callUpstreamOpenAI(KNOWN_IDS, config.CLIENT_HEADERS, getToken, body, modelId, log, config.UPSTREAM_URL),
+   101→      log,
+   102→    });
+   103→    if (autoclaw.response.statusCode < 400 || !fallback.configured) return autoclaw;
+   104→    log.warn(`AutoClaw status=${autoclaw.response.statusCode}; switching to OpenRouter model=${fallback.model}`);
+   105→  } catch (error) {
+   106→    if (!fallback.configured) throw error;
+   107→    log.warn(`AutoClaw unavailable (${error.message}); switching to OpenRouter model=${fallback.model}`);
+   108→  }
+   109→
+   110→  const response = await callUpstreamOpenRouter(config, fallback, body, log);
+   111→  return { response, errorBody: "", provider: "openrouter", reason: "autoclaw_failed" };
+   112→}
+   113→
+   114→function createUsageTracker(onComplete) {
+   115→  const state = { toolCalls: new Map(), text: "", reasoning: "", inputTokens: 0, outputTokens: 0 };
+   116→  let buffer = "";
+   117→  let settled = false;
+   118→  const finish = () => {
+   119→    if (settled) return;
+   120→    settled = true;
+   121→    onComplete({
+   122→      prompt_tokens: state.inputTokens,
+   123→      completion_tokens: state.outputTokens,
+   124→      total_tokens: state.inputTokens + state.outputTokens,
+   125→    });
+   126→  };
+   127→  return {
+   128→    push(chunk) {
+   129→      buffer += chunk.toString();
+   130→      const lines = buffer.split(/\r?\n/);
+   131→      buffer = lines.pop() || "";
+   132→      for (const line of lines) {
+   133→        const parsed = parseChatSseLine(line);
+   134→        if (parsed) applyChatChunk(state, parsed);
+   135→      }
+   136→    },
+   137→    finish,
+   138→  };
+   139→}
+   140→
+   141→// Responses clients (including Codex Desktop) can refer to the preceding
+   142→// response instead of resending the whole conversation. The upstream is Chat
+   143→// Completions, so retain a short, per-client history locally and expand it
+   144→// before forwarding. It is intentionally memory-only and expires on restart.
+   145→const responseHistories = new Map();
+   146→const RESPONSE_HISTORY_MAX = 256;
+   147→const RESPONSE_HISTORY_TTL_MS = 6 * 60 * 60 * 1000;
+   148→
+   149→function trimResponseHistories() {
+   150→  const cutoff = Date.now() - RESPONSE_HISTORY_TTL_MS;
+   151→  for (const [id, entry] of responseHistories) {
+   152→    if (entry.createdAt < cutoff) responseHistories.delete(id);
+   153→  }
+   154→  while (responseHistories.size > RESPONSE_HISTORY_MAX) {
+   155→    const oldest = responseHistories.keys().next().value;
+   156→    if (!oldest) break;
+   157→    responseHistories.delete(oldest);
+   158→  }
+   159→}
+   160→
+   161→function responseToChatMessage(response) {
+   162→  const text = response.output
+   163→    ?.filter((item) => item.type === "message")
+   164→    .flatMap((item) => item.content || [])
+   165→    .filter((part) => part.type === "output_text")
+   166→    .map((part) => part.text || "")
+   167→    .join("") || "";
+   168→  const toolCalls = (response.output || [])
+   169→    .filter((item) => item.type === "function_call")
+   170→    .map((item) => ({
+   171→      id: item.call_id,
+   172→      type: "function",
+   173→      function: { name: item.name, arguments: item.arguments || "{}" },
+   174→    }));
+   175→  return {
+   176→    role: "assistant",
+   177→    content: text,
+   178→    ...(toolCalls.length ? { tool_calls: toolCalls } : {}),
+   179→  };
+   180→}
+   181→
+   182→function rememberResponse(response, messages, client) {
+   183→  if (!response?.id) return;
+   184→  responseHistories.set(response.id, {
+   185→    client,
+   186→    createdAt: Date.now(),
+   187→    messages: [...messages, responseToChatMessage(response)],
+   188→  });
+   189→  trimResponseHistories();
+   190→}
+   191→
+   192→function resolvePreviousResponse(responseId, client) {
+   193→  if (!responseId) return [];
+   194→  trimResponseHistories();
+   195→  const entry = responseHistories.get(responseId);
+   196→  if (!entry || entry.client !== client) return null;
+   197→  return entry.messages;
+   198→}
+   199→
+   200→const MIME_TYPES = {
+   201→  ".css": "text/css; charset=utf-8",
+   202→  ".html": "text/html; charset=utf-8",
+   203→  ".ico": "image/x-icon",
+   204→  ".js": "text/javascript; charset=utf-8",
+   205→  ".json": "application/json; charset=utf-8",
+   206→  ".map": "application/json; charset=utf-8",
+   207→  ".png": "image/png",
+   208→  ".svg": "image/svg+xml",
+   209→  ".txt": "text/plain; charset=utf-8",
+   210→  ".woff2": "font/woff2",
+   211→};
+   212→
+   213→function serveStaticDashboard(req, res, pathname) {
+   214→  if (req.method !== "GET" && req.method !== "HEAD") return false;
+   215→  if (pathname === "/api" || pathname.startsWith("/api/") || pathname.startsWith("/v1/") || pathname === "/healthz") return false;
+   216→
+   217→  let relativePath;
+   218→  try {
+   219→    relativePath = pathname === "/" ? "index.html" : decodeURIComponent(pathname).replace(/^[/\\]+/, "");
+   220→  } catch {
+   221→    sendError(res, "Invalid path", "invalid_request", 400);
+   222→    return true;
+   223→  }
+   224→  const hasExtension = path.extname(relativePath) !== "";
+   225→  const filePath = path.resolve(PUBLIC_DIR, relativePath);
+   226→  const publicPrefix = `${path.resolve(PUBLIC_DIR)}${path.sep}`;
+   227→  if (filePath !== path.resolve(PUBLIC_DIR) && !filePath.startsWith(publicPrefix)) {
+   228→    sendError(res, "Invalid path", "invalid_request", 400);
+   229→    return true;
+   230→  }
+   231→
+   232→  let selectedPath = filePath;
+   233→  try {
+   234→    if (!fs.statSync(selectedPath).isFile()) throw new Error("not a file");
+   235→  } catch {
+   236→    if (hasExtension) return false;
+   237→    selectedPath = path.join(PUBLIC_DIR, "index.html");
+   238→    try {
+   239→      if (!fs.statSync(selectedPath).isFile()) return false;
+   240→    } catch {
+   241→      return false;
+   242→    }
+   243→  }
+   244→
+   245→  try {
+   246→    const content = fs.readFileSync(selectedPath);
+   247→    const extension = path.extname(selectedPath).toLowerCase();
+   248→    res.writeHead(200, {
+   249→      "Content-Type": MIME_TYPES[extension] || "application/octet-stream",
+   250→      "Content-Length": content.length,
+   251→      "Cache-Control": extension === ".html" ? "no-cache" : "public, max-age=3600",
+   252→    });
+   253→    if (req.method !== "HEAD") res.end(content); else res.end();
+   254→  } catch {
+   255→    sendError(res, "Unable to load dashboard", "api_error", 500);
+   256→  }
+   257→  return true;
+   258→}
+   259→
+   260→function isLoopbackRequest(req) {
+   261→  const peer = (req.socket.remoteAddress || "").replace(/^::ffff:/, "");
+   262→  return peer === "::1" || peer === "localhost" || peer.startsWith("127.");
+   263→}
+   264→
+   265→function proxyBaseUrl(port = config.PORT) {
+   266→  const host = process.env.HOST || "127.0.0.1";
+   267→  const displayHost = host === "0.0.0.0" || host === "::" ? "127.0.0.1" : host;
+   268→  return `http://${displayHost}:${port}`;
+   269→}
+   270→
+   271→function dashboardRecords() {
+   272→  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+   273→  return telemetry.recent(2_000).filter((entry) => {
+   274→    const timestamp = new Date(entry.ts).getTime();
+   275→    return Number.isFinite(timestamp) && timestamp >= cutoff;
+   276→  });
+   277→}
+   278→
+   279→function dashboardOverview() {
+   280→  const records = dashboardRecords();
+   281→  const usage = { requests: records.length, inputTokens: 0, outputTokens: 0, totalTokens: 0, successRate: 0, avgLatencyMs: 0 };
+   282→  let successful = 0;
+   283→  let totalLatency = 0;
+   284→  const clients = new Map();
+   285→  const modelUsage = new Map();
+   286→  const now = Date.now();
+   287→  const activity = Array.from({ length: 12 }, (_, index) => {
+   288→    const start = now - (12 - index) * 2 * 60 * 60 * 1000;
+   289→    return { start, end: start + 2 * 60 * 60 * 1000, requests: 0 };
+   290→  });
+   291→
+   292→  for (const entry of records) {
+   293→    const inputTokens = numberOrZero(entry.inputTokens);
+   294→    const outputTokens = numberOrZero(entry.outputTokens);
+   295→    const totalTokens = numberOrZero(entry.totalTokens) || inputTokens + outputTokens;
+   296→    const status = numberOrZero(entry.status);
+   297→    usage.inputTokens += inputTokens;
+   298→    usage.outputTokens += outputTokens;
+   299→    usage.totalTokens += totalTokens;
+   300→    totalLatency += numberOrZero(entry.latencyMs);
+   301→    if (status >= 200 && status < 400) successful += 1;
+   302→
+   303→    const clientId = entry.client || "local";
+   304→    if (!clients.has(clientId)) clients.set(clientId, { id: clientId, requests: 0, totalTokens: 0, errors: 0, lastSeen: entry.ts });
+   305→    const client = clients.get(clientId);
+   306→    client.requests += 1;
+   307→    client.totalTokens += totalTokens;
+   308→    if (status >= 400 || status === 0) client.errors += 1;
+   309→    if (new Date(entry.ts).getTime() > new Date(client.lastSeen).getTime()) client.lastSeen = entry.ts;
+   310→
+   311→    const key = entry.model || "Modelo não informado";
+   312→    if (!modelUsage.has(key)) modelUsage.set(key, { id: key, name: key, requests: 0, totalTokens: 0 });
+   313→    const model = modelUsage.get(key);
+   314→    model.requests += 1;
+   315→    model.totalTokens += totalTokens;
+   316→
+   317→    const timestamp = new Date(entry.ts).getTime();
+   318→    const bucket = activity.find((point) => timestamp >= point.start && timestamp < point.end);
+   319→    if (bucket) bucket.requests += 1;
+   320→  }
+   321→
+   322→  usage.successRate = usage.requests ? successful / usage.requests : 0;
+   323→  usage.avgLatencyMs = usage.requests ? Math.round(totalLatency / usage.requests) : 0;
+   324→  const clientRows = [...clients.values()]
+   325→    .map((client) => ({ ...client, errorRate: client.requests ? client.errors / client.requests : 0 }))
+   326→    .sort((a, b) => new Date(b.lastSeen) - new Date(a.lastSeen));
+   327→
+   328→  let tokenOk = true;
+   329→  let tokenError = null;
+   330→  try { getToken(); } catch (error) { tokenOk = false; tokenError = error.message; }
+   331→  const baseUrl = `${proxyBaseUrl()}/v1`;
+   332→  const codex = getCodexStatus();
+   333→  const opencode = getOpenCodeStatus();
+   334→  const claude = getClaudeCodeStatus();
+   335→  return {
+   336→    health: {
+   337→      ok: tokenOk,
+   338→      status: tokenOk ? "Proxy online" : "Aguardando AutoClaw",
+   339→      primaryReady: tokenOk,
+   340→      ...(tokenError ? { error: tokenError } : {}),
+   341→    },
+   342→    endpoint: {
+   343→      baseUrl,
+   344→      responsesUrl: `${baseUrl}/responses`,
+   345→      anthropicUrl: `${proxyBaseUrl(18792)}/v1/messages`,
+   346→    },
+   347→    rateLimit: rateLimitSnapshot(),
+   348→    fallback: {
+   349→      ready: openRouter.status().configured,
+   350→      mode: openRouter.status().configured ? "openrouter" : "not-configured",
+   351→      model: openRouter.status().model,
+   352→      url: "https://openrouter.ai/keys",
+   353→    },
+   354→    usage,
+   355→    models: MODELS.map((model) => ({ id: model.id, name: model.name, contextWindow: model.contextWindow, maxTokens: model.maxTokens })),
+   356→    clients: clientRows.slice(0, 20),
+   357→    modelUsage: [...modelUsage.values()].sort((a, b) => b.requests - a.requests),
+   358→    activity: activity.map((point) => ({
+   359→      label: new Intl.DateTimeFormat("pt-BR", { hour: "2-digit" }).format(new Date(point.start)),
+   360→      requests: point.requests,
+   361→    })),
+   362→    codex,
+   363→    opencode,
+   364→    claude,
+   365→  };
+   366→}
+   367→
+   368→const CODEX_PROVIDER_ID = "glm_proxy";
+   369→const CODEX_APP_ID = "OpenAI.Codex_2p2nqsd0c76g0!App";
+   370→const CODEX_TOKEN_FILE = ".glm-proxy-token";
+   371→const CODEX_TOKEN_READER = "$codexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $HOME '.codex' }; $tokenPath = Join-Path $codexHome '.glm-proxy-token'; [Console]::Out.Write((Get-Content -LiteralPath $tokenPath -Raw).Trim())";
+   372→const OPENCODE_PROVIDER_ID = "glm-proxy";
+   373→
+   374→function commandAvailable(command) {
+   375→  return spawnSync("powershell.exe", ["-NoProfile", "-Command", `if (Get-Command ${command} -ErrorAction SilentlyContinue) { exit 0 } exit 1`], {
+   376→    stdio: "ignore",
+   377→    windowsHide: true,
+   378→  }).status === 0;
+   379→}
+   380→
+   381→function parseJsonc(source) {
+   382→  let stripped = "";
+   383→  let inString = false;
+   384→  let escaped = false;
+   385→  let lineComment = false;
+   386→  let blockComment = false;
+   387→  for (let index = 0; index < source.length; index += 1) {
+   388→    const char = source[index];
+   389→    const next = source[index + 1];
+   390→    if (lineComment) {
+   391→      if (char === "\n") { lineComment = false; stripped += char; }
+   392→      continue;
+   393→    }
+   394→    if (blockComment) {
+   395→      if (char === "*" && next === "/") { blockComment = false; index += 1; }
+   396→      else if (char === "\n") stripped += "\n";
+   397→      continue;
+   398→    }
+   399→    if (!inString && char === "/" && next === "/") { lineComment = true; index += 1; continue; }
+   400→    if (!inString && char === "/" && next === "*") { blockComment = true; index += 1; continue; }
+   401→    stripped += char;
+   402→    if (inString) {
+   403→      if (escaped) escaped = false;
+   404→      else if (char === "\\") escaped = true;
+   405→      else if (char === '"') inString = false;
+   406→    } else if (char === '"') inString = true;
+   407→  }
+   408→
+   409→  let normalized = "";
+   410→  inString = false;
+   411→  escaped = false;
+   412→  for (let index = 0; index < stripped.length; index += 1) {
+   413→    const char = stripped[index];
+   414→    if (inString) {
+   415→      normalized += char;
+   416→      if (escaped) escaped = false;
+   417→      else if (char === "\\") escaped = true;
+   418→      else if (char === '"') inString = false;
+   419→      continue;
+   420→    }
+   421→    if (char === '"') { inString = true; normalized += char; continue; }
+   422→    if (char === ",") {
+   423→      let lookahead = index + 1;
+   424→      while (/\s/.test(stripped[lookahead] || "")) lookahead += 1;
+   425→      if (stripped[lookahead] === "}" || stripped[lookahead] === "]") continue;
+   426→    }
+   427→    normalized += char;
+   428→  }
+   429→  return normalized.trim() ? JSON.parse(normalized) : {};
+   430→}
+   431→
+   432→function readJsonLike(file) {
+   433→  try {
+   434→    const source = fs.readFileSync(file, "utf8");
+   435→    return { source, value: parseJsonc(source) };
+   436→  } catch (error) {
+   437→    if (error.code === "ENOENT") return { source: "", value: {} };
+   438→    throw new Error(`Não foi possível ler ${file}: ${error.message}`);
+   439→  }
+   440→}
+   441→
+   442→function writeConfiguredFile(file, source, next, { json = false } = {}) {
+   443→  const content = json ? `${JSON.stringify(next, null, 2)}\n` : next;
+   444→  fs.mkdirSync(path.dirname(file), { recursive: true });
+   445→  if (source && source !== content) fs.writeFileSync(`${file}.glm-proxy-backup`, source, "utf8");
+   446→  fs.writeFileSync(file, content, "utf8");
+   447→}
+   448→
+   449→function selectedProxyModel(modelId) {
+   450→  const model = MODELS.find((entry) => entry.id === modelId) || MODELS[0];
+   451→  if (!model) throw new Error("Nenhum modelo está disponível no proxy");
+   452→  return model;
+   453→}
+   454→
+   455→function openCodePaths() {
+   456→  const home = path.join(os.homedir(), ".config", "opencode");
+   457→  const jsonc = path.join(home, "opencode.jsonc");
+   458→  return {
+   459→    home,
+   460→    config: fs.existsSync(jsonc) ? jsonc : path.join(home, "opencode.json"),
+   461→    prompt: path.join(home, "AGENTS.md"),
+   462→  };
+   463→}
+   464→
+   465→function claudeCodePaths() {
+   466→  const home = path.join(os.homedir(), ".claude");
+   467→  return { home, config: path.join(home, "settings.json"), prompt: path.join(home, "CLAUDE.md") };
+   468→}
+   469→
+   470→function getOpenCodeStatus() {
+   471→  const paths = openCodePaths();
+   472→  try {
+   473→    const { value } = readJsonLike(paths.config);
+   474→    const provider = value.provider?.[OPENCODE_PROVIDER_ID];
+   475→    const model = typeof value.model === "string" && value.model.startsWith(`${OPENCODE_PROVIDER_ID}/`)
+   476→      ? value.model.slice(OPENCODE_PROVIDER_ID.length + 1)
+   477→      : null;
+   478→    let promptSource = "";
+   479→    try { promptSource = fs.readFileSync(paths.prompt, "utf8"); } catch { /* not configured */ }
+   480→    return {
+   481→      available: commandAvailable("opencode"),
+   482→      configured: Boolean(provider?.npm === "@ai-sdk/openai-compatible"
+   483→        && provider?.options?.baseURL === `${proxyBaseUrl()}/v1`
+   484→        && provider?.options?.apiKey === "{env:GLM_PROXY_API_KEY}"
+   485→        && model
+   486→        && promptSource.includes(MANAGED_PROMPT_START)),
+   487→      model,
+   488→      configFile: paths.config,
+   489→    };
+   490→  } catch (error) {
+   491→    return { available: commandAvailable("opencode"), configured: false, error: error.message, configFile: paths.config };
+   492→  }
+   493→}
+   494→
+   495→function configureOpenCode(modelId) {
+   496→  const model = selectedProxyModel(modelId);
+   497→  const paths = openCodePaths();
+   498→  const { source, value } = readJsonLike(paths.config);
+   499→  const existingProvider = value.provider?.[OPENCODE_PROVIDER_ID] || {};
+   500→  const modelEntries = Object.fromEntries(MODELS.map((entry) => [entry.id, {
+   501→    name: entry.name || entry.id,
+   502→    limit: { context: entry.contextWindow, output: entry.maxTokens },
+   503→  }]));
+   504→  const next = {
+   505→    ...value,
+   506→    $schema: value.$schema || "https://opencode.ai/config.json",
+   507→    model: `${OPENCODE_PROVIDER_ID}/${model.id}`,
+   508→    small_model: `${OPENCODE_PROVIDER_ID}/${model.id}`,
+   509→    provider: {
+   510→      ...(value.provider || {}),
+   511→      [OPENCODE_PROVIDER_ID]: {
+   512→        ...existingProvider,
+   513→        npm: "@ai-sdk/openai-compatible",
+   514→        name: "GLM Proxy Local",
+   515→        options: {
+   516→          ...(existingProvider.options || {}),
+   517→          baseURL: `${proxyBaseUrl()}/v1`,
+   518→          apiKey: "{env:GLM_PROXY_API_KEY}",
+   519→          timeout: 600_000,
+   520→        },
+   521→        models: { ...(existingProvider.models || {}), ...modelEntries },
+   522→      },
+   523→    },
+   524→  };
+   525→  writeConfiguredFile(paths.config, source, next, { json: true });
+   526→  let promptSource = "";
+   527→  try { promptSource = fs.readFileSync(paths.prompt, "utf8"); } catch { /* new prompt */ }
+   528→  writeConfiguredFile(paths.prompt, promptSource, upsertManagedPrompt(promptSource));
+   529→  return getOpenCodeStatus();
+   530→}
+   531→
+   532→function getClaudeCodeStatus() {
+   533→  const paths = claudeCodePaths();
+   534→  try {
+   535→    const { value } = readJsonLike(paths.config);
+   536→    let promptSource = "";
+   537→    try { promptSource = fs.readFileSync(paths.prompt, "utf8"); } catch { /* not configured */ }
+   538→    const env = value.env || {};
+   539→    const model = value.model || env.ANTHROPIC_MODEL || null;
+   540→    return {
+   541→      available: commandAvailable("claude"),
+   542→      configured: Boolean(env.ANTHROPIC_BASE_URL === proxyBaseUrl(18792)
+   543→        && model
+   544→        && promptSource.includes(MANAGED_PROMPT_START)),
+   545→      model,
+   546→      configFile: paths.config,
+   547→    };
+   548→  } catch (error) {
+   549→    return { available: commandAvailable("claude"), configured: false, error: error.message, configFile: paths.config };
+   550→  }
+   551→}
+   552→
+   553→function configureClaudeCode(modelId) {
+   554→  const model = selectedProxyModel(modelId);
+   555→  const paths = claudeCodePaths();
+   556→  const { source, value } = readJsonLike(paths.config);
+   557→  const next = {
+   558→    ...value,
+   559→    model: model.id,
+   560→    env: {
+   561→      ...(value.env || {}),
+   562→      ANTHROPIC_BASE_URL: proxyBaseUrl(18792),
+   563→      ANTHROPIC_MODEL: model.id,
+   564→      ANTHROPIC_DEFAULT_OPUS_MODEL: model.id,
+   565→      ANTHROPIC_DEFAULT_SONNET_MODEL: model.id,
+   566→      ANTHROPIC_DEFAULT_HAIKU_MODEL: model.id,
+   567→    },
+   568→  };
+   569→  writeConfiguredFile(paths.config, source, next, { json: true });
+   570→  let promptSource = "";
+   571→  try { promptSource = fs.readFileSync(paths.prompt, "utf8"); } catch { /* new prompt */ }
+   572→  writeConfiguredFile(paths.prompt, promptSource, upsertManagedPrompt(promptSource));
+   573→  return getClaudeCodeStatus();
+   574→}
+   575→
+   576→function codexPaths() {
+   577→  const codexHome = path.join(os.homedir(), ".codex");
+   578→  return {
+   579→    home: codexHome,
+   580→    config: path.join(codexHome, "config.toml"),
+   581→    token: path.join(codexHome, CODEX_TOKEN_FILE),
+   582→  };
+   583→}
+   584→
+   585→function tomlValue(value) {
+   586→  if (typeof value === "number" || typeof value === "boolean") return String(value);
+   587→  if (Array.isArray(value)) return JSON.stringify(value);
+   588→  return JSON.stringify(String(value));
+   589→}
+   590→
+   591→function updateRootTomlValues(source, values) {
+   592→  const newline = source.includes("\r\n") ? "\r\n" : "\n";
+   593→  const lines = source ? source.split(/\r?\n/) : [];
+   594→  const firstSection = lines.findIndex((line) => /^\s*\[/.test(line));
+   595→  const rootEnd = firstSection === -1 ? lines.length : firstSection;
+   596→  const seen = new Set();
+   597→  const keys = Object.keys(values);
+   598→  for (let index = 0; index < rootEnd; index += 1) {
+   599→    const match = lines[index].match(/^\s*([A-Za-z0-9_-]+)\s*=/);
+   600→    if (!match || !Object.hasOwn(values, match[1])) continue;
+   601→    lines[index] = `${match[1]} = ${tomlValue(values[match[1]])}`;
+   602→    seen.add(match[1]);
+   603→  }
+   604→  const missing = keys.filter((key) => !seen.has(key)).map((key) => `${key} = ${tomlValue(values[key])}`);
+   605→  if (missing.length) lines.splice(rootEnd, 0, ...missing, ...(rootEnd ? [] : [""]));
+   606→  return lines.join(newline).replace(/\s*$/, "") + newline;
+   607→}
+   608→
+   609→function updateTomlSection(source, header, values, removeKeys = []) {
+   610→  const newline = source.includes("\r\n") ? "\r\n" : "\n";
+   611→  const lines = source.split(/\r?\n/);
+   612→  const start = lines.findIndex((line) => line.trim() === header);
+   613→  const canonicalLines = Object.entries(values).map(([key, value]) => `${key} = ${tomlValue(value)}`);
+   614→
+   615→  if (start === -1) {
+   616→    const output = source.replace(/\s*$/, "");
+   617→    return `${output}${output ? `${newline}${newline}` : ""}${header}${newline}${canonicalLines.join(newline)}${newline}`;
+   618→  }
+   619→
+   620→  let end = start + 1;
+   621→  while (end < lines.length && !/^\s*\[/.test(lines[end])) end += 1;
+   622→  const canonicalKeys = new Set([...Object.keys(values), ...removeKeys]);
+   623→  const preserved = lines.slice(start + 1, end).filter((line) => {
+   624→    const match = line.match(/^\s*([A-Za-z0-9_-]+)\s*=/);
+   625→    return !match || !canonicalKeys.has(match[1]);
+   626→  });
+   627→  lines.splice(start + 1, end - start - 1, ...canonicalLines, ...preserved);
+   628→  return lines.join(newline).replace(/\s*$/, "") + newline;
+   629→}
+   630→
+   631→function rootTomlValue(source, key) {
+   632→  const root = source.split(/\r?\n/).slice(0, (() => {
+   633→    const index = source.split(/\r?\n/).findIndex((line) => /^\s*\[/.test(line));
+   634→    return index === -1 ? source.split(/\r?\n/).length : index;
+   635→  })()).join("\n");
+   636→  const match = root.match(new RegExp(`^\\s*${key}\\s*=\\s*"([^"]*)"`, "m"));
+   637→  return match?.[1] || null;
+   638→}
+   639→
+   640→function tomlSection(source, header) {
+   641→  const lines = source.split(/\r?\n/);
+   642→  const start = lines.findIndex((line) => line.trim() === header);
+   643→  if (start === -1) return "";
+   644→  let end = start + 1;
+   645→  while (end < lines.length && !/^\s*\[/.test(lines[end])) end += 1;
+   646→  return lines.slice(start + 1, end).join("\n");
+   647→}
+   648→
+   649→function getCodexStatus() {
+   650→  const { config: configFile, token: tokenFile } = codexPaths();
+   651→  let source = "";
+   652→  let token = "";
+   653→  try { source = fs.readFileSync(configFile, "utf8"); } catch { /* not configured */ }
+   654→  try { token = fs.readFileSync(tokenFile, "utf8"); } catch { /* not configured */ }
+   655→  const model = rootTomlValue(source, "model");
+   656→  const activeProvider = rootTomlValue(source, "model_provider") === CODEX_PROVIDER_ID;
+   657→  const provider = tomlSection(source, `[model_providers.${CODEX_PROVIDER_ID}]`);
+   658→  const auth = tomlSection(source, `[model_providers.${CODEX_PROVIDER_ID}.auth]`);
+   659→  const providerPresent = /\bwire_api\s*=\s*"responses"/.test(provider)
+   660→    && /\bbase_url\s*=\s*"https?:\/\//.test(provider);
+   661→  const authPresent = /^\s*command\s*=\s*"[^"]+"/m.test(auth);
+   662→  const tokenPresent = Boolean(token.trim());
+   663→  return {
+   664→    configured: Boolean(activeProvider && providerPresent && authPresent && tokenPresent),
+   665→    model: activeProvider ? model : null,
+   666→    restartRequired: Boolean(activeProvider && providerPresent && authPresent),
+   667→  };
+   668→}
+   669→
+   670→function configureCodexDesktop(modelId) {
+   671→  const model = selectedProxyModel(modelId);
+   672→  const paths = codexPaths();
+   673→  fs.mkdirSync(paths.home, { recursive: true });
+   674→  let configSource = "";
+   675→  let tokenSource = "";
+   676→  try { configSource = fs.readFileSync(paths.config, "utf8"); } catch { /* new config */ }
+   677→  try { tokenSource = fs.readFileSync(paths.token, "utf8"); } catch { /* new token file */ }
+   678→
+   679→  let nextConfig = updateRootTomlValues(configSource, {
+   680→      model: model.id,
+   681→      model_provider: CODEX_PROVIDER_ID,
+   682→      model_context_window: model.contextWindow,
+   683→    });
+   684→  nextConfig = updateTomlSection(nextConfig, `[model_providers.${CODEX_PROVIDER_ID}]`, {
+   685→    name: "GLM Proxy Local",
+   686→    base_url: `${proxyBaseUrl()}/v1`,
+   687→    wire_api: "responses",
+   688→  }, ["env_key", "experimental_bearer_token", "requires_openai_auth"]);
+   689→  nextConfig = updateTomlSection(nextConfig, `[model_providers.${CODEX_PROVIDER_ID}.auth]`, {
+   690→    command: "powershell.exe",
+   691→    args: ["-NoProfile", "-NonInteractive", "-Command", CODEX_TOKEN_READER],
+   692→    refresh_interval_ms: 0,
+   693→    timeout_ms: 5000,
+   694→  });
+   695→
+   696→  if (configSource && configSource !== nextConfig) fs.writeFileSync(`${paths.config}.glm-proxy-backup`, configSource, "utf8");
+   697→  if (tokenSource && tokenSource.trim() !== config.PROXY_KEY) fs.writeFileSync(`${paths.token}.glm-proxy-backup`, tokenSource, "utf8");
+   698→  fs.writeFileSync(paths.config, nextConfig, "utf8");
+   699→  fs.writeFileSync(paths.token, `${config.PROXY_KEY}\n`, "utf8");
+   700→  try { fs.chmodSync(paths.token, 0o600); } catch { /* Windows uses the profile ACL */ }
+   701→  return { model: model.id, ...getCodexStatus() };
+   702→}
+   703→
+   704→function launchLocalTool(tool) {
+   705→  if (process.platform !== "win32") throw new Error("Local app launch is currently available on Windows only");
+   706→  if (tool === "codex") {
+   707→    const child = spawn("explorer.exe", [`shell:AppsFolder\\${CODEX_APP_ID}`], { detached: true, stdio: "ignore", windowsHide: true });
+   708→    child.unref();
+   709→    return "Solicitação de abertura enviada ao Windows. O proxy nunca fecha ou reinicia o Codex; a configuração entra somente na próxima abertura manual do aplicativo.";
+   710→  }
+   711→  if (tool !== "opencode" && tool !== "claude") throw new Error("Unsupported local tool");
+   712→  // OpenCode can be installed as a PowerShell shim (.ps1), which where.exe does not find.
+   713→  const available = commandAvailable(tool);
+   714→  if (!available) throw new Error(`${tool === "opencode" ? "OpenCode" : "Claude Code"} não foi encontrado no PATH.`);
+   715→  // Every process argument is fixed here; no browser-supplied text ever becomes a shell command.
+   716→  const child = spawn("powershell.exe", ["-NoExit", "-Command", tool], {
+   717→    cwd: __dirname,
+   718→    env: tool === "opencode"
+   719→      ? { ...process.env, GLM_PROXY_API_KEY: config.PROXY_KEY }
+   720→      : {
+   721→          ...process.env,
+   722→          ANTHROPIC_BASE_URL: proxyBaseUrl(18792),
+   723→          ANTHROPIC_AUTH_TOKEN: config.PROXY_KEY,
+   724→          ANTHROPIC_API_KEY: config.PROXY_KEY,
+   725→        },
+   726→    detached: true,
+   727→    stdio: "ignore",
+   728→    windowsHide: false,
+   729→  });
+   730→  child.unref();
+   731→  return `Abrindo ${tool === "opencode" ? "OpenCode" : "Claude Code"}.`;
+   732→}
+   733→
+   734→function sendDashboardError(res, message, status = 400) {
+   735→  sendJSON(res, { message }, status);
+   736→}
+   737→
+   738→async function handleDashboardApi(req, res, pathname) {
+   739→  if (req.method === "GET" && pathname === "/api/dashboard/overview") {
+   740→    return sendJSON(res, dashboardOverview());
+   741→  }
+   742→  if (req.method === "GET" && pathname === "/api/dashboard/requests") {
+   743→    const rawLimit = new URL(req.url, "http://localhost").searchParams.get("limit");
+   744→    const limit = Math.min(Math.max(parseInt(rawLimit || "10", 10) || 10, 1), 100);
+   745→    const requests = telemetry.recent(2_000).slice(-limit).reverse();
+   746→    return sendJSON(res, { requests });
+   747→  }
+   748→  if (req.method === "POST" && pathname === "/api/dashboard/codex/setup") {
+   749→    if (!isLoopbackRequest(req)) return sendDashboardError(res, "Configurar o Codex só é permitido a partir deste computador.", 403);
+   750→    let body;
+   751→    try { body = await readBody(req, config.MAX_BODY_BYTES); }
+   752→    catch (error) { return sendDashboardError(res, error.message, error.statusCode || 400); }
+   753→    const requestedModel = typeof body.model === "string" ? body.model : MODELS[0]?.id;
+   754→    if (!MODELS.some((model) => model.id === requestedModel)) return sendDashboardError(res, "Modelo inválido para o Codex.", 400);
+   755→    try {
+   756→      const codex = configureCodexDesktop(requestedModel);
+   757→      return sendJSON(res, {
+   758→        message: "Configuração salva. O proxy não fecha nem reinicia o Codex; o modelo GLM será carregado somente na próxima abertura manual do aplicativo.",
+   759→        codex,
+   760→        overview: dashboardOverview(),
+   761→      });
+   762→    } catch (error) {
+   763→      return sendDashboardError(res, `Não foi possível configurar o Codex: ${error.message}`, 500);
+   764→    }
+   765→  }
+   766→  const toolSetupMatch = pathname.match(/^\/api\/dashboard\/(opencode|claude)\/setup$/);
+   767→  if (req.method === "POST" && toolSetupMatch) {
+   768→    if (!isLoopbackRequest(req)) return sendDashboardError(res, "Configurar ferramentas só é permitido a partir deste computador.", 403);
+   769→    let body;
+   770→    try { body = await readBody(req, config.MAX_BODY_BYTES); }
+   771→    catch (error) { return sendDashboardError(res, error.message, error.statusCode || 400); }
+   772→    const requestedModel = typeof body.model === "string" ? body.model : MODELS[0]?.id;
+   773→    if (!MODELS.some((model) => model.id === requestedModel)) return sendDashboardError(res, "Modelo inválido para a integração.", 400);
+   774→    try {
+   775→      const tool = toolSetupMatch[1];
+   776→      const status = tool === "opencode"
+   777→        ? configureOpenCode(requestedModel)
+   778→        : configureClaudeCode(requestedModel);
+   779→      const displayName = tool === "opencode" ? "OpenCode" : "Claude Code";
+   780→      return sendJSON(res, {
+   781→        message: status.available
+   782→          ? `${displayName} preparado com ${requestedModel}. A chave será passada somente ao processo aberto pelo painel.`
+   783→          : `${displayName} foi configurado com ${requestedModel}, mas ainda precisa ser instalado para abrir.`,
+   784→        [tool]: status,
+   785→        overview: dashboardOverview(),
+   786→      });
+   787→    } catch (error) {
+   788→      return sendDashboardError(res, `Não foi possível preparar a integração: ${error.message}`, 500);
+   789→    }
+   790→  }
+   791→  if (req.method === "POST" && pathname === "/api/dashboard/openrouter/setup") {
+   792→    if (!isLoopbackRequest(req)) return sendDashboardError(res, "Configurar o OpenRouter só é permitido a partir deste computador.", 403);
+   793→    let body;
+   794→    try { body = await readBody(req, config.MAX_BODY_BYTES); }
+   795→    catch (error) { return sendDashboardError(res, error.message, error.statusCode || 400); }
+   796→    try {
+   797→      const fallback = openRouter.save({ apiKey: body.apiKey, model: body.model });
+   798→      return sendJSON(res, {
+   799→        message: `OpenRouter configurado. Falhas do AutoClaw usarão ${fallback.model} automaticamente.`,
+   800→        fallback,
+   801→        overview: dashboardOverview(),
+   802→      });
+   803→    } catch (error) {
+   804→      return sendDashboardError(res, error.message, 400);
+   805→    }
+   806→  }
+   807→  const launchMatch = pathname.match(/^\/api\/dashboard\/launch\/(codex|opencode|claude)$/);
+   808→  if (req.method === "POST" && launchMatch) {
+   809→    if (!isLoopbackRequest(req)) return sendDashboardError(res, "Abrir aplicativos só é permitido a partir deste computador.", 403);
+   810→    try {
+   811→      const message = launchLocalTool(launchMatch[1]);
+   812→      return sendJSON(res, { message, overview: dashboardOverview() });
+   813→    } catch (error) {
+   814→      return sendDashboardError(res, error.message, 409);
+   815→    }
+   816→  }
+   817→  return sendDashboardError(res, "Rota do painel não encontrada.", 404);
+   818→}
+   819→
+   820→// SSE buffering (OpenAI-specific: assemble streamed chunks into a single response)
+   821→function bufferSSE(upstreamRes, modelId) {
+   822→  return new Promise((resolve, reject) => {
+   823→    let raw = "";
+   824→    upstreamRes.on("data",  (c) => (raw += c));
+   825→    upstreamRes.on("error", reject);
+   826→    upstreamRes.on("end",   () => {
+   827→      try {
+   828→        let content = "", reasoning = "";
+   829→        let id      = `chatcmpl-${generateId()}`;
+   830→        let model   = modelId;
+   831→        let promptTokens = 0, completionTokens = 0;
+   832→        let finishReason = "stop";
+   833→        const toolCalls = {};
+   834→
+   835→        for (const line of raw.split("\n")) {
+   836→          if (!line.startsWith("data: ") || line === "data: [DONE]") continue;
+   837→          const chunk = JSON.parse(line.slice(6));
+   838→          if (chunk.id)    id    = chunk.id;
+   839→          if (chunk.model) model = chunk.model;
+   840→          const delta = chunk.choices?.[0]?.delta;
+   841→          if (delta?.content)          content   += delta.content;
+   842→          if (delta?.reasoning_content) reasoning += delta.reasoning_content;
+   843→          // Accumulate tool calls
+   844→          for (const tc of delta?.tool_calls || []) {
+   845→            if (!toolCalls[tc.index]) toolCalls[tc.index] = { id: "", name: "", arguments: "" };
+   846→            if (tc.id)                  toolCalls[tc.index].id = tc.id;
+   847→            if (tc.function?.name)      toolCalls[tc.index].name = tc.function.name;
+   848→            if (tc.function?.arguments) toolCalls[tc.index].arguments += tc.function.arguments;
+   849→          }
+   850→          const fr = chunk.choices?.[0]?.finish_reason;
+   851→          if (fr) finishReason = fr;
+   852→          if (chunk.usage) {
+   853→            promptTokens     = chunk.usage.prompt_tokens     ?? 0;
+   854→            completionTokens = chunk.usage.completion_tokens ?? 0;
+   855→          }
+   856→        }
+   857→
+   858→        // Build sorted tool_calls array
+   859→        const sortedToolCalls = Object.keys(toolCalls)
+   860→          .sort((a, b) => Number(a) - Number(b))
+   861→          .map((idx) => {
+   862→            const tc = toolCalls[idx];
+   863→            return {
+   864→              id: tc.id,
+   865→              type: "function",
+   866→              function: { name: tc.name, arguments: tc.arguments },
+   867→            };
+   868→          });
+   869→
+   870→        resolve({
+   871→          id,
+   872→          object:  "chat.completion",
+   873→          created: Math.floor(Date.now() / 1000),
+   874→          model,
+   875→          choices: [{
+   876→            index:         0,
+   877→            message:       {
+   878→              role:    "assistant",
+   879→              content,
+   880→              ...(reasoning ? { reasoning_content: reasoning } : {}),
+   881→              ...(sortedToolCalls.length ? { tool_calls: sortedToolCalls } : {}),
+   882→            },
+   883→            finish_reason: finishReason,
+   884→          }],
+   885→          usage: {
+   886→            prompt_tokens:     promptTokens,
+   887→            completion_tokens: completionTokens,
+   888→            total_tokens:      promptTokens + completionTokens,
+   889→          },
+   890→        });
+   891→      } catch (err) {
+   892→        reject(new Error(`Failed to parse upstream SSE: ${err.message}`));
+   893→      }
+   894→    });
+   895→  });
+   896→}
+   897→
+   898→// Routes
+   899→
+   900→function handleHealth(res) {
+   901→  let tokenOk = true, tokenError = null;
+   902→  try   { getToken(); }
+   903→  catch (e) { tokenOk = false; tokenError = e.message; }
+   904→  const fallback = openRouter.status();
+   905→
+   906→  sendJSON(res, {
+   907→    ok:       tokenOk || fallback.configured,
+   908→    status:   tokenOk || fallback.configured ? "live" : "no_provider",
+   909→    primary_ready: tokenOk,
+   910→    fallback_ready: fallback.configured,
+   911→    fallback_mode: fallback.configured ? "openrouter" : "not-configured",
+   912→    fallback_model: fallback.model,
+   913→    upstream: config.UPSTREAM_BASE,
+   914→    port:     config.PORT,
+   915→    ...(tokenError ? { error: tokenError } : {}),
+   916→  });
+   917→}
+   918→
+   919→function handleModels(res) {
+   920→  sendJSON(res, {
+   921→    object: "list",
+   922→    data:   MODELS.map((m) => ({
+   923→      id:             m.id,
+   924→      object:         "model",
+   925→      created:        Math.floor(Date.now() / 1000),
+   926→      owned_by:       "autoclaw",
+   927→      name:           m.name,
+   928→      description:    m.name,
+   929→      context_window: m.contextWindow,
+   930→      max_tokens:     m.maxTokens,
+   931→    })),
+   932→  });
+   933→}
+   934→
+   935→async function handleChatCompletions(req, res) {
+   936→  const startTime = Date.now();
+   937→  const requestIp = clientIpOpenAI(req);
+   938→  let body;
+   939→  try {
+   940→    body = await readBody(req, config.MAX_BODY_BYTES);
+   941→  } catch (err) {
+   942→    const status = err.statusCode || 400;
+   943→    return sendError(res, err.message, "invalid_request", status);
+   944→  }
+   945→  // Input validation
+   946→  if (!isSafeModelId(body.model)) {
+   947→    return sendError(res, "model must be a safe non-empty identifier (max 256 chars)", "invalid_request", 400);
+   948→  }
+   949→  if (!Array.isArray(body.messages) || body.messages.length === 0) {
+   950→    return sendError(res, "messages must be a non-empty array", "invalid_request", 400);
+   951→  }
+   952→  const modelId = body.model;
+   953→  const stream  = body.stream !== false; // default true
+   954→
+   955→  log.info(`chat model=${modelId} stream=${stream}`);
+   956→  log.debug("chat request shape", JSON.stringify({
+   957→    keys: Object.keys(body).sort(),
+   958→    messages: body.messages.map((message) => ({
+   959→      role: message?.role,
+   960→      content: Array.isArray(message?.content)
+   961→        ? message.content.map((part) => part?.type || typeof part)
+   962→        : typeof message?.content,
+   963→      contentLength: typeof message?.content === "string"
+   964→        ? message.content.length
+   965→        : JSON.stringify(message?.content ?? "").length,
+   966→      toolCalls: Array.isArray(message?.tool_calls) ? message.tool_calls.length : 0,
+   967→    })),
+   968→    tools: Array.isArray(body.tools)
+   969→      ? body.tools.map((tool) => tool?.function?.name || tool?.name || tool?.type).slice(0, 64)
+   970→      : [],
+   971→    toolChoice: typeof body.tool_choice === "object" ? body.tool_choice?.type : body.tool_choice,
+   972→    maxTokens: body.max_completion_tokens ?? body.max_tokens,
+   973→    streamOptions: body.stream_options,
+   974→  }));
+   975→
+   976→  let upstreamRes;
+   977→  let upstreamErrBody = "";
+   978→  let upstreamProvider = "autoclaw";
+   979→  try {
+   980→    const upstream = await runOpenAIUpstream(body, modelId);
+   981→    upstreamRes = upstream.response;
+   982→    upstreamErrBody = upstream.errorBody;
+   983→    upstreamProvider = upstream.provider;
+   984→  } catch (err) {
+   985→    const status  = err.message.includes("Cannot read AutoClaw token") ? 503 : 502;
+   986→    const errType = status === 503 ? "service_unavailable" : "upstream_error";
+   987→    logJsonl({ model: modelId, status, ip: requestIp, latencyMs: Date.now() - startTime, error: errType });
+   988→    recordProxyRequest({ model: modelId, status, ip: requestIp, startTime, stream, upstream: upstreamProvider });
+   989→    return sendError(res, err.message, errType, status);
+   990→  }
+   991→
+   992→  log.debug(`← upstream status=${upstreamRes.statusCode}`);
+   993→
+   994→  // Save request details + status to file (not terminal)
+   995→  const lastMsg = body.messages?.[body.messages.length - 1];
+   996→  logRequest({
+   997→    timestamp: new Date().toISOString(),
+   998→    model: modelId,
+   999→    status: upstreamRes.statusCode,
+  1000→    last_message: typeof lastMsg?.content === "string"
+  1001→      ? lastMsg.content.substring(0, 300)
+  1002→      : JSON.stringify(lastMsg?.content).substring(0, 300),
+  1003→    message_count: body.messages?.length || 0,
+  1004→  });
+  1005→
+  1006→  logJsonl({ model: modelId, status: upstreamRes.statusCode, ip: requestIp, latencyMs: Date.now() - startTime });
+  1007→
+  1008→  // 401 → invalidate cached token so next request gets a fresh one
+  1009→  if (upstreamRes.statusCode === 401 && upstreamProvider === "autoclaw") {
+  1010→    invalidateToken();
+  1011→    recordProxyRequest({ model: modelId, status: 401, ip: requestIp, startTime, stream, upstream: upstreamProvider });
+  1012→    return sendError(res,
+  1013→      "AutoClaw token expired — invalidated cache, retry the request",
+  1014→      "authentication_error", 401
+  1015→    );
+  1016→  }
+  1017→
+  1018→  // Any other upstream error → pass body through
+  1019→  if (upstreamRes.statusCode >= 400) {
+  1020→    const errBody = upstreamErrBody || await collectResponse(upstreamRes);
+  1021→    recordProxyRequest({ model: modelId, status: upstreamRes.statusCode, ip: requestIp, startTime, stream, upstream: upstreamProvider });
+  1022→    try {
+  1023→      const parsed = JSON.parse(errBody);
+  1024→      log.error(`Upstream error ${upstreamRes.statusCode}:`, parsed.error?.message || errBody);
+  1025→      sendJSON(res, parsed, upstreamRes.statusCode);
+  1026→    } catch {
+  1027→      // Response wasn't JSON (e.g., nginx HTML error like 413)
+  1028→      const cleanMsg = errBody.match(/<title>(.*?)<\/title>/i)?.[1] || errBody || "Upstream error";
+  1029→      log.error(`Upstream error ${upstreamRes.statusCode}:`, cleanMsg);
+  1030→      sendError(res, cleanMsg, "api_error", upstreamRes.statusCode);
+  1031→    }
+  1032→    return;
+  1033→  }
+  1034→
+  1035→  if (stream) {
+  1036→    // Pipe SSE straight through to the client
+  1037→    res.writeHead(200, {
+  1038→      "Content-Type":    "text/event-stream",
+  1039→      "Cache-Control":   "no-cache",
+  1040→      "Connection":      "keep-alive",
+  1041→      "X-Accel-Buffering": "no",
+  1042→    });
+  1043→    const tracker = createUsageTracker((usage) => {
+  1044→      recordProxyRequest({ model: modelId, status: 200, ip: requestIp, startTime, usage, stream: true, upstream: upstreamProvider });
+  1045→    });
+  1046→    upstreamRes.on("data", (chunk) => tracker.push(chunk));
+  1047→    upstreamRes.on("end", tracker.finish);
+  1048→    upstreamRes.on("error", () => {
+  1049→      recordProxyRequest({ model: modelId, status: 502, ip: requestIp, startTime, stream: true, upstream: upstreamProvider });
+  1050→    });
+  1051→    upstreamRes.pipe(res);
+  1052→    return;
+  1053→  }
+  1054→
+  1055→  // Non-stream: buffer SSE, assemble full response object
+  1056→  try {
+  1057→    const response = await bufferSSE(upstreamRes, modelId);
+  1058→    sendJSON(res, response);
+  1059→    recordProxyRequest({ model: modelId, status: 200, ip: requestIp, startTime, usage: response.usage, upstream: upstreamProvider });
+  1060→  } catch (err) {
+  1061→    recordProxyRequest({ model: modelId, status: 502, ip: requestIp, startTime, stream, upstream: upstreamProvider });
+  1062→    sendError(res, err.message, "api_error", 502);
+  1063→  }
+  1064→}
+  1065→
+  1066→async function handleResponses(req, res) {
+  1067→  const startTime = Date.now();
+  1068→  const requestIp = clientIpOpenAI(req);
+  1069→  let body;
+  1070→  try {
+  1071→    body = await readBody(req, config.MAX_BODY_BYTES);
+  1072→  } catch (error) {
+  1073→    return sendError(res, error.message, "invalid_request", error.statusCode || 400);
+  1074→  }
+  1075→
+  1076→  if (!isSafeModelId(body.model)) {
+  1077→    return sendError(res, "model must be a safe non-empty identifier (max 256 chars)", "invalid_request", 400);
+  1078→  }
+  1079→  const modelId = body.model;
+  1080→  const stream = body.stream === true;
+  1081→  const previousResponseId = typeof body.previous_response_id === "string" ? body.previous_response_id : "";
+  1082→  const previousMessages = resolvePreviousResponse(previousResponseId, requestIp);
+  1083→  if (previousMessages === null) {
+  1084→    return sendError(res, "The referenced previous_response_id is unavailable in this local proxy session", "not_found_error", 404);
+  1085→  }
+  1086→  let chatBody;
+  1087→  try {
+  1088→    chatBody = responsesToChat(body, previousMessages);
+  1089→  } catch (error) {
+  1090→    return sendError(res, `Invalid Responses input: ${error.message}`, "invalid_request", 400);
+  1091→  }
+  1092→
+  1093→  const route = resolveAutoClawModel(KNOWN_IDS, modelId);
+  1094→  log.info(`responses model=${modelId} upstream=${route.upstreamModelId} body=${route.bodyModelId} stream=${stream}`);
+  1095→  let upstreamRes;
+  1096→  let upstreamErrBody = "";
+  1097→  let upstreamProvider = "autoclaw";
+  1098→  try {
+  1099→    const upstream = await runOpenAIUpstream(chatBody, modelId, { preferOpenRouter: true });
+  1100→    upstreamRes = upstream.response;
+  1101→    upstreamErrBody = upstream.errorBody;
+  1102→    upstreamProvider = upstream.provider;
+  1103→  } catch (error) {
+  1104→    const status = error.message.includes("Cannot read AutoClaw token") ? 503 : 502;
+  1105→    const errorType = status === 503 ? "service_unavailable" : "upstream_error";
+  1106→    logJsonl({ model: modelId, status, ip: requestIp, latencyMs: Date.now() - startTime, error: errorType });
+  1107→    recordProxyRequest({ protocol: "responses", model: modelId, status, ip: requestIp, startTime, stream, upstream: upstreamProvider });
+  1108→    return sendError(res, error.message, errorType, status);
+  1109→  }
+  1110→
+  1111→  const lastMessage = chatBody.messages?.[chatBody.messages.length - 1];
+  1112→  logRequest({
+  1113→    timestamp: new Date().toISOString(),
+  1114→    model: modelId,
+  1115→    status: upstreamRes.statusCode,
+  1116→    last_message: typeof lastMessage?.content === "string"
+  1117→      ? lastMessage.content.substring(0, 300)
+  1118→      : JSON.stringify(lastMessage?.content).substring(0, 300),
+  1119→    message_count: chatBody.messages?.length || 0,
+  1120→  });
+  1121→  logJsonl({ model: modelId, status: upstreamRes.statusCode, ip: requestIp, latencyMs: Date.now() - startTime });
+  1122→
+  1123→  if (upstreamRes.statusCode === 401 && upstreamProvider === "autoclaw") {
+  1124→    invalidateToken();
+  1125→    recordProxyRequest({ protocol: "responses", model: modelId, status: 401, ip: requestIp, startTime, stream, upstream: upstreamProvider });
+  1126→    return sendError(res, "AutoClaw token expired — invalidated cache, retry the request", "authentication_error", 401);
+  1127→  }
+  1128→  if (upstreamRes.statusCode >= 400) {
+  1129→    const errBody = upstreamErrBody || await collectResponse(upstreamRes);
+  1130→    recordProxyRequest({ protocol: "responses", model: modelId, status: upstreamRes.statusCode, ip: requestIp, startTime, stream, upstream: upstreamProvider });
+  1131→    try {
+  1132→      sendJSON(res, JSON.parse(errBody), upstreamRes.statusCode);
+  1133→    } catch {
+  1134→      const cleanMessage = errBody.match(/<title>(.*?)<\/title>/i)?.[1] || errBody || "Upstream error";
+  1135→      sendError(res, cleanMessage, "api_error", upstreamRes.statusCode);
+  1136→    }
+  1137→    return;
+  1138→  }
+  1139→
+  1140→  if (!stream) {
+  1141→    try {
+  1142→      const raw = await collectResponse(upstreamRes);
+  1143→      const response = createResponseFromChat({ model: modelId, result: collectChatSse(raw) });
+  1144→      sendJSON(res, response);
+  1145→      rememberResponse(response, chatBody.messages, requestIp);
+  1146→      recordProxyRequest({ protocol: "responses", model: modelId, status: 200, ip: requestIp, startTime, usage: response.usage, upstream: upstreamProvider });
+  1147→    } catch (error) {
+  1148→      recordProxyRequest({ protocol: "responses", model: modelId, status: 502, ip: requestIp, startTime, stream, upstream: upstreamProvider });
+  1149→      sendError(res, `Failed to parse upstream response: ${error.message}`, "api_error", 502);
+  1150→    }
+  1151→    return;
+  1152→  }
+  1153→
+  1154→  res.writeHead(200, {
+  1155→    "Content-Type": "text/event-stream",
+  1156→    "Cache-Control": "no-cache",
+  1157→    "Connection": "keep-alive",
+  1158→    "X-Accel-Buffering": "no",
+  1159→  });
+  1160→  const writer = createResponsesStream(res, { model: modelId });
+  1161→  let buffer = "";
+  1162→  let finished = false;
+  1163→  const complete = () => {
+  1164→    if (finished) return;
+  1165→    finished = true;
+  1166→    if (buffer.trim()) {
+  1167→      const finalChunk = parseChatSseLine(buffer.trim());
+  1168→      if (finalChunk) writer.consume(finalChunk);
+  1169→    }
+  1170→    const response = writer.complete();
+  1171→    rememberResponse(response, chatBody.messages, requestIp);
+  1172→    recordProxyRequest({ protocol: "responses", model: modelId, status: 200, ip: requestIp, startTime, usage: response.usage, stream: true, upstream: upstreamProvider });
+  1173→    res.end();
+  1174→  };
+  1175→  upstreamRes.on("data", (chunk) => {
+  1176→    buffer += chunk.toString();
+  1177→    const lines = buffer.split(/\r?\n/);
+  1178→    buffer = lines.pop() || "";
+  1179→    for (const line of lines) writer.consume(parseChatSseLine(line));
+  1180→  });
+  1181→  upstreamRes.on("end", complete);
+  1182→  upstreamRes.on("error", (error) => {
+  1183→    if (finished) return;
+  1184→    finished = true;
+  1185→    writer.fail(error.message || "Upstream stream failed");
+  1186→    recordProxyRequest({ protocol: "responses", model: modelId, status: 502, ip: requestIp, startTime, stream: true, upstream: upstreamProvider });
+  1187→    res.end();
+  1188→  });
+  1189→  req.on("aborted", () => upstreamRes.destroy());
+  1190→}
+  1191→
+  1192→// Codex automatically calls this route when its context approaches the
+  1193→// configured limit. The proxy returns a Responses-compatible compaction item
+  1194→// and expands its local payload before forwarding a later turn to AutoClaw.
+  1195→async function handleResponsesCompact(req, res) {
+  1196→  const startTime = Date.now();
+  1197→  const requestIp = clientIpOpenAI(req);
+  1198→  let body;
+  1199→  try {
+  1200→    body = await readBody(req, config.MAX_BODY_BYTES);
+  1201→  } catch (error) {
+  1202→    return sendError(res, error.message, "invalid_request", error.statusCode || 400);
+  1203→  }
+  1204→  if (!isSafeModelId(body.model)) {
+  1205→    return sendError(res, "model must be a safe non-empty identifier (max 256 chars)", "invalid_request", 400);
+  1206→  }
+  1207→  try {
+  1208→    const response = createLocalCompaction({ model: body.model, input: body.input });
+  1209→    sendJSON(res, response);
+  1210→    recordProxyRequest({ protocol: "responses", model: body.model, status: 200, ip: requestIp, startTime, usage: response.usage });
+  1211→  } catch (error) {
+  1212→    recordProxyRequest({ protocol: "responses", model: body.model, status: 400, ip: requestIp, startTime });
+  1213→    sendError(res, `Invalid Responses compaction input: ${error.message}`, "invalid_request", 400);
+  1214→  }
+  1215→}
+  1216→
+  1217→// Server
+  1218→
+  1219→const server = http.createServer(async (req, res) => {
+  1220→  // CORS — allow all origins so any local tool can talk to this proxy
+  1221→  res.setHeader("Access-Control-Allow-Origin",  "*");
+  1222→  res.setHeader("X-Content-Type-Options", "nosniff");
+  1223→  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  1224→  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Api-Key");
+  1225→
+  1226→  if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
+  1227→
+  1228→  const { pathname } = new URL(req.url, "http://localhost");
+  1229→  // The dashboard shell is public, while its API data still requires PROXY_KEY.
+  1230→  if (serveStaticDashboard(req, res, pathname)) return;
+  1231→
+  1232→  const requestIp = clientIpOpenAI(req);
+  1233→
+  1234→  // Rate limit before auth so brute-force attempts can't bypass the throttle
+  1235→  if (!rateLimit(requestIp)) {
+  1236→    res.writeHead(429, { "Content-Type": "application/json", "Retry-After": "1" });
+  1237→    res.end(JSON.stringify({ error: { message: "Rate limit exceeded", type: "rate_limit_error" } }));
+  1238→    return;
+  1239→  }
+  1240→
+  1241→  if (!isAuthorized(req, config.PROXY_KEY)) {
+  1242→    return sendError(res, "Invalid or missing API key", "authentication_error", 401);
+  1243→  }
+  1244→
+  1245→  try {
+  1246→    if (pathname.startsWith("/api/dashboard/"))                              return handleDashboardApi(req, res, pathname);
+  1247→    if (req.method === "GET"  && pathname === "/healthz")              return handleHealth(res);
+  1248→    if (req.method === "GET"  && pathname === "/v1/models")            return handleModels(res);
+  1249→    if (req.method === "POST" && pathname === "/v1/chat/completions")  return handleChatCompletions(req, res);
+  1250→    if (req.method === "POST" && pathname === "/v1/responses/compact") return handleResponsesCompact(req, res);
+  1251→    if (req.method === "POST" && pathname === "/v1/responses")         return handleResponses(req, res);
+  1252→    sendError(res, `${req.method} ${pathname} not found`, "not_found_error", 404);
+  1253→  } catch (err) {
+  1254→    log.error("Unhandled:", err);
+  1255→    if (!res.headersSent) sendError(res, err.message, "api_error", 500);
+  1256→  }
+  1257→});
+  1258→
+  1259→process.on("uncaughtException",  (e) => log.error("Uncaught exception:",   e));
+  1260→process.on("unhandledRejection", (e) => log.error("Unhandled rejection:",  e));
+  1261→
+  1262→const HOST = process.env.HOST || "127.0.0.1";
+  1263→
+  1264→server.listen(config.PORT, HOST, () => {
+  1265→  console.log(`
+  1266→  ┌${"─".repeat(BOX_W + 2)}┐
+  1267→  ${boxRow("🛸  AUTOCLAW GATEWAY PROXY (OpenAI Format v2.0.0)")}
+  1268→  ├${"─".repeat(BOX_W + 2)}┤
+  1269→  ${boxRow(`Host     : ${HOST}`)}
+  1270→  ${boxRow(`Port     : ${config.PORT}`)}
+  1271→  ${boxRow(`Auth Key : ${config.PROXY_KEY}`)}
+  1272→  ${boxRow(`Rate Lim : ${config.RATE_LIMIT} req/s per IP`)}
+  1273→  ${boxRow(`Models   : ${MODELS.map(m => m.id).join(", ")}`)}
+  1274→  ├${"─".repeat(BOX_W + 2)}┤
+  1275→  ${boxRow("OpenCode / OpenAI SDK Base URL:")}
+  1276→  ${boxRow(`http://${HOST}:${config.PORT}/v1`)}
+  1277→  └${"─".repeat(BOX_W + 2)}┘
+  1278→  `);
+  1279→
+  1280→  try {
+  1281→    getToken();
+  1282→    console.log("  ✅  Token loaded — ready\n");
+  1283→  } catch (e) {
+  1284→    console.warn(`  ⚠️   ${e.message}\n`);
+  1285→  }
+  1286→});
+  1287→

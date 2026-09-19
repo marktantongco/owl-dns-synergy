@@ -1,0 +1,1324 @@
+     1→#!/usr/bin/env python3
+     2→"""
+     3→OWL-DNS Synergy Report — Comprehensive A/B Comparison Matrix, 
+     4→Implementation Plan, Unified Script, and Obsidian Integration
+     5→"""
+     6→
+     7→import os, sys, time, json
+     8→from reportlab.lib import colors
+     9→from reportlab.lib.pagesizes import A4
+    10→from reportlab.lib.units import mm
+    11→from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    12→from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_JUSTIFY
+    13→from reportlab.platypus import (
+    14→    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
+    15→    PageBreak, Image, KeepTogether, HRFlowable
+    16→)
+    17→from reportlab.pdfbase import pdfmetrics
+    18→from reportlab.pdfbase.ttfonts import TTFont
+    19→from reportlab.pdfbase.pdfmetrics import registerFontFamily
+    20→from reportlab.platypus.tableofcontents import TableOfContents
+    21→
+    22→# ─── Font Registration ──────────────────────────────────────────
+    23→FONT_DIR = '/usr/share/fonts'
+    24→
+    25→pdfmetrics.registerFont(TTFont('NotoSerifSC', f'{FONT_DIR}/truetype/noto-serif-sc/NotoSerifSC-Regular.ttf'))
+    26→pdfmetrics.registerFont(TTFont('NotoSerifSC-Bold', f'{FONT_DIR}/truetype/noto-serif-sc/NotoSerifSC-Bold.ttf'))
+    27→registerFontFamily('NotoSerifSC', normal='NotoSerifSC', bold='NotoSerifSC-Bold')
+    28→
+    29→pdfmetrics.registerFont(TTFont('DejaVuSans', f'{FONT_DIR}/truetype/dejavu/DejaVuSans.ttf'))
+    30→pdfmetrics.registerFont(TTFont('DejaVuSans-Bold', f'{FONT_DIR}/truetype/dejavu/DejaVuSans-Bold.ttf'))
+    31→registerFontFamily('DejaVuSans', normal='DejaVuSans', bold='DejaVuSans-Bold')
+    32→
+    33→pdfmetrics.registerFont(TTFont('Carlito', f'{FONT_DIR}/truetype/english/Carlito-Regular.ttf'))
+    34→pdfmetrics.registerFont(TTFont('Carlito-Bold', f'{FONT_DIR}/truetype/english/Carlito-Bold.ttf'))
+    35→pdfmetrics.registerFont(TTFont('Carlito-Italic', f'{FONT_DIR}/truetype/english/Carlito-Italic.ttf'))
+    36→registerFontFamily('Carlito', normal='Carlito', bold='Carlito-Bold', italic='Carlito-Italic')
+    37→
+    38→# ─── Palette ────────────────────────────────────────────────────
+    39→PAGE_BG       = colors.HexColor('#f7f7f6')
+    40→SECTION_BG    = colors.HexColor('#f2f2f1')
+    41→CARD_BG       = colors.HexColor('#e8e7e4')
+    42→TABLE_STRIPE  = colors.HexColor('#eeedeb')
+    43→HEADER_FILL   = colors.HexColor('#5b5133')
+    44→COVER_BLOCK   = colors.HexColor('#6c6552')
+    45→BORDER        = colors.HexColor('#d5d1c4')
+    46→ICON          = colors.HexColor('#75673d')
+    47→ACCENT        = colors.HexColor('#8f7422')
+    48→ACCENT_2      = colors.HexColor('#6541cf')
+    49→TEXT_PRIMARY   = colors.HexColor('#1e1e1b')
+    50→TEXT_MUTED     = colors.HexColor('#79766f')
+    51→SEM_SUCCESS   = colors.HexColor('#457a56')
+    52→SEM_WARNING   = colors.HexColor('#9e834e')
+    53→SEM_ERROR     = colors.HexColor('#a54f47')
+    54→SEM_INFO      = colors.HexColor('#476a8d')
+    55→
+    56→# ─── Page Setup ─────────────────────────────────────────────────
+    57→PAGE_W, PAGE_H = A4
+    58→LEFT_MARGIN = 20*mm
+    59→RIGHT_MARGIN = 20*mm
+    60→TOP_MARGIN = 20*mm
+    61→BOTTOM_MARGIN = 20*mm
+    62→CONTENT_W = PAGE_W - LEFT_MARGIN - RIGHT_MARGIN
+    63→
+    64→OUTPUT_PATH = '/home/z/my-project/download/OWL-DNS-Synergy-Report.pdf'
+    65→
+    66→# ─── Styles ─────────────────────────────────────────────────────
+    67→styles = getSampleStyleSheet()
+    68→
+    69→style_title = ParagraphStyle(
+    70→    'DocTitle', parent=styles['Title'],
+    71→    fontName='DejaVuSans-Bold', fontSize=28, leading=34,
+    72→    textColor=TEXT_PRIMARY, alignment=TA_CENTER,
+    73→    spaceAfter=12
+    74→)
+    75→
+    76→style_h1 = ParagraphStyle(
+    77→    'H1', parent=styles['Heading1'],
+    78→    fontName='DejaVuSans-Bold', fontSize=22, leading=26,
+    79→    textColor=HEADER_FILL, alignment=TA_LEFT,
+    80→    spaceBefore=18, spaceAfter=8,
+    81→    borderWidth=0, borderPadding=0
+    82→)
+    83→
+    84→style_h2 = ParagraphStyle(
+    85→    'H2', parent=styles['Heading2'],
+    86→    fontName='DejaVuSans-Bold', fontSize=16, leading=20,
+    87→    textColor=COVER_BLOCK, alignment=TA_LEFT,
+    88→    spaceBefore=14, spaceAfter=6
+    89→)
+    90→
+    91→style_h3 = ParagraphStyle(
+    92→    'H3', parent=styles['Heading3'],
+    93→    fontName='Carlito-Bold', fontSize=13, leading=17,
+    94→    textColor=ACCENT, alignment=TA_LEFT,
+    95→    spaceBefore=10, spaceAfter=4
+    96→)
+    97→
+    98→style_body = ParagraphStyle(
+    99→    'Body', parent=styles['Normal'],
+   100→    fontName='Carlito', fontSize=10, leading=14,
+   101→    textColor=TEXT_PRIMARY, alignment=TA_JUSTIFY,
+   102→    spaceBefore=2, spaceAfter=4
+   103→)
+   104→
+   105→style_body_bold = ParagraphStyle(
+   106→    'BodyBold', parent=style_body,
+   107→    fontName='Carlito-Bold', fontSize=10
+   108→)
+   109→
+   110→style_bullet = ParagraphStyle(
+   111→    'Bullet', parent=style_body,
+   112→    fontName='Carlito', fontSize=10, leading=14,
+   113→    leftIndent=20, bulletIndent=10,
+   114→    spaceBefore=1, spaceAfter=2
+   115→)
+   116→
+   117→style_caption = ParagraphStyle(
+   118→    'Caption', parent=style_body,
+   119→    fontName='Carlito-Italic', fontSize=9, leading=12,
+   120→    textColor=TEXT_MUTED, alignment=TA_CENTER,
+   121→    spaceBefore=4, spaceAfter=6
+   122→)
+   123→
+   124→style_code = ParagraphStyle(
+   125→    'Code', parent=style_body,
+   126→    fontName='Carlito', fontSize=8, leading=11,
+   127→    textColor=TEXT_PRIMARY, alignment=TA_LEFT,
+   128→    leftIndent=10,
+   129→    backColor=CARD_BG,
+   130→    spaceBefore=4, spaceAfter=4
+   131→)
+   132→
+   133→style_star = ParagraphStyle(
+   134→    'Star', parent=style_body,
+   135→    fontName='Carlito-Bold', fontSize=10, leading=14,
+   136→    textColor=ACCENT, alignment=TA_CENTER
+   137→)
+   138→
+   139→# ─── Helper Functions ────────────────────────────────────────────
+   140→def heading1(text):
+   141→    return Paragraph(text, style_h1)
+   142→
+   143→def heading2(text):
+   144→    return Paragraph(text, style_h2)
+   145→
+   146→def heading3(text):
+   147→    return Paragraph(text, style_h3)
+   148→
+   149→def body(text):
+   150→    return Paragraph(text, style_body)
+   151→
+   152→def body_bold(text):
+   153→    return Paragraph(text, style_body_bold)
+   154→
+   155→def bullet_item(text):
+   156→    return Paragraph(text, style_bullet, bulletText='\u2022')
+   157→
+   158→def caption(text):
+   159→    return Paragraph(text, style_caption)
+   160→
+   161→def code_block(text):
+   162→    return Paragraph(text, style_code)
+   163→
+   164→def spacer(h=6):
+   165→    return Spacer(1, h)
+   166→
+   167→def hr():
+   168→    return HRFlowable(width="100%", thickness=1, color=BORDER, spaceBefore=6, spaceAfter=6)
+   169→
+   170→def star_rating(n, max_n=5):
+   171→    """Generate star rating display."""
+   172→    filled = '\u2605' * n
+   173→    empty = '\u2606' * (max_n - n)
+   174→    return Paragraph(f'{filled}{empty}', style_star)
+   175→
+   176→def make_table(data, col_widths=None, header_rows=1):
+   177→    """Create a styled table with palette colors."""
+   178→    if col_widths is None:
+   179→        col_widths = [CONTENT_W / len(data[0])] * len(data[0])
+   180→    
+   181→    t = Table(data, colWidths=col_widths, repeatRows=header_rows)
+   182→    
+   183→    style_cmds = [
+   184→        ('BACKGROUND', (0, 0), (-1, header_rows-1), HEADER_FILL),
+   185→        ('TEXTCOLOR', (0, 0), (-1, header_rows-1), colors.white),
+   186→        ('FONTNAME', (0, 0), (-1, header_rows-1), 'Carlito-Bold'),
+   187→        ('FONTSIZE', (0, 0), (-1, header_rows-1), 9),
+   188→        ('FONTNAME', (0, header_rows), (-1, -1), 'Carlito'),
+   189→        ('FONTSIZE', (0, header_rows), (-1, -1), 9),
+   190→        ('LEADING', (0, 0), (-1, -1), 12),
+   191→        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+   192→        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+   193→        ('GRID', (0, 0), (-1, -1), 0.5, BORDER),
+   194→        ('TOPPADDING', (0, 0), (-1, -1), 4),
+   195→        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+   196→        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+   197→        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+   198→    ]
+   199→    
+   200→    # Alternating row colors
+   201→    for i in range(header_rows, len(data)):
+   202→        if i % 2 == 0:
+   203→            style_cmds.append(('BACKGROUND', (0, i), (-1, i), TABLE_STRIPE))
+   204→        else:
+   205→            style_cmds.append(('BACKGROUND', (0, i), (-1, i), PAGE_BG))
+   206→    
+   207→    t.setStyle(TableStyle(style_cmds))
+   208→    return t
+   209→
+   210→# ─── Document Builder ────────────────────────────────────────────
+   211→story = []
+   212→
+   213→# ============================================================
+   214→# COVER PAGE
+   215→# ============================================================
+   216→story.append(Spacer(1, 80))
+   217→story.append(Paragraph('OWL-AGENT v4.2 + LLM-DNS-Proxy', style_title))
+   218→story.append(Spacer(1, 12))
+   219→story.append(Paragraph('Synergy Merger Analysis & Implementation Blueprint', ParagraphStyle(
+   220→    'Subtitle', parent=style_title, fontSize=16, leading=20,
+   221→    textColor=COVER_BLOCK, fontName='DejaVuSans-Bold'
+   222→)))
+   223→story.append(Spacer(1, 20))
+   224→story.append(hr())
+   225→story.append(Spacer(1, 8))
+   226→story.append(Paragraph('A/B Comparison Matrix | Unified Architecture | Obsidian Integration', ParagraphStyle(
+   227→    'CoverMeta', parent=style_body, fontSize=11, textColor=TEXT_MUTED, alignment=TA_CENTER
+   228→)))
+   229→story.append(Spacer(1, 10))
+   230→story.append(Paragraph('Operating Protocol: SMP-v5.1 (Silent Methodological Protocol)', ParagraphStyle(
+   231→    'CoverProto', parent=style_body, fontSize=10, textColor=ICON, alignment=TA_CENTER, fontName='Carlito-Italic'
+   232→)))
+   233→story.append(Spacer(1, 8))
+   234→story.append(Paragraph('Deep Research & Orchestration | Skills.sh Discovery | End-to-End Simulation', ParagraphStyle(
+   235→    'CoverDetail', parent=style_body, fontSize=9, textColor=TEXT_MUTED, alignment=TA_CENTER
+   236→)))
+   237→story.append(Spacer(1, 60))
+   238→story.append(Paragraph('Generated: 2026-07-28 | Z.ai Research Division', ParagraphStyle(
+   239→    'CoverFooter', parent=style_body, fontSize=8, textColor=TEXT_MUTED, alignment=TA_CENTER
+   240→)))
+   241→story.append(PageBreak())
+   242→
+   243→# ============================================================
+   244→# TABLE OF CONTENTS
+   245→# ============================================================
+   246→story.append(heading1('Table of Contents'))
+   247→story.append(spacer(8))
+   248→
+   249→toc_items = [
+   250→    ('1', 'Executive Summary & SMP-v5.1 Adoption'),
+   251→    ('2', 'Skills Discovery & Capability Composition'),
+   252→    ('3', 'Project A: OWL-AGENT v4.2 Architecture Deep Dive'),
+   253→    ('4', 'Project B: LLM-DNS-Proxy Architecture Deep Dive'),
+   254→    ('5', 'A/B Comparison Matrix (Pros, Cons, Layers, Tools, Components, Star Ratings)'),
+   255→    ('6', 'Unified Architecture & Synergy Analysis'),
+   256→    ('7', 'Implementation Plan (Phased Roadmap)'),
+   257→    ('8', 'Unified Synergies Script'),
+   258→    ('9', 'Obsidian Integration via kepano/obsidian-skills'),
+   259→    ('10', 'Appendix: Skills.sh Trending & Scraper Ecosystem'),
+   260→]
+   261→
+   262→for num, title in toc_items:
+   263→    story.append(Paragraph(f'<b>{num}.</b>  {title}', ParagraphStyle(
+   264→        f'TOC_{num}', parent=style_body, fontSize=10, leading=14,
+   265→        textColor=TEXT_PRIMARY, fontName='Carlito'
+   266→    )))
+   267→story.append(PageBreak())
+   268→
+   269→# ============================================================
+   270→# CHAPTER 1: EXECUTIVE SUMMARY & SMP-v5.1 ADOPTION
+   271→# ============================================================
+   272→story.append(heading1('1. Executive Summary & SMP-v5.1 Adoption'))
+   273→
+   274→story.append(body(
+   275→    'This document presents a comprehensive merger analysis of two powerful network-utility projects: '
+   276→    '<b>OWL-AGENT v4.2</b> (a self-optimizing scraping engine with 50+ proxy sources, quality scoring, '
+   277→    'adaptive rate limiting, and Chrome fingerprinting) and <b>LLM-DNS-Proxy</b> (a DNS tunneling system '
+   278→    'that enables encrypted LLM conversations through captive portals and restricted networks). The analysis '
+   279→    'follows the <b>SMP-v5.1 Silent Methodological Protocol</b> as the governing operating instructions, '
+   280→    'which mandates zero-fluff execution, alignment over speed, quality-gated reasoning, and depth before velocity.'
+   281→))
+   282→story.append(spacer(6))
+   283→
+   284→story.append(body(
+   285→    'The SMP-v5.1 protocol establishes a state-machine workflow with hard gates at every stage: Discovery, '
+   286→    'Brainstorming, Research, Planning, Execution, Validation, Review, and Completion. Each stage must be '
+   287→    'satisfied before proceeding. The protocol also routes cognitive effort through seven distinct modes: '
+   288→    'Rabbit (speed), Ant (systematic), Beaver (builder), Owl (depth), Eagle (strategy), Dolphin (creative), '
+   289→    'and Elephant (memory). For this merger analysis, we primarily employ Owl (depth analysis of hidden factors) '
+   290→    'and Beaver (practical system design), with Ant for incremental task decomposition and Eagle for strategic '
+   291→    'pattern recognition across both projects.'
+   292→))
+   293→story.append(spacer(6))
+   294→
+   295→story.append(body(
+   296→    'The core insight driving this merger is that OWL-AGENT and LLM-DNS-Proxy occupy complementary positions '
+   297→    'in the network-access stack. OWL-AGENT excels at <b>getting through</b> (bypassing anti-bot systems, '
+   298→    'rotating proxies, fingerprinting browsers) while LLM-DNS-Proxy excels at <b>getting under</b> (tunneling '
+   299→    'through DNS when HTTP is blocked entirely). Combined, they create a dual-channel resilient system: when '
+   300→    'HTTP proxies fail, DNS tunneling activates; when DNS is monitored, HTTP proxy rotation takes over. This '
+   301→    'creates a self-healing, multi-protocol access layer that no single project can achieve alone.'
+   302→))
+   303→story.append(spacer(6))
+   304→
+   305→story.append(heading2('1.1 Key Findings'))
+   306→story.append(bullet_item('<b>Complementary Access Channels:</b> OWL-AGENT provides HTTP/HTTPS proxy evasion; LLM-DNS-Proxy provides DNS tunnel evasion. Together they cover the two primary network bypass vectors.'))
+   307→story.append(bullet_item('<b>Shared Intelligence Layer:</b> Both projects implement quality scoring, adaptive rate limiting, and retry logic. A unified scorer can combine DNS-latency metrics with HTTP-success-rate metrics.'))
+   308→story.append(bullet_item('<b>Session Persistence:</b> OWL-AGENT uses Redis for state sharing; LLM-DNS-Proxy uses session persistence for conversation context. A merged RedisStore can serve both purposes.'))
+   309→story.append(bullet_item('<b>Obsidian Integration:</b> Both projects can output scraped/tunneled data as Markdown, making them natural fits for Obsidian vaults via kepano/obsidian-skills.'))
+   310→story.append(bullet_item('<b>Star Rating Preview:</b> OWL-AGENT scores 4.5/5 on proxy management but 2/5 on restricted-network bypass; LLM-DNS-Proxy scores 5/5 on DNS evasion but 2/5 on HTTP resilience. Merged system targets 4.5/5 across all dimensions.'))
+   311→
+   312→story.append(PageBreak())
+   313→
+   314→# ============================================================
+   315→# CHAPTER 2: SKILLS DISCOVERY & CAPABILITY COMPOSITION
+   316→# ============================================================
+   317→story.append(heading1('2. Skills Discovery & Capability Composition'))
+   318→
+   319→story.append(body(
+   320→    'Following SMP-v5.1 Stage 1 (Discovery & Capability Composition), we browsed skills.sh/trending to '
+   321→    'identify available agent skills, then composed the bespoke toolset needed for this specific task. The '
+   322→    'skills.sh marketplace hosts skills for Claude Code, Cursor, Windsurf, OpenCode, and other AI agents, '
+   323→    'with trending categories including browser automation, web scraping, data processing, and Obsidian integration. '
+   324→    'The find-skills command on skills.sh enables version-locked discovery and installation of relevant capabilities.'
+   325→))
+   326→story.append(spacer(6))
+   327→
+   328→story.append(heading2('2.1 Skills.sh Trending Landscape'))
+   329→story.append(body(
+   330→    'The skills.sh trending page reveals the fastest-growing AI agent skills each week, categorized by agent '
+   331→    'compatibility. The marketplace includes skills for browser automation (agent-browser by vercel-labs), '
+   332→    'Obsidian integration (obsidian-skills by kepano), web research (parallel-deep-research), code generation, '
+   333→    'and DevOps automation. For this merger task, we identified the following version-locked toolset:'
+   334→))
+   335→story.append(spacer(4))
+   336→
+   337→skills_data = [
+   338→    ['Skill / Tool', 'Version', 'Role in Merger', 'Source'],
+   339→    ['find-skills (skills.sh)', 'latest', 'Discover and install scraper/research skills', 'npx skills find scraper'],
+   340→    ['agent-browser (vercel-labs)', 'v2.x', 'Headless browser for OWL-AGENT JS rendering', 'npm / npx skills add'],
+   341→    ['obsidian-skills (kepano)', 'v1.x', 'Obsidian CLI + Markdown/Canvas/Bases integration', 'npx skills add kepano/obsidian-skills'],
+   342→    ['parallel-deep-research', 'v1.x', 'Multi-source deep research for proxy pool analysis', 'skills.sh/trending'],
+   343→    ['web-reader (z-ai)', 'v1.x', 'Content extraction from web pages', 'z-ai-web-dev-sdk'],
+   344→    ['page_reader', 'v1.x', 'Raw page content extraction (GitHub READMEs)', 'z-ai function'],
+   345→]
+   346→
+   347→story.append(make_table(skills_data, col_widths=[67.2*mm, 19.8*mm, 51.4*mm, 31.6*mm]))
+   348→story.append(caption('Table 2.1: Version-locked toolset assembled for this merger task'))
+   349→
+   350→story.append(spacer(8))
+   351→
+   352→story.append(heading2('2.2 Scraper Skills Discovery'))
+   353→story.append(body(
+   354→    'Running <b>npx skills find scraper</b> on skills.sh yields a catalog of scraping-related skills. The most '
+   355→    'relevant ones for this merger include skills for proxy pool management, DNS-based data retrieval, browser '
+   356→    'automation with fingerprint evasion, and Markdown conversion for Obsidian ingestion. The scraper ecosystem '
+   357→    'on skills.sh spans three categories: (1) HTTP-based scrapers that use proxy rotation and TLS fingerprinting '
+   358→    '(where OWL-AGENT belongs), (2) protocol-level scrapers that tunnel through DNS or ICMP (where LLM-DNS-Proxy '
+   359→    'belongs), and (3) hybrid scrapers that combine both approaches (the target of our merged system).'
+   360→))
+   361→story.append(spacer(6))
+   362→
+   363→story.append(body(
+   364→    'The key discovery from skills.sh is that no existing skill combines HTTP proxy evasion with DNS tunneling '
+   365→    'in a single unified interface. This gap is precisely what the OWL-AGENT + LLM-DNS-Proxy merger fills. '
+   366→    'The merged skill would be installable via <b>npx skills add owl-dns-synergy</b> and would expose both '
+   367→    'access channels through a single ResilientClient API, automatically selecting the optimal channel based '
+   368→    'on network conditions and target accessibility.'
+   369→))
+   370→
+   371→story.append(PageBreak())
+   372→
+   373→# ============================================================
+   374→# CHAPTER 3: PROJECT A - OWL-AGENT v4.2
+   375→# ============================================================
+   376→story.append(heading1('3. Project A: OWL-AGENT v4.2 Architecture Deep Dive'))
+   377→
+   378→story.append(body(
+   379→    'OWL-AGENT v4.2 is a production-grade, self-healing HTTP client that combines over 50 proxy sources, '
+   380→    'quality scoring, adaptive rate limiting, Redis state sharing, curl_cffi Chrome fingerprinting, Retry-After '
+   381→    'parsing, circuit breaker protection, and agent-browser automation into a single memory-efficient Python '
+   382→    'script. It is designed for high-volume SEO scraping, API integration, and dynamic content retrieval, with '
+   383→    'seamless integration into modern AI-coding ecosystems including OpenCode, Cline, Cursor, Warp, Codebuff, '
+   384→    'Claude Code, Codex, Antigravity, Kiro-CLI, Hermes-Agent, and Obsidian Skills.'
+   385→))
+   386→story.append(spacer(6))
+   387→
+   388→story.append(heading2('3.1 Layer Architecture'))
+   389→
+   390→owl_layers = [
+   391→    ['Layer', 'Components', 'Function', 'Why It Matters'],
+   392→    ['User Layer', 'OpenCode, Cline, Cursor, Warp, Claude Code, Codex, Antigravity, Kiro-CLI, Hermes-Agent', 
+   393→     'Natural-language interfaces to invoke OWL-AGENT', 'Developers stay in preferred environment'],
+   394→    ['API Interface', 'CLI (run.sh), Python class, OpenCode skill, Cursor command', 
+   395→     'Exposes OWL-AGENT as a reusable tool', 'Both human and agentic usage'],
+   396→    ['Core Engine', 'ResilientClient orchestrator', 
+   397→     'Caching, dedup, rate limiting, scoring, pacing, circuit breaking, proxy selection', 
+   398→     'Central nervous system'],
+   399→    ['Proxy Management', 'ProxyPoolManager + ProxyBroker2', 
+   400→     '50+ proxy sources, country filtering, validation', 'Self-healing proxy supply'],
+   401→    ['Intelligence', 'QualityScorer, AdaptiveRateLimiter, CircuitBreaker', 
+   402→     'Proxy quality scoring, request pacing, failure threshold', 'Reduces bans, improves success'],
+   403→    ['Persistence', 'RedisStore (optional)', 
+   404→     'Shares proxy pool, scores, circuit state across restarts', 'Horizontal scaling'],
+   405→    ['Fingerprint Evasion', 'curl_cffi (Chrome 110 impersonation)', 
+   406→     'Mimics real browser TLS handshake', 'Bypasses anti-bot detection'],
+   407→    ['Headless Browser', 'agent-browser', 
+   408→     'JavaScript-heavy page rendering', 'Handles SPAs, captchas'],
+   409→    ['Obsidian Integration', 'obsidian-skills (kepano)', 
+   410→     'Read/write Obsidian notes, bases, markdown', 'Knowledge base as data source'],
+   411→]
+   412→
+   413→story.append(make_table(owl_layers, col_widths=[26.2*mm, 47.9*mm, 56.7*mm, 39.2*mm]))
+   414→story.append(caption('Table 3.1: OWL-AGENT v4.2 layer architecture'))
+   415→
+   416→story.append(spacer(8))
+   417→
+   418→story.append(heading2('3.2 Core Components Deep Dive'))
+   419→
+   420→story.append(heading3('3.2.1 HTTPCache (LRU + Disk)'))
+   421→story.append(body(
+   422→    'The HTTPCache implements a two-tier caching system: an in-memory LRU dictionary for fast lookups and a '
+   423→    'disk-based JSON store at ~/.owl-agent/cache/http/ for persistence across restarts. Each cached response '
+   424→    'includes status code, content bytes, headers, timestamp, TTL, and protocol. A background cleanup loop '
+   425→    'runs every 60 seconds, evicting expired entries and trimming oversized caches to the configured maximum '
+   426→    '(default 1000 entries). Cache keys are SHA-256 hashes of method + URL + parameters + protocol, ensuring '
+   427→    'deterministic deduplication even across different HTTP/2 vs HTTP/1.1 sessions.'
+   428→))
+   429→
+   430→story.append(heading3('3.2.2 RequestDeduplicator'))
+   431→story.append(body(
+   432→    'The RequestDeduplicator prevents redundant concurrent requests by tracking in-flight futures keyed by '
+   433→    'the same SHA-256 hash used by the cache. When two requests arrive simultaneously for the same resource, '
+   434→    'the second request awaits the first request\'s future rather than issuing a duplicate network call. This '
+   435→    'is critical for high-concurrency scraping scenarios where multiple threads or agents may target the same '
+   436→    'URL simultaneously. The deduplicator uses asyncio.Lock for thread-safe registration and cleanup of futures, '
+   437→    'with proper exception propagation to all waiting consumers.'
+   438→))
+   439→
+   440→story.append(heading3('3.2.3 QualityScorer'))
+   441→story.append(body(
+   442→    'The QualityScorer implements an exponential moving average (EMA) with configurable decay factor (default '
+   443→    '0.9) to track proxy quality over time. Each proxy receives a score between 0.0 (completely unreliable) '
+   444→    'and 1.0 (perfect reliability), updated on every request outcome. The EMA formula is: new_score = '
+   445→    'old_score * decay + (success ? 1.0 : 0.0) * (1 - decay). This ensures recent failures weigh heavily '
+   446→    'while historical performance provides stability. The scorer also maintains a latency history (last 100 '
+   447→    'measurements per proxy) for latency-aware proxy selection. The get_best_proxy() method selects the proxy '
+   448→    'with the highest combined score from a candidate pool.'
+   449→))
+   450→
+   451→story.append(heading3('3.2.4 AdaptiveRateLimiter'))
+   452→story.append(body(
+   453→    'The AdaptiveRateLimiter dynamically adjusts per-domain request rates based on server response codes. On '
+   454→    'success (200-299), the rate increases by 10% toward a configurable maximum (default 5.0 req/s). On '
+   455→    'rate-limit responses (429, 503), the rate decreases by 50% toward a configurable minimum (default 0.1 '
+   456→    'req/s). Other error codes maintain the current rate. This creates a natural throttling behavior that '
+   457→    'automatically backs off when servers indicate overload, and gradually ramps up when servers are responsive. '
+   458→    'Each domain maintains its own independent rate, preventing a single slow domain from bottlenecking others.'
+   459→))
+   460→
+   461→story.append(heading3('3.2.5 CircuitBreaker'))
+   462→story.append(body(
+   463→    'The CircuitBreaker follows the standard three-state pattern (Closed, Open, Half-Open) with configurable '
+   464→    'failure threshold (default 5 consecutive failures) and recovery timeout (default 30 seconds). When a '
+   465→    'domain exceeds the failure threshold, the circuit opens and all subsequent requests to that domain are '
+   466→    'immediately rejected without network calls, saving resources and preventing cascading failures. After '
+   467→    'the recovery timeout, the circuit enters half-open state and allows a single probe request. If the probe '
+   468→    'succeeds, the circuit closes and normal traffic resumes. This pattern is essential for scraping scenarios '
+   469→    'where target sites may temporarily go down or deploy aggressive anti-bot measures.'
+   470→))
+   471→
+   472→story.append(heading3('3.2.6 ProxyPoolManager'))
+   473→story.append(body(
+   474→    'The ProxyPoolManager continuously discovers proxies from 50+ sources via ProxyBroker2, filters them by '
+   475→    'country (default: US, GB, DE, FR, CA), validates connectivity, and maintains a rotating pool. Proxies '
+   476→    'are tracked as ProxyEntry objects with health status, failure counts, and ban timers. Failed proxies are '
+   477→    'automatically banned for 60 seconds and retried later. The manager supports LitProxy for rotation and '
+   478→    'integrates with curl_cffi for Chrome 110 TLS impersonation. When RedisStore is enabled, the proxy pool '
+   479→    'state is shared across multiple OWL-AGENT instances, enabling distributed scraping with zero proxy wastage.'
+   480→))
+   481→
+   482→story.append(PageBreak())
+   483→
+   484→# ============================================================
+   485→# CHAPTER 4: PROJECT B - LLM-DNS-PROXY
+   486→# ============================================================
+   487→story.append(heading1('4. Project B: LLM-DNS-Proxy Architecture Deep Dive'))
+   488→
+   489→story.append(body(
+   490→    'LLM-DNS-Proxy is a DNS tunneling system that enables encrypted LLM (Large Language Model) conversations '
+   491→    'through captive portals, corporate firewalls, and network filters. It exploits a fundamental oversight in '
+   492→    'network restrictions: while most traffic (HTTP, HTTPS) gets blocked until authentication, DNS queries '
+   493→    'almost always work because captive portals themselves need DNS to function. The project masks encrypted '
+   494→    'chat messages as mundane DNS lookups (e.g., mDNS device discovery traffic), chunking and encrypting data '
+   495→    'across multiple DNS TXT record queries that pass through unrestricted.'
+   496→))
+   497→story.append(spacer(6))
+   498→
+   499→story.append(heading2('4.1 Protocol Architecture'))
+   500→
+   501→story.append(body(
+   502→    'The DNS tunneling protocol operates in seven distinct phases: (1) Message Encryption using Fernet '
+   503→    '(AES-128) symmetric encryption with configurable keys; (2) Chunking where encrypted data is base36-encoded '
+   504→    'and split into DNS-compatible segments; (3) DNS Encoding where each chunk becomes a subdomain query with '
+   505→    'a configurable camouflage suffix (e.g., _sonos._udp.local, _airplay._tcp.local); (4) Server Processing '
+   506→    'where the DNS server receives queries, reassembles chunks, decrypts, and sends to the LLM; (5) Response '
+   507→    'Encoding where the AI response is encrypted, chunked, and stored as DNS TXT records; (6) Response Retrieval '
+   508→    'where the client fetches response chunks via DNS TXT queries; and (7) Decryption where the client reassembles '
+   509→    'chunks and decrypts the final response. To external observers, this appears as standard DNS resolution or '
+   510→    'mDNS device discovery activity.'
+   511→))
+   512→story.append(spacer(6))
+   513→
+   514→dns_layers = [
+   515→    ['Layer', 'Components', 'Function', 'Why It Matters'],
+   516→    ['Client Layer', 'CLI (python -m llm_dns_proxy.cli)', 
+   517→     'Interactive chat, single message, connection testing', 'User-facing interface'],
+   518→    ['Protocol Layer', 'Fernet encryption, base36 encoding, DNS chunking', 
+   519→     'Encrypt, split, and encode messages as DNS queries', 'Core tunneling mechanism'],
+   520→    ['DNS Encoding', 'Camouflage suffixes (_sonos._udp.local, _airplay._tcp.local)', 
+   521→     'Make queries appear as legitimate mDNS traffic', 'Steganographic evasion'],
+   522→    ['Server Layer', 'DNS server (UDP 53/5353), TXT record responses', 
+   523→     'Receive queries, reassemble, decrypt, send to LLM, encode response', 'Server-side processing'],
+   524→    ['LLM Integration', 'OpenAI, Ollama, vLLM, OpenRouter, LocalAI', 
+   525→     'Multiple provider support via OpenAI-compatible API', 'Flexibility in LLM choice'],
+   526→    ['Web Search', 'Perplexity AI integration (function calling)', 
+   527→     'Real-time information via web_search tool', 'Live data access through DNS'],
+   528→    ['Session Persistence', 'Conversation context across requests', 
+   529→     'Maintains multi-turn dialogue state', 'Continuous conversations'],
+   530→    ['Production Deploy', 'Systemd service, domain delegation, firewall config', 
+   531→     'Production-grade DNS infrastructure setup', 'Real-world deployment'],
+   532→]
+   533→
+   534→story.append(make_table(dns_layers, col_widths=[26.2*mm, 47.9*mm, 56.7*mm, 39.2*mm]))
+   535→story.append(caption('Table 4.1: LLM-DNS-Proxy layer architecture'))
+   536→
+   537→story.append(spacer(8))
+   538→
+   539→story.append(heading2('4.2 Security Model'))
+   540→
+   541→story.append(body(
+   542→    'The security model operates on three levels. First, <b>encryption</b>: all messages use Fernet (AES-128 '
+   543→    'CBC with HMAC authentication), ensuring both confidentiality and integrity. Keys are either user-provided '
+   544→    'or auto-generated using cryptography.fernet.Fernet.generate_key(). Second, <b>steganography</b>: DNS '
+   545→    'suffixes are configurable to mimic legitimate network traffic patterns. Default suffix _sonos._udp.local '
+   546→    'makes queries appear as Sonos device discovery; alternatives include _airplay._tcp.local (Apple AirPlay), '
+   547→    '_spotify._tcp.local (Spotify Connect), _http._tcp.local (generic HTTP), or custom corporate domains. Third, '
+   548→    '<b>acknowledged limitations</b>: DNS queries are visible to network infrastructure (though encrypted payload '
+   549→    'is unreadable), and sophisticated IDS/IPS systems may flag unusual DNS patterns. The project explicitly '
+   550→    'notes this as a proof-of-concept for educational purposes.'
+   551→))
+   552→
+   553→story.append(heading2('4.3 Production Deployment'))
+   554→story.append(body(
+   555→    'For production deployment, the system requires: (1) A domain under user control with NS delegation '
+   556→    '(*.llm.yourdomain.com NS llm.yourdomain.com); (2) A DNS server running on port 53 with root/sudo '
+   557→    'permissions; (3) Proper firewall configuration (UFW or firewalld allowing 53/UDP and 53/TCP); (4) A '
+   558→    'systemd service for automatic startup with environment variables for API keys and encryption keys; '
+   559→    '(5) DNS resolution testing via dig commands before running the proxy. The deployment guide includes '
+   560→    'complete systemd unit file templates, iptables port forwarding rules, and monitoring commands using '
+   561→    'tcpdump and journalctl. This level of deployment documentation is unusual for a proof-of-concept project '
+   562→    'and indicates serious production intent.'
+   563→))
+   564→
+   565→story.append(PageBreak())
+   566→
+   567→# ============================================================
+   568→# CHAPTER 5: A/B COMPARISON MATRIX
+   569→# ============================================================
+   570→story.append(heading1('5. A/B Comparison Matrix'))
+   571→
+   572→story.append(body(
+   573→    'The following comprehensive A/B comparison matrix evaluates OWL-AGENT v4.2 and LLM-DNS-Proxy across '
+   574→    'ten critical dimensions: architecture layers, proxy/access management, encryption and evasion, rate '
+   575→    'limiting and resilience, session and state management, LLM integration, deployment maturity, Obsidian '
+   576→    'compatibility, ecosystem integration, and overall robustness. Each dimension includes pros, cons, and '
+   577→    'a star rating (1-5 scale) to enable quick visual comparison.'
+   578→))
+   579→story.append(spacer(8))
+   580→
+   581→# ─── Dimension 1: Architecture ───────────────────────────────────
+   582→story.append(heading2('5.1 Architecture Layers'))
+   583→
+   584→arch_comparison = [
+   585→    ['Dimension', 'OWL-AGENT v4.2 (A)', 'LLM-DNS-Proxy (B)'],
+   586→    ['Primary Protocol', 'HTTP/HTTPS with proxy rotation', 'DNS tunneling (UDP TXT records)'],
+   587→    ['Layer Count', '9 layers (User, API, Core, Proxy, Intelligence, Persistence, Fingerprint, Browser, Obsidian)', 
+   588→     '8 layers (Client, Protocol, DNS Encoding, Server, LLM, Web Search, Session, Production)'],
+   589→    ['Core Orchestrator', 'ResilientClient class (async Python)', 'CLI + server binary (async Python)'],
+   590→    ['Design Philosophy', 'Self-optimizing: learns from failures, adapts rates, rotates proxies', 
+   591→     'Steganographic: hides in legitimate traffic patterns'],
+   592→    ['Extensibility', 'OpenCode skill, Cursor command, Python class, CLI', 'CLI only; provider-agnostic OpenAI API'],
+   593→    ['Language', 'Python 3.8+ (asyncio)', 'Python (uv-managed, asyncio)'],
+   594→    ['Star Rating (A)', '\u2605\u2605\u2605\u2605\u2606 (4/5)', '\u2605\u2605\u2605\u2605\u2606 (4/5)'],
+   595→]
+   596→
+   597→story.append(make_table(arch_comparison, col_widths=[30.5*mm, 69.7*mm, 69.7*mm]))
+   598→story.append(caption('Table 5.1: Architecture layer comparison'))
+   599→
+   600→story.append(spacer(8))
+   601→
+   602→# ─── Dimension 2: Proxy & Access Management ──────────────────────
+   603→story.append(heading2('5.2 Proxy & Access Channel Management'))
+   604→
+   605→access_comparison = [
+   606→    ['Dimension', 'OWL-AGENT v4.2 (A)', 'LLM-DNS-Proxy (B)'],
+   607→    ['Access Channel', 'HTTP/HTTPS proxies (SOCKS5, HTTP, HTTPS)', 'DNS queries (UDP port 53)'],
+   608→    ['Source Pool', '50+ proxy sources via ProxyBroker2 + LitProxy', 'Single DNS server (user-deployed)'],
+   609→    ['Country Filtering', 'Yes: configurable country list (US, GB, DE, FR, CA)', 'No (DNS is location-independent)'],
+   610→    ['Rotation Strategy', 'Quality-score-based selection with EMA decay', 'No rotation (single server endpoint)'],
+   611→    ['Fallback Path', 'Direct connection when all proxies fail', 'No fallback (DNS is the only channel)'],
+   612→    ['Anti-Bot Evasion', 'curl_cffi Chrome 110 TLS impersonation', 'Steganographic DNS suffix camouflage'],
+   613→    ['Pros (A)', 'Massive proxy pool, geographic control, quality learning', 'Works when HTTP is completely blocked'],
+   614→    ['Cons (A)', 'Fails when HTTP is blocked at network level', 'Single server, no geographic diversity'],
+   615→    ['Star Rating (A)', '\u2605\u2605\u2605\u2605\u2605 (5/5)', '\u2605\u2605\u2606\u2606\u2606 (2/5)'],
+   616→    ['Star Rating (B)', '\u2605\u2605\u2606\u2606\u2606 (2/5)', '\u2605\u2605\u2605\u2605\u2605 (5/5)'],
+   617→]
+   618→
+   619→story.append(make_table(access_comparison, col_widths=[30.5*mm, 69.7*mm, 69.7*mm]))
+   620→story.append(caption('Table 5.2: Proxy & access channel management comparison'))
+   621→
+   622→story.append(spacer(8))
+   623→
+   624→# ─── Dimension 3: Encryption & Evasion ────────────────────────────
+   625→story.append(heading2('5.3 Encryption & Evasion Capabilities'))
+   626→
+   627→enc_comparison = [
+   628→    ['Dimension', 'OWL-AGENT v4.2 (A)', 'LLM-DNS-Proxy (B)'],
+   629→    ['Encryption', 'None (relies on HTTPS/TLS of target)', 'Fernet AES-128 CBC + HMAC (end-to-end)'],
+   630→    ['TLS Fingerprint', 'curl_cffi Chrome 110 impersonation', 'Standard DNS client (no fingerprinting)'],
+   631→    ['Steganography', 'None (proxy IP rotation only)', 'Configurable DNS suffix camouflage (Sonos, AirPlay, Spotify)'],
+   632→    ['Detection Resistance', 'Moderate: proxies can be IP-blocked', 'High: encrypted payload in legitimate-looking DNS'],
+   633→    ['Pros', 'Browser-realistic TLS; hard to fingerprint as bot', 'Military-grade encryption; invisible to HTTP inspectors'],
+   634→    ['Cons', 'No payload encryption; proxy IPs are observable', 'DNS patterns can be flagged by advanced IDS/IPS'],
+   635→    ['Star Rating (A)', '\u2605\u2605\u2605\u2606\u2606 (3/5)', '\u2605\u2605\u2606\u2606\u2606 (2/5)'],
+   636→    ['Star Rating (B)', '\u2605\u2605\u2606\u2606\u2606 (2/5)', '\u2605\u2605\u2605\u2605\u2605 (5/5)'],
+   637→]
+   638→
+   639→story.append(make_table(enc_comparison, col_widths=[30.5*mm, 69.7*mm, 69.7*mm]))
+   640→story.append(caption('Table 5.3: Encryption & evasion comparison'))
+   641→
+   642→story.append(spacer(8))
+   643→
+   644→# ─── Dimension 4: Rate Limiting & Resilience ──────────────────────
+   645→story.append(heading2('5.4 Rate Limiting & Resilience'))
+   646→
+   647→rate_comparison = [
+   648→    ['Dimension', 'OWL-AGENT v4.2 (A)', 'LLM-DNS-Proxy (B)'],
+   649→    ['Rate Limiting', 'Adaptive per-domain (token bucket, EMA adjustment)', 'None (DNS has no rate concept)'],
+   650→    ['Circuit Breaker', 'Yes: 5-failure threshold, 30s recovery, 3-state pattern', 'None'],
+   651→    ['Retry Logic', 'resilient-httpx + max_retries=3 + Retry-After parsing', 'Client retries on DNS timeout'],
+   652→    ['Request Dedup', 'Yes: in-flight future tracking per URL', 'None (single conversation stream)'],
+   653→    ['Caching', 'LRU + disk (SHA-256 keyed, TTL-managed)', 'None (conversation context only)'],
+   654→    ['Pros', 'Self-healing: backs off on 429, ramps up on success', 'Simple: no rate management needed for DNS'],
+   655→    ['Cons', 'Over-engineered for simple use cases', 'No protection against DNS flooding or server overload'],
+   656→    ['Star Rating (A)', '\u2605\u2605\u2605\u2605\u2605 (5/5)', '\u2605\u2605\u2606\u2606\u2606 (2/5)'],
+   657→    ['Star Rating (B)', '\u2605\u2605\u2606\u2606\u2606 (2/5)', '\u2605\u2605\u2605\u2605\u2606 (4/5)'],
+   658→]
+   659→
+   660→story.append(make_table(rate_comparison, col_widths=[30.5*mm, 69.7*mm, 69.7*mm]))
+   661→story.append(caption('Table 5.4: Rate limiting & resilience comparison'))
+   662→
+   663→story.append(spacer(8))
+   664→
+   665→# ─── Dimension 5: Session & State ──────────────────────────────────
+   666→story.append(heading2('5.5 Session & State Management'))
+   667→
+   668→state_comparison = [
+   669→    ['Dimension', 'OWL-AGENT v4.2 (A)', 'LLM-DNS-Proxy (B)'],
+   670→    ['State Store', 'RedisStore (optional) + in-memory', 'Session context in conversation state'],
+   671→    ['Shared State', 'Yes: Redis enables multi-instance state sharing', 'No: single-client session persistence'],
+   672→    ['Horizontal Scale', 'Yes: multiple instances share proxy pool via Redis', 'No: single server per domain'],
+   673→    ['Restart Recovery', 'Disk cache + Redis preserves state across restarts', 'Conversation lost on server restart'],
+   674→    ['Pros', 'Distributed scraping, zero data loss on restart', 'Lightweight, no external dependencies'],
+   675→    ['Cons', 'Redis dependency adds complexity', 'No persistence; single-server bottleneck'],
+   676→    ['Star Rating (A)', '\u2605\u2605\u2605\u2605\u2605 (5/5)', '\u2605\u2605\u2606\u2606\u2606 (2/5)'],
+   677→    ['Star Rating (B)', '\u2605\u2605\u2606\u2606\u2606 (2/5)', '\u2605\u2605\u2605\u2606\u2606 (3/5)'],
+   678→]
+   679→
+   680→story.append(make_table(state_comparison, col_widths=[30.5*mm, 69.7*mm, 69.7*mm]))
+   681→story.append(caption('Table 5.5: Session & state management comparison'))
+   682→
+   683→story.append(spacer(8))
+   684→
+   685→# ─── Dimension 6: LLM Integration ──────────────────────────────────
+   686→story.append(heading2('5.6 LLM & AI Integration'))
+   687→
+   688→llm_comparison = [
+   689→    ['Dimension', 'OWL-AGENT v4.2 (A)', 'LLM-DNS-Proxy (B)'],
+   690→    ['LLM Usage', 'No direct LLM (scraping engine only)', 'Primary purpose: LLM conversation via DNS'],
+   691→    ['Provider Support', 'None (data retrieval focus)', 'OpenAI, Ollama, vLLM, OpenRouter, LocalAI (any OpenAI-compatible)'],
+   692→    ['Web Search', 'No (scrapes target URLs directly)', 'Perplexity AI integration with function calling'],
+   693→    ['Streaming', 'No LLM streaming', 'Token-by-token streaming via DNS TXT chunks'],
+   694→    ['Pros', 'Not dependent on any LLM API', 'Universal LLM access through restricted networks'],
+   695→    ['Cons', 'Cannot provide AI-powered analysis of scraped data', 'Requires LLM API key; limited by DNS chunk size'],
+   696→    ['Star Rating (A)', '\u2605\u2605\u2606\u2606\u2606 (2/5)', '\u2605\u2605\u2605\u2605\u2605 (5/5)'],
+   697→    ['Star Rating (B)', '\u2605\u2605\u2606\u2606\u2606 (2/5)', '\u2605\u2605\u2605\u2605\u2605 (5/5)'],
+   698→]
+   699→
+   700→story.append(make_table(llm_comparison, col_widths=[30.5*mm, 69.7*mm, 69.7*mm]))
+   701→story.append(caption('Table 5.6: LLM & AI integration comparison'))
+   702→
+   703→story.append(spacer(8))
+   704→
+   705→# ─── Dimension 7: Deployment Maturity ──────────────────────────────
+   706→story.append(heading2('5.7 Deployment Maturity'))
+   707→
+   708→deploy_comparison = [
+   709→    ['Dimension', 'OWL-AGENT v4.2 (A)', 'LLM-DNS-Proxy (B)'],
+   710→    ['Install Method', 'Self-contained install.sh script + venv + pip', 'uv sync (modern Python packaging)'],
+   711→    ['Config Management', 'JSON config file + environment variables', 'Environment variables only'],
+   712→    ['Service Management', 'Manual (no systemd template)', 'Complete systemd unit file included'],
+   713→    ['Monitoring', 'Prometheus metrics (prometheus-client)', 'tcpdump + journalctl (basic)'],
+   714→    ['Documentation', 'Full README with architecture, code, benchmarks, roadmap', 'Comprehensive README with setup, deployment, troubleshooting'],
+   715→    ['Production Readiness', 'Production-grade (circuit breaker, Redis, quality scoring)', 'Proof-of-concept with production deployment guide'],
+   716→    ['Star Rating (A)', '\u2605\u2605\u2605\u2605\u2606 (4/5)', '\u2605\u2605\u2605\u2606\u2606 (3/5)'],
+   717→    ['Star Rating (B)', '\u2605\u2605\u2605\u2606\u2606 (3/5)', '\u2605\u2605\u2605\u2605\u2606 (4/5)'],
+   718→]
+   719→
+   720→story.append(make_table(deploy_comparison, col_widths=[30.5*mm, 69.7*mm, 69.7*mm]))
+   721→story.append(caption('Table 5.7: Deployment maturity comparison'))
+   722→
+   723→story.append(spacer(8))
+   724→
+   725→# ─── Dimension 8: Obsidian Compatibility ────────────────────────────
+   726→story.append(heading2('5.8 Obsidian Compatibility'))
+   727→
+   728→obsidian_comparison = [
+   729→    ['Dimension', 'OWL-AGENT v4.2 (A)', 'LLM-DNS-Proxy (B)'],
+   730→    ['Output Format', 'HTML -> Markdown (turndown + markdownify)', 'Plain text (conversation output)'],
+   731→    ['Obsidian Skill', 'Yes: ~/.obsidian/skills/owl-agent/ in install.sh', 'None (no Obsidian integration)'],
+   732→    ['Markdown Quality', 'Full HTML-to-Markdown conversion with metadata', 'Raw conversation text (no formatting)'],
+   733→    ['Canvas/Bases', 'Not supported', 'Not supported'],
+   734→    ['Wikilinks', 'Not generated', 'Not generated'],
+   735→    ['Pros', 'Built-in Obsidian skill + Markdown conversion', 'Simple text output easy to paste into Obsidian'],
+   736→    ['Cons', 'No wikilinks, no canvas, no callouts', 'No structured Markdown, no Obsidian skill'],
+   737→    ['Star Rating (A)', '\u2605\u2605\u2605\u2605\u2606 (4/5)', '\u2605\u2605\u2606\u2606\u2606 (2/5)'],
+   738→    ['Star Rating (B)', '\u2605\u2605\u2606\u2606\u2606 (2/5)', '\u2605\u2605\u2606\u2606\u2606 (2/5)'],
+   739→]
+   740→
+   741→story.append(make_table(obsidian_comparison, col_widths=[30.5*mm, 69.7*mm, 69.7*mm]))
+   742→story.append(caption('Table 5.8: Obsidian compatibility comparison'))
+   743→
+   744→story.append(spacer(8))
+   745→
+   746→# ─── Dimension 9: Ecosystem Integration ────────────────────────────
+   747→story.append(heading2('5.9 Ecosystem Integration'))
+   748→
+   749→eco_comparison = [
+   750→    ['Dimension', 'OWL-AGENT v4.2 (A)', 'LLM-DNS-Proxy (B)'],
+   751→    ['AI Agent Support', '10+ agents (OpenCode, Cline, Cursor, Warp, Claude, Codex, Antigravity, Kiro, Hermes)', 
+   752→     'None (standalone CLI tool)'],
+   753→    ['Skills.sh', 'Designed for skills.sh distribution', 'Not registered on skills.sh'],
+   754→    ['npm/npx', 'agent-browser via npm', 'No Node.js dependencies'],
+   755→    ['Python Packaging', 'venv + pip install', 'uv (modern Rust-based Python manager)'],
+   756→    ['Community', 'Broad: 10+ agent ecosystem integrations', 'Niche: DNS tunneling community'],
+   757→    ['Star Rating (A)', '\u2605\u2605\u2605\u2605\u2605 (5/5)', '\u2605\u2605\u2606\u2606\u2606 (2/5)'],
+   758→    ['Star Rating (B)', '\u2605\u2605\u2606\u2606\u2606 (2/5)', '\u2605\u2605\u2605\u2606\u2606 (3/5)'],
+   759→]
+   760→
+   761→story.append(make_table(eco_comparison, col_widths=[30.5*mm, 69.7*mm, 69.7*mm]))
+   762→story.append(caption('Table 5.9: Ecosystem integration comparison'))
+   763→
+   764→story.append(spacer(8))
+   765→
+   766→# ─── Aggregate Star Rating Summary ────────────────────────────────
+   767→story.append(heading2('5.10 Aggregate Star Rating Summary'))
+   768→
+   769→aggregate = [
+   770→    ['Dimension', 'A Rating', 'B Rating', 'Merged Target', 'Synergy Gain'],
+   771→    ['Architecture Layers', '4/5', '4/5', '5/5', '+1 (dual-channel unified)'],
+   772→    ['Proxy & Access', '5/5 (A) / 2/5 (B)', '2/5 (A) / 5/5 (B)', '5/5', '+3 (both channels)'],
+   773→    ['Encryption & Evasion', '3/5 (A) / 2/5 (B)', '2/5 (A) / 5/5 (B)', '5/5', '+3 (HTTP+DNS evasion)'],
+   774→    ['Rate Limiting', '5/5', '2/5', '5/5', '+3 (OWL rate logic applied to DNS)'],
+   775→    ['Session & State', '5/5', '2/5', '5/5', '+3 (Redis for both HTTP and DNS state)'],
+   776→    ['LLM Integration', '2/5', '5/5', '5/5', '+3 (OWL scrapes data; DNS tunnels LLM analysis)'],
+   777→    ['Deployment', '4/5', '3/5', '5/5', '+1 (unified installer + systemd)'],
+   778→    ['Obsidian', '4/5', '2/5', '5/5', '+3 (Markdown output + Obsidian skill)'],
+   779→    ['Ecosystem', '5/5', '2/5', '5/5', '+3 (skills.sh distribution + 10+ agents)'],
+   780→    ['OVERALL AVERAGE', '4.3/5', '2.8/5', '5.0/5', '+2.2 (massive synergy)'],
+   781→]
+   782→
+   783→story.append(make_table(aggregate, col_widths=[37.8*mm, 23.6*mm, 23.6*mm, 33.1*mm, 51.9*mm]))
+   784→story.append(caption('Table 5.10: Aggregate star ratings — merged system targets 5/5 across all dimensions'))
+   785→
+   786→story.append(PageBreak())
+   787→
+   788→# ============================================================
+   789→# CHAPTER 6: UNIFIED ARCHITECTURE & SYNERGY ANALYSIS
+   790→# ============================================================
+   791→story.append(heading1('6. Unified Architecture & Synergy Analysis'))
+   792→
+   793→story.append(body(
+   794→    'The merged system, designated <b>OWL-DNS-Synergy</b>, unifies the HTTP proxy evasion capabilities of '
+   795→    'OWL-AGENT with the DNS tunneling capabilities of LLM-DNS-Proxy into a dual-channel resilient access '
+   796→    'engine. The architecture follows the SMP-v5.1 Beaver (builder) mode, designing practical systems '
+   797→    'step-by-step with explicit trade-off analysis at each decision point.'
+   798→))
+   799→story.append(spacer(6))
+   800→
+   801→story.append(heading2('6.1 Synergy Mapping'))
+   802→
+   803→synergy_map = [
+   804→    ['OWL-AGENT Capability', 'LLM-DNS-Proxy Capability', 'Unified Synergy', 'Value'],
+   805→    ['ProxyBroker2 (50+ sources)', 'DNS tunnel (captive portal bypass)', 
+   806→     'Dual-channel access: try HTTP first, fall back to DNS', 'Eliminates single-channel failure'],
+   807→    ['curl_cffi Chrome fingerprint', 'Fernet AES-128 encryption', 
+   808→     'TLS-realistic HTTP + encrypted DNS payload', 'Two-layer evasion stack'],
+   809→    ['QualityScorer (EMA proxy scoring)', 'No scoring (single server)', 
+   810→     'Unified scorer: rate proxies AND DNS servers', 'Smart channel selection'],
+   811→    ['AdaptiveRateLimiter (per-domain)', 'No rate limiting', 
+   812→     'Rate limits for HTTP + DNS flood protection', 'Prevents both HTTP bans and DNS detection'],
+   813→    ['CircuitBreaker (per-domain)', 'No circuit breaker', 
+   814→     'Circuit for HTTP domains AND DNS server failures', 'Self-healing on both channels'],
+   815→    ['RedisStore (state sharing)', 'Session context (in-memory)', 
+   816→     'Redis for proxy scores, circuit state, AND conversation context', 'Persistent multi-instance operation'],
+   817→    ['HTTPCache (LRU + disk)', 'No caching', 
+   818→     'Cache HTTP responses AND DNS conversation history', 'Eliminates redundant requests on both channels'],
+   819→    ['RequestDeduplicator', 'No dedup', 
+   820→     'Dedup HTTP requests AND DNS conversation sessions', 'Prevents duplicate work across agents'],
+   821→    ['turndown + markdownify', 'Plain text output', 
+   822→     'Markdown conversion for BOTH HTTP and DNS outputs', 'Unified Obsidian-ready format'],
+   823→    ['agent-browser (headless)', 'No browser rendering', 
+   824→     'Headless browser for HTTP; DNS for LLM analysis of scraped content', 'Scrape + analyze pipeline'],
+   825→]
+   826→
+   827→story.append(make_table(synergy_map, col_widths=[38.9*mm, 38.9*mm, 48.6*mm, 43.7*mm]))
+   828→story.append(caption('Table 6.1: Synergy mapping — 11 capability pairs create unified value'))
+   829→
+   830→story.append(spacer(8))
+   831→
+   832→story.append(heading2('6.2 Unified System Architecture'))
+   833→
+   834→unified_arch = [
+   835→    ['Layer', 'Component', 'Function', 'Source'],
+   836→    ['User Layer', 'OpenCode, Cline, Cursor, Warp, Claude, Codex, Antigravity, Kiro, Hermes, Obsidian', 
+   837→     'Multi-agent natural-language interface', 'OWL-AGENT (expanded)'],
+   838→    ['API Interface', 'CLI (owl-dns-synergy), Python ResilientClient, OpenCode skill, Cursor command', 
+   839→     'Single entry point for both channels', 'OWL-AGENT (extended)'],
+   840→    ['Channel Selector', 'SmartChannelRouter', 
+   841→     'Try HTTP first; if blocked, switch to DNS; if DNS monitored, switch back', 'NEW (merger-specific)'],
+   842→    ['HTTP Channel', 'ProxyPoolManager + ProxyBroker2 + curl_cffi + agent-browser', 
+   843→     'HTTP proxy evasion with fingerprinting', 'OWL-AGENT'],
+   844→    ['DNS Channel', 'Fernet encryption + DNS chunking + camouflage suffixes + DNS server', 
+   845→     'DNS tunneling with steganographic evasion', 'LLM-DNS-Proxy'],
+   846→    ['Unified Intelligence', 'QualityScorer (proxies + DNS), AdaptiveRateLimiter, CircuitBreaker', 
+   847→     'Quality-aware, rate-adaptive, self-healing across both channels', 'OWL-AGENT (extended)'],
+   848→    ['Unified Persistence', 'RedisStore (proxy scores, circuit state, conversation context, DNS history)', 
+   849→     'Shared state across instances and channels', 'OWL-AGENT (expanded)'],
+   850→    ['Unified Cache', 'HTTPCache (LRU + disk) + DNSConversationStore', 
+   851→     'Cache HTTP responses and DNS conversation history', 'OWL-AGENT (expanded)'],
+   852→    ['LLM Integration', 'OpenAI, Ollama, vLLM, OpenRouter + Perplexity web search', 
+   853→     'LLM analysis of scraped data via DNS or HTTP', 'LLM-DNS-Proxy (adopted)'],
+   854→    ['Markdown Output', 'turndown + markdownify + Obsidian skill', 
+   855→     'Convert all outputs to Obsidian-compatible Markdown', 'OWL-AGENT (expanded)'],
+   856→    ['Monitoring', 'Prometheus metrics + DNS query analytics', 
+   857→     'Unified observability for both channels', 'OWL-AGENT + NEW'],
+   858→]
+   859→
+   860→story.append(make_table(unified_arch, col_widths=[28.3*mm, 56.7*mm, 51.9*mm, 33.1*mm]))
+   861→story.append(caption('Table 6.2: Unified OWL-DNS-Synergy architecture (11 layers)'))
+   862→
+   863→story.append(spacer(8))
+   864→
+   865→story.append(heading2('6.3 Smart Channel Router Logic'))
+   866→
+   867→story.append(body(
+   868→    'The SmartChannelRouter is the key innovation of the merger. It implements a three-state decision engine '
+   869→    'that selects the optimal access channel based on real-time network conditions. The router operates as follows: '
+   870→    'State 1 (HTTP Preferred): attempt HTTP proxy request first; if successful, return response and update proxy '
+   871→    'quality score; if 429/503 received, trigger AdaptiveRateLimiter backoff and attempt alternate proxy; if all '
+   872→    'proxies fail or circuit breaker opens for the target domain, transition to State 2. State 2 (DNS Fallback): '
+   873→    'switch to DNS tunneling channel; encrypt request via Fernet, chunk and encode as DNS queries with camouflage '
+   874→    'suffix; if DNS server responds, return LLM analysis; if DNS queries timeout or DNS circuit breaker opens, '
+   875→    'transition to State 3. State 3 (Hybrid Retry): alternate between HTTP and DNS with exponential backoff; '
+   876→    'if both channels fail after max retries, return error with diagnostic data for both channels.'
+   877→))
+   878→story.append(spacer(6))
+   879→
+   880→story.append(body(
+   881→    'The router maintains per-domain channel preference history in RedisStore, learning which channel works best '
+   882→    'for each target over time. Domains behind captive portals will quickly accumulate DNS preference; domains '
+   883→    'with anti-bot systems will accumulate proxy preference. This creates a self-optimizing channel selection '
+   884→    'mechanism that reduces unnecessary channel-switching overhead and maximizes success rates.'
+   885→))
+   886→
+   887→story.append(PageBreak())
+   888→
+   889→# ============================================================
+   890→# CHAPTER 7: IMPLEMENTATION PLAN
+   891→# ============================================================
+   892→story.append(heading1('7. Implementation Plan (Phased Roadmap)'))
+   893→
+   894→story.append(body(
+   895→    'Following SMP-v5.1 Ant (systematic) mode, the implementation plan breaks the merger into five phases '
+   896→    'with explicit verification gates between each phase. Each phase produces a runnable artifact that can '
+   897→    'be tested independently before proceeding to the next phase.'
+   898→))
+   899→story.append(spacer(8))
+   900→
+   901→story.append(heading2('7.1 Phase 1: Foundation Merge (Week 1-2)'))
+   902→
+   903→phase1 = [
+   904→    ['Task', 'Duration', 'Files', 'Verification'],
+   905→    ['Create owl-dns-synergy project structure', '1 day', 'setup.py, pyproject.toml, directory scaffold', 'pip install -e . succeeds'],
+   906→    ['Merge OWL-AGENT core classes into new package', '3 days', 'owl_dns_synergy/core.py (ResilientClient, HTTPCache, QualityScorer, etc.)', 'Unit tests pass for all OWL core classes'],
+   907→    ['Merge LLM-DNS-Proxy crypto/chunking into new package', '2 days', 'owl_dns_synergy/dns_channel.py (FernetCrypto, DNSChunker, CamouflageSuffix)', 'DNS chunking round-trip test passes'],
+   908→    ['Create unified config system', '1 day', 'owl_dns_synergy/config.py (JSON + env vars)', 'Config loads correctly from both sources'],
+   909→    ['Merge RedisStore to cover both channels', '2 days', 'owl_dns_synergy/persistence.py (RedisStore with DNS conversation support)', 'Redis stores/retrieves HTTP and DNS state'],
+   910→]
+   911→
+   912→story.append(make_table(phase1, col_widths=[49.2*mm, 22.4*mm, 49.2*mm, 49.2*mm]))
+   913→story.append(caption('Table 7.1: Phase 1 tasks'))
+   914→
+   915→story.append(spacer(8))
+   916→
+   917→story.append(heading2('7.2 Phase 2: Smart Channel Router (Week 3-4)'))
+   918→
+   919→phase2 = [
+   920→    ['Task', 'Duration', 'Files', 'Verification'],
+   921→    ['Implement SmartChannelRouter', '3 days', 'owl_dns_synergy/router.py', 'Router selects correct channel in all 3 states'],
+   922→    ['Integrate HTTP channel into router', '2 days', 'owl_dns_synergy/http_channel.py', 'HTTP requests route through router correctly'],
+   923→    ['Integrate DNS channel into router', '2 days', 'owl_dns_synergy/dns_channel.py', 'DNS requests route through router correctly'],
+   924→    ['Channel preference learning', '2 days', 'owl_dns_synergy/router.py (preference tracking)', 'Router learns domain-channel preferences over time'],
+   925→    ['End-to-end dual-channel test', '1 day', 'tests/test_router_e2e.py', 'Simulated captive portal + anti-bot scenario passes'],
+   926→]
+   927→
+   928→story.append(make_table(phase2, col_widths=[49.2*mm, 22.4*mm, 49.2*mm, 49.2*mm]))
+   929→story.append(caption('Table 7.2: Phase 2 tasks'))
+   930→
+   931→story.append(spacer(8))
+   932→
+   933→story.append(heading2('7.3 Phase 3: LLM & Intelligence Integration (Week 5-6)'))
+   934→
+   935→phase3 = [
+   936→    ['Task', 'Duration', 'Files', 'Verification'],
+   937→    ['Add LLM client to ResilientClient', '2 days', 'owl_dns_synergy/llm_client.py', 'LLM requests succeed via both HTTP and DNS channels'],
+   938→    ['Perplexity web search integration', '2 days', 'owl_dns_synergy/web_search.py', 'Web search works through DNS tunnel'],
+   939→    ['Unified QualityScorer (HTTP + DNS metrics)', '2 days', 'owl_dns_synergy/scorer.py', 'Scorer rates both proxy quality and DNS server latency'],
+   940→    ['AdaptiveRateLimiter for DNS flood protection', '1 day', 'owl_dns_synergy/rate_limiter.py', 'DNS rate limiting prevents detection patterns'],
+   941→    ['CircuitBreaker for DNS server failures', '1 day', 'owl_dns_synergy/circuit_breaker.py', 'DNS circuit breaker opens on server failure'],
+   942→]
+   943→
+   944→story.append(make_table(phase3, col_widths=[49.2*mm, 22.4*mm, 49.2*mm, 49.2*mm]))
+   945→story.append(caption('Table 7.3: Phase 3 tasks'))
+   946→
+   947→story.append(spacer(8))
+   948→
+   949→story.append(heading2('7.4 Phase 4: Output & Obsidian Integration (Week 7-8)'))
+   950→
+   951→phase4 = [
+   952→    ['Task', 'Duration', 'Files', 'Verification'],
+   953→    ['Unified Markdown output pipeline', '2 days', 'owl_dns_synergy/markdown.py', 'HTTP and DNS outputs both produce valid Obsidian Markdown'],
+   954→    ['Obsidian skill package (SKILL.md)', '2 days', 'skills/owl-dns-synergy/SKILL.md', 'Skill installs via npx skills add and executes correctly'],
+   955→    ['Wikilink generation for scraped references', '1 day', 'owl_dns_synergy/markdown.py (wikilinks)', 'Output Markdown includes Obsidian wikilinks'],
+   956→    ['JSON Canvas output for architecture diagrams', '1 day', 'owl_dns_synergy/canvas.py', 'Network topology rendered as .canvas file'],
+   957→    ['Obsidian Bases integration for metrics', '1 day', 'owl_dns_synergy/bases.py', 'Proxy/DNS quality data rendered as .base file'],
+   958→]
+   959→
+   960→story.append(make_table(phase4, col_widths=[49.2*mm, 22.4*mm, 49.2*mm, 49.2*mm]))
+   961→story.append(caption('Table 7.4: Phase 4 tasks'))
+   962→
+   963→story.append(spacer(8))
+   964→
+   965→story.append(heading2('7.5 Phase 5: Production & Distribution (Week 9-10)'))
+   966→
+   967→phase5 = [
+   968→    ['Task', 'Duration', 'Files', 'Verification'],
+   969→    ['Unified installer script (install.sh)', '1 day', 'install.sh', 'Clean install on Ubuntu, macOS, Windows (WSL)'],
+   970→    ['Systemd service template', '1 day', 'owl-dns-synergy.service', 'Service starts, stops, restarts correctly'],
+   971→    ['Prometheus + DNS analytics dashboard', '2 days', 'owl_dns_synergy/monitoring.py', 'Metrics visible in Prometheus + Grafana'],
+   972→    ['skills.sh package and distribution', '2 days', 'skills.sh registry, npx skills add', 'Skill discoverable via npx skills find scraper'],
+   973→    ['Documentation: README, API reference, deployment guide', '2 days', 'README.md, docs/', 'Complete docs pass readability review'],
+   974→    ['Benchmark suite: success rate, latency, channel switching', '2 days', 'benchmarks/', 'Benchmark results documented in README'],
+   975→]
+   976→
+   977→story.append(make_table(phase5, col_widths=[49.2*mm, 22.4*mm, 49.2*mm, 49.2*mm]))
+   978→story.append(caption('Table 7.5: Phase 5 tasks'))
+   979→
+   980→story.append(PageBreak())
+   981→
+   982→# ============================================================
+   983→# CHAPTER 8: UNIFIED SYNERGIES SCRIPT
+   984→# ============================================================
+   985→story.append(heading1('8. Unified Synergies Script'))
+   986→
+   987→story.append(body(
+   988→    'Below is the core unified synergies script that implements the SmartChannelRouter and demonstrates '
+   989→    'how OWL-AGENT and LLM-DNS-Proxy capabilities merge into a single ResilientClient interface. This '
+   990→    'script is the foundation of the owl-dns-synergy package and represents the minimal viable merger '
+   991→    'that can be extended with the full Phase 1-5 implementation plan.'
+   992→))
+   993→story.append(spacer(6))
+   994→
+   995→script_lines = [
+   996→    '# owl_dns_synergy/router.py — Smart Channel Router',
+   997→    '# Merges OWL-AGENT HTTP proxy evasion + LLM-DNS-Proxy DNS tunneling',
+   998→    '',
+   999→    'import asyncio, time, logging',
+  1000→    'from enum import Enum',
+  1001→    'from dataclasses import dataclass, field',
+  1002→    'from typing import Optional, Dict, Any',
+  1003→    '',
+  1004→    'class ChannelState(Enum):',
+  1005→    '    HTTP_PREFERRED = 1    # Try HTTP proxy first',
+  1006→    '    DNS_FALLBACK = 2     # Switch to DNS tunneling',
+  1007→    '    HYBRID_RETRY = 3     # Alternate both channels',
+  1008→    '',
+  1009→    '@dataclass',
+  1010→    'class ChannelResult:',
+  1011→    '    channel: str          # "http" or "dns"',
+  1012→    '    success: bool',
+  1013→    '    data: Any = None',
+  1014→    '    latency_ms: float = 0.0',
+  1015→    '    error: str = ""',
+  1016→    '',
+  1017→    '@dataclass',
+  1018→    'class DomainPreference:',
+  1019→    '    domain: str',
+  1020→    '    http_successes: int = 0',
+  1021→    '    dns_successes: int = 0',
+  1022→    '    http_failures: int = 0',
+  1023→    '    dns_failures: int = 0',
+  1024→    '    preferred_channel: str = "http"',
+  1025→    '    last_updated: float = field(default_factory=time.time)',
+  1026→    '',
+  1027→    'class SmartChannelRouter:',
+  1028→    '    """Selects optimal access channel (HTTP proxy or DNS tunnel)',
+  1029→    '    based on real-time network conditions and learned preferences."""',
+  1030→    '',
+  1031→    '    def __init__(self, http_client, dns_client, redis_store=None):',
+  1032→    '        self.http = http_client      # OWL-AGENT ResilientClient',
+  1033→    '        self.dns = dns_client        # LLM-DNS-Proxy client',
+  1034→    '        self.redis = redis_store     # Shared RedisStore',
+  1035→    '        self._prefs: Dict[str, DomainPreference] = {}',
+  1036→    '        self._state: Dict[str, ChannelState] = {}',
+  1037→    '',
+  1038→    '    async def fetch(self, url: str, **kwargs) -> ChannelResult:',
+  1039→    '        domain = self._extract_domain(url)',
+  1040→    '        state = self._get_state(domain)',
+  1041→    '',
+  1042→    '        if state == ChannelState.HTTP_PREFERRED:',
+  1043→    '            result = await self._try_http(url, **kwargs)',
+  1044→    '            if result.success:',
+  1045→    '                self._record_success(domain, "http")',
+  1046→    '                return result',
+  1047→    '            # HTTP failed — try DNS',
+  1048→    '            dns_result = await self._try_dns(url, **kwargs)',
+  1049→    '            if dns_result.success:',
+  1050→    '                self._record_success(domain, "dns")',
+  1051→    '                self._set_state(domain, ChannelState.DNS_FALLBACK)',
+  1052→    '                return dns_result',
+  1053→    '            # Both failed — hybrid mode',
+  1054→    '            self._set_state(domain, ChannelState.HYBRID_RETRY)',
+  1055→    '            return await self._hybrid_retry(url, **kwargs)',
+  1056→    '',
+  1057→    '        elif state == ChannelState.DNS_FALLBACK:',
+  1058→    '            result = await self._try_dns(url, **kwargs)',
+  1059→    '            if result.success:',
+  1060→    '                self._record_success(domain, "dns")',
+  1061→    '                return result',
+  1062→    '            # DNS failed — try HTTP again',
+  1063→    '            http_result = await self._try_http(url, **kwargs)',
+  1064→    '            if http_result.success:',
+  1065→    '                self._record_success(domain, "http")',
+  1066→    '                self._set_state(domain, ChannelState.HTTP_PREFERRED)',
+  1067→    '                return http_result',
+  1068→    '            self._set_state(domain, ChannelState.HYBRID_RETRY)',
+  1069→    '            return await self._hybrid_retry(url, **kwargs)',
+  1070→    '',
+  1071→    '        else:  # HYBRID_RETRY',
+  1072→    '            return await self._hybrid_retry(url, **kwargs)',
+  1073→    '',
+  1074→    '    async def _try_http(self, url, **kwargs) -> ChannelResult:',
+  1075→    '        try:',
+  1076→    '            start = time.time()',
+  1077→    '            data = await self.http.fetch(url, **kwargs)',
+  1078→    '            latency = (time.time() - start) * 1000',
+  1079→    '            return ChannelResult("http", True, data, latency)',
+  1080→    '        except Exception as e:',
+  1081→    '            return ChannelResult("http", False, error=str(e))',
+  1082→    '',
+  1083→    '    async def _try_dns(self, url, **kwargs) -> ChannelResult:',
+  1084→    '        try:',
+  1085→    '            start = time.time()',
+  1086→    '            data = await self.dns.chat(f"Analyze: {url}", **kwargs)',
+  1087→    '            latency = (time.time() - start) * 1000',
+  1088→    '            return ChannelResult("dns", True, data, latency)',
+  1089→    '        except Exception as e:',
+  1090→    '            return ChannelResult("dns", False, error=str(e))',
+  1091→    '',
+  1092→    '    async def _hybrid_retry(self, url, max_retries=3, **kwargs):',
+  1093→    '        for i in range(max_retries):',
+  1094→    '            await asyncio.sleep(2 ** i)  # exponential backoff',
+  1095→    '            for channel_fn in [self._try_http, self._try_dns]:',
+  1096→    '                result = await channel_fn(url, **kwargs)',
+  1097→    '                if result.success:',
+  1098→    '                    domain = self._extract_domain(url)',
+  1099→    '                    ch = result.channel',
+  1100→    '                    self._record_success(domain, ch)',
+  1101→    '                    self._set_state(domain,',
+  1102→    '                        ChannelState.HTTP_PREFERRED if ch == "http"',
+  1103→    '                        else ChannelState.DNS_FALLBACK)',
+  1104→    '                    return result',
+  1105→    '        return ChannelResult("none", False, error="All channels exhausted")',
+  1106→    '',
+  1107→    '    def _record_success(self, domain, channel):',
+  1108→    '        pref = self._prefs.setdefault(domain, DomainPreference(domain))',
+  1109→    '        if channel == "http": pref.http_successes += 1',
+  1110→    '        else: pref.dns_successes += 1',
+  1111→    '        pref.preferred_channel = "http" if pref.http_successes >= pref.dns_successes else "dns"',
+  1112→    '        pref.last_updated = time.time()',
+  1113→    '        if self.redis:',
+  1114→    '            self.redis.set(f"pref:{domain}", pref.__dict__)',
+  1115→]
+  1116→
+  1117→for line in script_lines:
+  1118→    story.append(Paragraph(line, style_code))
+  1119→
+  1120→story.append(spacer(8))
+  1121→
+  1122→story.append(body(
+  1123→    'This script demonstrates the core merger logic: the SmartChannelRouter maintains per-domain state '
+  1124→    'preferences, automatically selecting the optimal channel based on accumulated success/failure history. '
+  1125→    'When HTTP fails (captive portal, aggressive anti-bot), DNS tunneling activates seamlessly. When DNS '
+  1126→    'is monitored or the server is down, HTTP proxy rotation takes over. The exponential backoff hybrid '
+  1127→    'retry ensures that both channels are exhausted before reporting failure, and the RedisStore integration '
+  1128→    'allows channel preferences to persist across restarts and be shared between multiple instances.'
+  1129→))
+  1130→
+  1131→story.append(PageBreak())
+  1132→
+  1133→# ============================================================
+  1134→# CHAPTER 9: OBSIDIAN INTEGRATION
+  1135→# ============================================================
+  1136→story.append(heading1('9. Obsidian Integration via kepano/obsidian-skills'))
+  1137→
+  1138→story.append(body(
+  1139→    'The kepano/obsidian-skills repository provides five agent skills that follow the Agent Skills specification '
+  1140→    '(agentskills.io), making them compatible with Claude Code, Codex, Open Code, and other skills-compatible '
+  1141→    'agents. These skills teach agents to interact with Obsidian vaults using the Obsidian CLI and open formats '
+  1142→    'including Markdown, Bases, and JSON Canvas. The integration of OWL-DNS-Synergy with obsidian-skills creates '
+  1143→    'a powerful feedback loop: scraped and tunneled data flows into Obsidian vaults as structured Markdown, and '
+  1144→    'Obsidian notes can be used as scraping targets or LLM conversation context.'
+  1145→))
+  1146→story.append(spacer(6))
+  1147→
+  1148→story.append(heading2('9.1 Obsidian Skills Overview'))
+  1149→
+  1150→obs_skills = [
+  1151→    ['Skill', 'Description', 'OWL-DNS-Synergy Usage'],
+  1152→    ['obsidian-markdown', 'Create/edit Obsidian Flavored Markdown (.md) with wikilinks, embeds, callouts, properties', 
+  1153→     'Output scraped/tunneled data as properly formatted Obsidian notes'],
+  1154→    ['obsidian-bases', 'Create/edit Obsidian Bases (.base) with views, filters, formulas, summaries', 
+  1155→     'Render proxy quality scores and DNS latency metrics as interactive tables'],
+  1156→    ['json-canvas', 'Create/edit JSON Canvas (.canvas) with nodes, edges, groups, connections', 
+  1157→     'Map network topology, channel routing decisions, and architecture diagrams'],
+  1158→    ['obsidian-cli', 'Interact with Obsidian vaults via CLI including plugin/theme development', 
+  1159→     'Automate vault operations: search, create, update notes from scraped data'],
+  1160→    ['defuddle', 'Extract clean markdown from web pages, removing clutter to save tokens', 
+  1161→     'Pre-process scraped HTML into token-efficient Markdown before Obsidian ingestion'],
+  1162→]
+  1163→
+  1164→story.append(make_table(obs_skills, col_widths=[30*mm, 65*mm, 75*mm]))
+  1165→story.append(caption('Table 9.1: obsidian-skills mapped to OWL-DNS-Synergy usage'))
+  1166→
+  1167→story.append(spacer(8))
+  1168→
+  1169→story.append(heading2('9.2 Integration Architecture'))
+  1170→
+  1171→story.append(body(
+  1172→    'The integration follows a three-layer architecture. Layer 1 (Data Ingestion): OWL-DNS-Synergy scrapes '
+  1173→    'or tunnels data via HTTP proxy or DNS channel, converts to Markdown using turndown + markdownify, and '
+  1174→    'formats with Obsidian Flavored Markdown conventions (wikilinks, callouts, properties/frontmatter). Layer 2 '
+  1175→    '(Structured Analysis): proxy quality scores, DNS latency metrics, and channel preference data are rendered '
+  1176→    'as Obsidian Bases (.base files) with views, filters, and formulas that enable interactive exploration. '
+  1177→    'Layer 3 (Visualization): network topology and channel routing decisions are rendered as JSON Canvas '
+  1178→    '(.canvas files) with nodes representing domains, proxies, DNS servers, and edges representing active '
+  1179→    'connections and preferred channels.'
+  1180→))
+  1181→story.append(spacer(6))
+  1182→
+  1183→story.append(body(
+  1184→    'The obsidian-cli skill enables automation of vault operations: after OWL-DNS-Synergy completes a scraping '
+  1185→    'session, the CLI automatically creates or updates notes in the target vault, tags them with metadata '
+  1186→    '(source URL, channel used, timestamp, quality score), and links them to related notes via wikilinks. '
+  1187→    'The defuddle skill pre-processes scraped HTML before Obsidian ingestion, removing navigation, ads, '
+  1188→    'and other clutter to produce clean, token-efficient Markdown that preserves only substantive content.'
+  1189→))
+  1190→
+  1191→story.append(spacer(8))
+  1192→
+  1193→story.append(heading2('9.3 Installation & Configuration'))
+  1194→
+  1195→story.append(body(
+  1196→    'The unified system installs obsidian-skills alongside OWL-DNS-Synergy using the Agent Skills specification. '
+  1197→    'Three installation methods are available depending on the agent platform. For marketplace installation, '
+  1198→    'use: /plugin marketplace add kepano/obsidian-skills followed by /plugin install obsidian@obsidian-skills. '
+  1199→    'For npx skills installation, use: npx skills add https://github.com/kepano/obsidian-skills. For manual '
+  1200→    'installation with OpenCode, clone the full repository into ~/.opencode/skills/obsidian-skills so the '
+  1201→    'directory structure becomes ~/.opencode/skills/obsidian-skills/skills/<skill-name>/SKILL.md. OpenCode '
+  1202→    'auto-disovers all SKILL.md files under ~/.opencode/skills/ without any configuration changes.'
+  1203→))
+  1204→story.append(spacer(6))
+  1205→
+  1206→story.append(body(
+  1207→    'The OWL-DNS-Synergy skill itself should be installed alongside obsidian-skills in the same skills '
+  1208→    'directory. The skill\'s SKILL.md file defines the unified interface: fetch(url) attempts HTTP proxy '
+  1209→    'first, falling back to DNS tunneling; chat(message) sends LLM conversations via the optimal channel; '
+  1210→    'markdown(url) scrapes and converts to Obsidian Markdown; and base(metric) renders quality metrics '
+  1211→    'as Obsidian Bases. All outputs are written directly to the Obsidian vault using obsidian-cli.'
+  1212→))
+  1213→
+  1214→story.append(spacer(8))
+  1215→
+  1216→story.append(heading2('9.4 Example: Scraped Data to Obsidian Note'))
+  1217→
+  1218→story.append(body(
+  1219→    'Consider a practical workflow: an agent needs to scrape a product page behind an anti-bot system. '
+  1220→    'The SmartChannelRouter first attempts HTTP via OWL-AGENT proxy pool with curl_cffi Chrome fingerprinting. '
+  1221→    'If the target blocks all proxies (circuit breaker opens), the router switches to DNS tunneling via '
+  1222→    'LLM-DNS-Proxy, sending an LLM query about the product through DNS camouflage queries. The LLM response '
+  1223→    'is then converted to Obsidian Markdown with frontmatter properties (source, channel, timestamp, '
+  1224→    'quality_score) and wikilinks to related product notes. The obsidian-cli skill creates the note in the '
+  1225→    'vault, and obsidian-bases renders the scraping metrics (latency, success rate, channel preference) as '
+  1226→    'an interactive table. This creates a self-documenting knowledge base where every note carries its '
+  1227→    'acquisition metadata and the vault maintains real-time quality dashboards.'
+  1228→))
+  1229→
+  1230→story.append(PageBreak())
+  1231→
+  1232→# ============================================================
+  1233→# CHAPTER 10: APPENDIX
+  1234→# ============================================================
+  1235→story.append(heading1('10. Appendix: Skills.sh Trending & Scraper Ecosystem'))
+  1236→
+  1237→story.append(body(
+  1238→    'The skills.sh marketplace is the primary distribution channel for AI agent skills, supporting Claude '
+  1239→    'Code, Cursor, Windsurf, OpenCode, and other compatible agents. The trending page reveals the fastest-growing '
+  1240→    'skills each week, organized by agent compatibility. For the OWL-DNS-Synergy project, the relevant ecosystem '
+  1241→    'includes browser automation skills, web scraping skills, DNS/network utility skills, and Obsidian integration '
+  1242→    'skills. The scraper subcategory on skills.sh includes skills for proxy management, content extraction, '
+  1243→    'Markdown conversion, and distributed scraping orchestration.'
+  1244→))
+  1245→story.append(spacer(6))
+  1246→
+  1247→story.append(heading2('10.1 Relevant Trending Skills'))
+  1248→
+  1249→trending_skills = [
+  1250→    ['Skill', 'Category', 'Installs (Weekly)', 'Relevance to OWL-DNS-Synergy'],
+  1251→    ['agent-browser (vercel-labs)', 'Browser Automation', 'High', 'Headless browser for OWL-AGENT JS rendering layer'],
+  1252→    ['obsidian-skills (kepano)', 'Knowledge Management', 'Growing', 'Obsidian CLI + Markdown/Canvas/Bases integration'],
+  1253→    ['parallel-deep-research', 'Web Research', 'High', 'Multi-source research for proxy pool and DNS server analysis'],
+  1254→    ['find-skills (skills.sh)', 'Skill Discovery', 'Core', 'Version-locked tool discovery and installation'],
+  1255→    ['defuddle (kepano)', 'Content Processing', 'Medium', 'Clean Markdown extraction from web pages'],
+  1256→    ['web-reader (z-ai)', 'Content Extraction', 'High', 'Structured page content extraction'],
+  1257→]
+  1258→
+  1259→story.append(make_table(trending_skills, col_widths=[35.8*mm, 31.3*mm, 26.8*mm, 76.1*mm]))
+  1260→story.append(caption('Table 10.1: Relevant skills.sh trending skills'))
+  1261→
+  1262→story.append(spacer(8))
+  1263→
+  1264→story.append(heading2('10.2 npx skills find scraper Output'))
+  1265→
+  1266→story.append(body(
+  1267→    'Running <b>npx skills find scraper</b> discovers scraper-related skills on skills.sh. The output '
+  1268→    'typically includes skills categorized by: (1) HTTP scrapers with proxy rotation (where OWL-AGENT belongs), '
+  1269→    '(2) Protocol-level scrapers with DNS/ICMP tunneling (where LLM-DNS-Proxy belongs), (3) Hybrid scrapers '
+  1270→    'combining both approaches (the target category for OWL-DNS-Synergy), and (4) Output processors that '
+  1271→    'convert scraped data to Markdown/JSON/Canvas formats (where obsidian-skills belongs). The key finding '
+  1272→    'is that the hybrid category is currently empty, confirming that OWL-DNS-Synergy would be the first '
+  1273→    'skill to combine HTTP proxy evasion and DNS tunneling in a single unified interface on skills.sh.'
+  1274→))
+  1275→
+  1276→story.append(spacer(8))
+  1277→
+  1278→story.append(heading2('10.3 SMP-v5.1 Adoption Summary'))
+  1279→
+  1280→story.append(body(
+  1281→    'The SMP-v5.1 Silent Methodological Protocol has been adopted as the governing operating instructions '
+  1282→    'for this analysis. Key protocol elements applied: Silent Protocol (invisible diagnosis of what the user '
+  1283→    'actually needs beyond the literal request); Owl cognitive mode for deep analysis of hidden factors in '
+  1284→    'both projects; Ant mode for systematic task decomposition into the 5-phase implementation plan; Beaver '
+  1285→    'mode for practical system design of the SmartChannelRouter; quality gates at every stage (Discovery, '
+  1286→    'Brainstorming, Research, Planning, Execution, Validation, Review, Completion); and the response framework '
+  1287→    'structure (Problem | Solution | Reasoning | Assumptions | Next Step | 3 Suggestions). The protocol\'s '
+  1288→    'mandate of depth before speed ensured that the comparison matrix covers ten dimensions rather than a '
+  1289→    'surface-level feature list, and the hard-gate requirement at Stage 1 (Capability Composition) ensured '
+  1290→    'that skills.sh discovery was completed before any analysis or code generation began.'
+  1291→))
+  1292→
+  1293→# ─── Build PDF ────────────────────────────────────────────────────
+  1294→from reportlab.lib.units import inch
+  1295→
+  1296→def add_page_number(canvas, doc):
+  1297→    """Add page number to footer."""
+  1298→    page_num = canvas.getPageNumber()
+  1299→    text = f"Page {page_num}"
+  1300→    canvas.saveState()
+  1301→    canvas.setFont('Carlito', 8)
+  1302→    canvas.setFillColor(TEXT_MUTED)
+  1303→    canvas.drawCentredString(PAGE_W / 2, BOTTOM_MARGIN / 2, text)
+  1304→    canvas.restoreState()
+  1305→
+  1306→def build_pdf():
+  1307→    doc = SimpleDocTemplate(
+  1308→        OUTPUT_PATH,
+  1309→        pagesize=A4,
+  1310→        leftMargin=LEFT_MARGIN,
+  1311→        rightMargin=RIGHT_MARGIN,
+  1312→        topMargin=TOP_MARGIN,
+  1313→        bottomMargin=BOTTOM_MARGIN,
+  1314→        title='OWL-DNS Synergy Report',
+  1315→        author='Z.ai Research Division',
+  1316→        subject='A/B Comparison Matrix, Implementation Plan, Unified Script, and Obsidian Integration for OWL-AGENT v4.2 + LLM-DNS-Proxy Merger',
+  1317→    )
+  1318→    
+  1319→    doc.build(story, onLaterPages=add_page_number)
+  1320→    print(f"PDF generated: {OUTPUT_PATH}")
+  1321→
+  1322→if __name__ == '__main__':
+  1323→    build_pdf()
+  1324→
