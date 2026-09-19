@@ -72,6 +72,22 @@ python owl_proxy.py benchmark
 #   X-Upstream-Via: direct | owl-proxy/vendored | owl-proxy/external
 ```
 
+## Phase 2 (v2.2.0) — DSML shim + fingerprint + loop_breaker
+
+Synced sources for AutoClaw v2.2.0's application-layer synergies
+(sources: tt-52101/chat-z-ai-proxy-web2api-free #8 and
+eroslifestyle/ai-router-switch #9):
+
+- `dsml_shim.py` — synthesises OpenAI function-calling: DSML protocol
+  injection on the request, buffered parse + `DSMLStreamSieve` streaming
+  conversion of `<dsml:tool_call>` blocks into real `tool_calls` deltas
+- `chat_fingerprint.py` — SHA-256 of the first user message (or
+  `X-AutoClaw-Chat-Id` header) pinned on first use to the serving account;
+  defeats conversation-merge, gives per-conversation account affinity
+- `loop_breaker.py` — 4+ re-emits of the same turn at >=80% context fill
+  return HTTP 400 `loop_breaker_triggered` (runaway-spend guard)
+- `test_owl_integration.py` — 112-test offline suite (61 v2.1.0 + 51 Phase-2)
+
 ## Test evidence
 
 ```
