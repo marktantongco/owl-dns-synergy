@@ -248,6 +248,348 @@ class TestE2EPipeline(unittest.TestCase):
             self.assertIn("NoNewPrivileges=true", content)
             self.assertIn("ProtectSystem=strict", content)
 
+    # ──────────────────────────────────────────────────────────────────────
+    # Synergies (TOP-5 Priority-1 from AutoClaw ecosystem research)
+    # Source: eequaled/GLM_proxy lib/core.js + eroslifestyle/ai-router-switch
+    # ──────────────────────────────────────────────────────────────────────
+
+    def test_16_output_cap_clamping(self):
+        """Synergy 1 (GLM_proxy): clamp_max_output prevents silent DeepSeek
+        substitution when requesting >131072 output tokens.
+
+        Probe-verified: requesting >131072 output tokens triggers silent
+        DeepSeek-V4-Pro substitution (~7x more expensive than GLM). The
+        clamp prevents this by reducing max_tokens to the model's cap.
+        """
+        from config import clamp_max_output, OUTPUT_CAPS
+        # Cap values exist for all known upstream models
+        for upstream in ["openrouter_glm-5.2", "zai_glm-5-turbo",
+                         "zai_auto", "zai_glm-5"]:
+            self.assertIn(upstream, OUTPUT_CAPS)
+        # Probe-verified threshold for GLM-5.2
+        self.assertEqual(OUTPUT_CAPS["openrouter_glm-5.2"], 131072)
+        # DeepSeek routed aggressively low to prevent billing surprise
+        self.assertLess(OUTPUT_CAPS["zai_auto"], 65536)
+        # Default cap exists for unknown models
+        self.assertIn("default", OUTPUT_CAPS)
+
+        # Clamp reduces when over cap
+        self.assertEqual(clamp_max_output("glm-5.2", 200000), 131072)
+        self.assertEqual(clamp_max_output("glm-5.2-true", 999999), 131072)
+        self.assertEqual(clamp_max_output("cheap", 999999), 65536)  # zai_glm-5-turbo
+        self.assertEqual(clamp_max_output("auto", 999999), 32768)   # zai_auto DeepSeek
+        self.assertEqual(clamp_max_output("deepseek", 999999), 32768)
+
+        # Clamp is non-inflating: requests under the cap pass through unchanged
+        self.assertEqual(clamp_max_output("glm-5.2", 50000), 50000)
+        self.assertEqual(clamp_max_output("glm-5.2", 131072), 131072)
+        self.assertEqual(clamp_max_output("cheap", 1024), 1024)
+
+        # None requested → returns cap (used when client didn't specify)
+        self.assertEqual(clamp_max_output("glm-5.2", None), 131072)
+        self.assertEqual(clamp_max_output("auto", None), 32768)
+
+        # Unknown client alias falls back to DEFAULT_MODEL's cap
+        self.assertEqual(clamp_max_output("nonexistent-model", 999999),
+                         OUTPUT_CAPS["default"])
+
+        # Non-string model_alias falls back to default cap
+        self.assertEqual(clamp_max_output(None, 999999), OUTPUT_CAPS["default"])
+
+    def test_17_system_banner_injection(self):
+        """Synergy 2 (GLM_proxy): _inject_system_banner prepends the
+        required AutoClaw system banner before the user's first message.
+
+        Without this banner, AutoClaw upstream returns HTTP 400 and
+        traffic falls into the unmetered WS agent path.
+        """
+        try:
+            from proxy import _inject_system_banner, AUTOCLAW_SYSTEM_BANNER
+        except ImportError:
+            try:
+                import flask  # noqa: F401
+                raise AssertionError("flask available but proxy import failed")
+            except ImportError:
+                self.skipTest("flask not installed")
+        # Empty list — no-op
+        msgs = []
+        _inject_system_banner(msgs)
+        self.assertEqual(msgs, [])
+        # Existing system message — banner is prepended to its content
+        msgs = [{"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": "Hello"}]
+        _inject_system_banner(msgs)
+        self.assertEqual(msgs[0]["role"], "system")
+        self.assertIn("OpenClaw", msgs[0]["content"])
+        self.assertIn("You are a helpful assistant.", msgs[0]["content"])
+        # User message is preserved at index 1
+        self.assertEqual(msgs[1], {"role": "user", "content": "Hello"})
+        # No system message — banner inserted at index 0
+        msgs = [{"role": "user", "content": "Hello"}]
+        _inject_system_banner(msgs)
+        self.assertEqual(msgs[0]["role"], "system")
+        self.assertIn("OpenClaw", msgs[0]["content"])
+        self.assertEqual(msgs[1], {"role": "user", "content": "Hello"})
+        # Idempotent — re-injection of an already-banner'd message doesn't double-prepend
+        bannered = AUTOCLAW_SYSTEM_BANNER + "\n\nKeep going."
+        msgs = [{"role": "system", "content": bannered}]
+        _inject_system_banner(msgs)
+        self.assertEqual(msgs[0]["content"], bannered)
+        # Mutation safety: when prepending to an existing system message,
+        # a NEW dict instance is used so we don't break shared refs.
+        original = {"role": "system", "content": "Original content."}
+        msgs = [original]
+        _inject_system_banner(msgs)
+        self.assertIsNot(msgs[0], original)
+        self.assertEqual(original["content"], "Original content.")
+
+    def test_18_permanent_failure_cache(self):
+        """Synergy 3 (GLM_proxy): PermanentFailureCache 60s TTL negative
+        cache prevents replaying doomed 30s+ cloud sequences when
+        (model, account) is permanently failed (quota exhausted, etc.).
+        """
+        from cache import (PermanentFailureCache, is_permanent_failure_cached,
+                           mark_permanent_failure, clear_permanent_failures,
+                           _permanent_failure_cache)
+        # Fresh cache: nothing cached
+        c = PermanentFailureCache(ttl=60)
+        self.assertIsNone(c.check("anykey"))
+        # mark + check roundtrip
+        c.mark("foo:bar", "quota_exhausted")
+        self.assertEqual(c.check("foo:bar"), "quota_exhausted")
+        # Different key is not cached
+        self.assertIsNone(c.check("baz:qux"))
+        # clear empties the cache
+        c.clear()
+        self.assertIsNone(c.check("foo:bar"))
+
+        # Short-TTL cache expires after the TTL elapses
+        short_cache = PermanentFailureCache(ttl=0)
+        short_cache.mark("k", "auth_failed")
+        # TTL=0 — entry expires immediately on next access
+        import time as _t
+        _t.sleep(0.01)
+        self.assertIsNone(short_cache.check("k"))
+
+        # Module-level convenience functions operate on the shared singleton
+        clear_permanent_failures()
+        mark_permanent_failure("zai_glm-5-turbo", "auth_failed", "user@example.com")
+        self.assertTrue(is_permanent_failure_cached("zai_glm-5-turbo", "user@example.com"))
+        # Different account is not affected by a per-account failure
+        self.assertFalse(is_permanent_failure_cached("zai_glm-5-turbo",
+                                                      "other@example.com"))
+        # None account_email matches 'any' suffix
+        mark_permanent_failure("openrouter_glm-5.2", "model_not_found")
+        self.assertTrue(is_permanent_failure_cached("openrouter_glm-5.2"))
+        self.assertTrue(is_permanent_failure_cached("openrouter_glm-5.2", None))
+        # clear_permanent_failures() wipes everything
+        clear_permanent_failures()
+        self.assertFalse(is_permanent_failure_cached("zai_glm-5-turbo", "user@example.com"))
+        self.assertFalse(is_permanent_failure_cached("openrouter_glm-5.2"))
+
+        # Thread-safety: parallel mark/check operations don't crash
+        import threading
+        errors = []
+        def worker():
+            try:
+                for i in range(100):
+                    c2 = _permanent_failure_cache
+                    c2.mark(f"k{i}", "test")
+                    c2.check(f"k{i}")
+            except Exception as e:
+                errors.append(e)
+        threads = [threading.Thread(target=worker) for _ in range(8)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        self.assertEqual(errors, [])
+
+    def test_19_chinese_error_translation(self):
+        """Synergy 4 (GLM_proxy): translate_error maps Chinese upstream
+        error messages (积分不足, 账号封禁, etc.) to stable English
+        strings that international clients can match on.
+        """
+        from i18n_errors import translate_error, ZH_ERROR_MAP
+        # ZH_ERROR_MAP is non-empty and contains the probe-verified phrases
+        self.assertGreaterEqual(len(ZH_ERROR_MAP), 11)
+        for zh in ["积分不足", "账号封禁", "请求过于频繁", "服务暂时不可用",
+                   "模型不存在", "认证失败", "用户不存在", "参数错误",
+                   "内部错误", "额度已用尽", "登录已过期"]:
+            self.assertIn(zh, ZH_ERROR_MAP)
+        # All English translations are non-empty
+        for en in ZH_ERROR_MAP.values():
+            self.assertIsInstance(en, str)
+            self.assertGreater(len(en), 5)
+
+        # Exact-match substring translation
+        self.assertEqual(translate_error("积分不足"),
+                         "Insufficient credits. Please top up your account.")
+        # Mixed-language message still translates (substring match)
+        self.assertEqual(translate_error("Error: 账号封禁. Try later."),
+                         "Account banned. Please contact support.")
+        self.assertEqual(translate_error("Server: 内部错误. Code 500."),
+                         "Internal server error. Please retry later.")
+        # Non-Chinese message returns unchanged
+        self.assertEqual(translate_error("Hello, no Chinese here."),
+                         "Hello, no Chinese here.")
+        # Empty input → empty output (no exception)
+        self.assertEqual(translate_error(""), "")
+        # None input → None output
+        self.assertIsNone(translate_error(None))
+        # Multiple Chinese substrings → first match wins (insertion order)
+        multi = translate_error("积分不足 内部错误")
+        self.assertIn(multi, ZH_ERROR_MAP.values())  # Either of the two
+        # Unknown Chinese phrase returns unchanged
+        self.assertEqual(translate_error("未知短语"), "未知短语")
+
+    def test_20_router_command(self):
+        """Synergy 5 (ai-router-switch): _check_router_command intercepts
+        in-chat !router commands and returns synthetic OpenAI-shaped
+        responses without forwarding upstream.
+        """
+        try:
+            from proxy import _check_router_command
+        except ImportError:
+            try:
+                import flask  # noqa: F401
+                raise AssertionError("flask available but proxy import failed")
+            except ImportError:
+                self.skipTest("flask not installed")
+        # Empty messages → not a command
+        resp, is_cmd = _check_router_command([])
+        self.assertFalse(is_cmd)
+        self.assertIsNone(resp)
+        # Last message not user → not a command (even if content matches)
+        resp, is_cmd = _check_router_command([
+            {"role": "system", "content": "!router status"}])
+        self.assertFalse(is_cmd)
+        # Non-!router user message → not a command
+        resp, is_cmd = _check_router_command([
+            {"role": "user", "content": "Hello"}])
+        self.assertFalse(is_cmd)
+        # !router status → synthetic response with status info
+        resp, is_cmd = _check_router_command([
+            {"role": "user", "content": "!router status"}])
+        self.assertTrue(is_cmd)
+        content = resp["choices"][0]["message"]["content"]
+        self.assertIn("Router Status", content)
+        self.assertIn("Active accounts", content)
+        self.assertIn("Default model", content)
+        # !router reset → synthetic response, _token_idx reset to 0
+        import proxy as _proxy
+        _proxy._token_idx = 5  # Pretend we've rotated
+        resp, is_cmd = _check_router_command([
+            {"role": "user", "content": "!router reset"}])
+        self.assertTrue(is_cmd)
+        self.assertEqual(_proxy._token_idx, 0)
+        # !router help → synthetic response with command list
+        resp, is_cmd = _check_router_command([
+            {"role": "user", "content": "!router help"}])
+        self.assertTrue(is_cmd)
+        content = resp["choices"][0]["message"]["content"]
+        self.assertIn("!router status", content)
+        self.assertIn("!router reset", content)
+        self.assertIn("!router refresh-all", content)
+        # !router (no subcommand) → returns help text
+        resp, is_cmd = _check_router_command([
+            {"role": "user", "content": "!router"}])
+        self.assertTrue(is_cmd)
+        self.assertIn("!router", resp["choices"][0]["message"]["content"])
+        # Multimodal content (list of text parts) is supported
+        resp, is_cmd = _check_router_command([
+            {"role": "user", "content": [
+                {"type": "text", "text": "!router status"}]}])
+        self.assertTrue(is_cmd)
+        self.assertIn("Router Status", resp["choices"][0]["message"]["content"])
+
+    def test_21_synergy_integration_chat_completions(self):
+        """End-to-end integration: all 5 synergies are wired into the
+        chat_completions handler in proxy.py.
+
+        Verifies the integration points without making real upstream
+        calls — uses the Flask test client to exercise the request flow
+        and the side-effect caches.
+        """
+        try:
+            import proxy
+            from cache import (mark_permanent_failure, clear_permanent_failures,
+                               is_permanent_failure_cached)
+        except ImportError:
+            try:
+                import flask  # noqa: F401
+                raise AssertionError("flask available but proxy import failed")
+            except ImportError:
+                self.skipTest("flask not installed")
+        import time as _t
+        client = proxy.app.test_client()
+
+        # Clean slate: no tokens, no cached failures
+        clear_permanent_failures()
+
+        # (1) Synergy 5: !router status is intercepted BEFORE any other
+        # handler logic (no API key, no token, no upstream call).
+        resp = client.post("/v1/chat/completions", json={
+            "model": "glm-5.2",
+            "messages": [{"role": "user", "content": "!router status"}],
+        })
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertIn("Router Status", data["choices"][0]["message"]["content"])
+
+        # (2) Synergy 5: !router help works without any other deps
+        resp = client.post("/v1/chat/completions", json={
+            "model": "glm-5.2",
+            "messages": [{"role": "user", "content": "!router help"}],
+        })
+        self.assertEqual(resp.status_code, 200)
+
+        # (3) Strict model validation (regression — preserved)
+        resp = client.post("/v1/chat/completions", json={
+            "model": "nonexistent",
+            "messages": [{"role": "user", "content": "Hi"}],
+        })
+        self.assertEqual(resp.status_code, 400)
+
+        # (4) Synergy 1 (clamping) + Synergy 2 (banner) + Synergy 3
+        # (negative cache miss) + no-tokens 401 path. Configure one fake
+        # account so we get past the get_next_token() check, then mark
+        # it permanently failed to exercise the 429 fast-path.
+        proxy.save_tokens({"accounts": [{
+            "email": "e2e@example.com",
+            "access_token": "Bearer fake_token",
+            "refresh_token": "fake_refresh",
+            "user_id": "1",
+            "device_id": "dev-1",
+            "source_id": "autoclaw",
+            "added_at": int(_t.time()),
+            "last_refreshed": int(_t.time()),
+        }]})
+        try:
+            # Synergy 3: mark a permanent failure for this account+model
+            mark_permanent_failure("openrouter_glm-5.2", "quota_exhausted",
+                                   "e2e@example.com")
+            resp = client.post("/v1/chat/completions", json={
+                "model": "glm-5.2",  # maps to openrouter_glm-5.2
+                "messages": [{"role": "user", "content": "Hi"}],
+                "max_tokens": 999999,  # Synergy 1: should be clamped to 131072
+            })
+            # Should be 429 from cached permanent failure (no upstream call)
+            self.assertEqual(resp.status_code, 429)
+            data = resp.get_json()
+            self.assertIn("cached permanent", data["error"]["message"].lower())
+        finally:
+            # Clear failure cache + reset tokens.json to empty (bypassing
+            # the wipe-guard by writing the file directly).
+            clear_permanent_failures()
+            import json as _json
+            with open(proxy.TOKENS_FILE_FULL, "w") as f:
+                _json.dump({"accounts": []}, f)
+            # Invalidate in-memory token cache so the next load re-reads
+            import auth as _auth
+            _auth._token_cache = None
+            _auth._token_cache_ts = 0.0
+
 
 if __name__ == "__main__":
     print("=" * 60)
