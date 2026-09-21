@@ -1,0 +1,8 @@
+{
+  "email": "mymarky0@gmail.com",
+  "access_token": "PASTE_ACCESS_TOKEN_HERE",
+  "refresh_token": "PASTE_REFRESH_TOKEN_IF_AVAILABLE_ELSE_EMPTY",
+  "user_id": "PASTE_USER_ID_IF_AVAILABLE_ELSE_EMPTY",
+  "device_id": "PASTE_DEVICE_ID_IF_AVAILABLE_ELSE_EMPTY",
+  "source_id": "desktop-ls"
+}
