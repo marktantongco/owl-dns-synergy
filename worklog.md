@@ -397,3 +397,33 @@ Stage Summary:
 - Research report: 22 pages, 9 repo profiles, 15-row synergy matrix, 3-phase roadmap
 - Files created: cache.py (95 lines), i18n_errors.py (65 lines)
 - Files modified: config.py (+75 lines), proxy.py (+180 lines), test-e2e-pipeline.py (+339 lines, 6 new tests)
+
+---
+Task ID: 14
+Agent: main
+Task: Implement Phase-2 + Phase-3 synergies (Anthropic endpoint, credit tiers, fingerprint, loop_breaker, DSML, reasoning, sessions, WS fallback, TLS impersonation, telemetry)
+
+Work Log:
+- Discovered remote origin/main had diverged to v2.5.0 (parallel session pushed v2.2.0-v2.5.0: DSML shim, fingerprint/loop_breaker, WS fallback, React dashboard, token-import mode, dashboard auth with HMAC sessions, thermoptic egress — 198/198 tests)
+- Aborted a rebase that would have conflicted; saved local unique modules; adopted remote v2.5.0 as canonical base (git reset --hard origin/main)
+- Identified the two synergy gaps remote did NOT cover: Synergy 6 (Anthropic /v1/messages) + Synergy 7 (Claude credit-tier routing)
+- Implemented both on top of v2.5.0:
+  - anthropic_compat.py: Anthropic<->OpenAI wire conversion, AnthropicStreamConverter (full SSE event sequence incl. streamed tool_use), count_tokens stub
+  - credit_tiers.py: claude-opus/sonnet/haiku -> High/Medium/Low tier models, background refresh from remote model-config endpoint with heuristic degradation, reset() for test isolation
+  - proxy.py: /v1/messages + /v1/messages/count_tokens routes (reusing API-key gate incl. x-api-key, banner, clamping, negative cache, metrics hooks), claude alias resolution in chat_completions, claude-* aliases in /v1/models, !router tiers command, tier table in !router status
+- Fixed two bugs found during testing:
+  - DSML regex: markers use |DSML|tool_calls with leading pipe; tolerant 1-4 brackets ({1,4} not {2,4})
+  - WS fallback module (local implementation): RFC 6455 mask must be 4 bytes (uuid4().bytes was 16) + TCP-coalescing-safe pushback buffer (_SockBuffer + prefill)
+  - session_guard: missing logging import; local_ws status() set -> sorted list for JSON
+- Fixed a test that leaked a real network call (upstream 405 propagated) by mocking req_lib.post
+- Added 21 new tests to test_owl_integration.py (TestAnthropicCompat, TestCreditTiers, TestAnthropicEndpoint, TestCreditTierRouting)
+- Final: 219/219 tests pass (198 original + 21 new), 0 regressions
+- Updated CHANGELOG.md (v2.6.0 entry) + deploy/env.template (AUTOCLAW_MODEL_CONFIG_URL, AUTOCLAW_TIER_REFRESH_S)
+- Committed bf9a71b, pushed to main, tagged v2.6.0, created GitHub release
+
+Stage Summary:
+- Remote v2.5.0 -> v2.6.0 (commit bf9a71b): Anthropic Messages endpoint + Claude credit-tier routing
+- 219/219 tests pass
+- Release: https://github.com/marktantongco/autoclaw-autologin/releases/tag/v2.6.0
+- Key decision: adopted remote v2.5.0 as canonical (parallel session already implemented fingerprint/loop_breaker/DSML/WS fallback/dashboard more extensively); contributed only the missing synergies to avoid destroying that work
+- Local duplicate implementations (anthropic/credit_tiers kept; session_guard/reasoning_phase/tls_impersonation/local_ws_fallback/dsml_tools/chat_fingerprint/loop_breaker local versions superseded by remote's v2.2-v2.5 modules)

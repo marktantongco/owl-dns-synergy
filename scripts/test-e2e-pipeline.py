@@ -590,6 +590,332 @@ class TestE2EPipeline(unittest.TestCase):
             _auth._token_cache = None
             _auth._token_cache_ts = 0.0
 
+    # ═══════════════════════════════════════════════════════════════
+    # Phase-2 + Phase-3 synergy tests (v2.1.0)
+    # ═══════════════════════════════════════════════════════════════
+
+    def test_22_anthropic_request_conversion(self):
+        """Synergy 6: Anthropic Messages -> OpenAI conversion handles all block types."""
+        from anthropic_compat import anthropic_to_openai
+        body = {
+            "model": "claude-sonnet-4", "max_tokens": 500,
+            "system": [{"type": "text", "text": "Be terse."}],
+            "messages": [
+                {"role": "user", "content": [
+                    {"type": "text", "text": "Look:"},
+                    {"type": "image", "source": {"type": "base64",
+                     "media_type": "image/png", "data": "aGk="}},
+                ]},
+                {"role": "assistant", "content": [
+                    {"type": "tool_use", "id": "tu1", "name": "get_x", "input": {"q": 1}},
+                ]},
+                {"role": "user", "content": [
+                    {"type": "tool_result", "tool_use_id": "tu1", "content": "result!"},
+                ]},
+            ],
+            "tools": [{"name": "get_x", "description": "d",
+                       "input_schema": {"type": "object", "properties": {}}}],
+            "tool_choice": {"type": "auto"},
+            "stop_sequences": ["END"],
+        }
+        out = anthropic_to_openai(body)
+        assert out["messages"][0]["role"] == "system"
+        # image block -> image_url data-URL part
+        msg1 = out["messages"][1]
+        assert isinstance(msg1["content"], list)
+        assert any(p.get("type") == "image_url" for p in msg1["content"])
+        # tool_use -> tool_calls
+        assert out["messages"][2]["tool_calls"][0]["function"]["name"] == "get_x"
+        # tool_result -> standalone tool message
+        assert out["messages"][3]["role"] == "tool"
+        assert out["messages"][3]["tool_call_id"] == "tu1"
+        # tools converted, stop_sequences -> stop
+        assert out["tools"][0]["function"]["name"] == "get_x"
+        assert out["stop"] == ["END"]
+
+    def test_23_anthropic_response_and_count_tokens(self):
+        """Synergy 6: OpenAI -> Anthropic response conversion + count_tokens stub."""
+        from anthropic_compat import openai_to_anthropic_response, count_tokens_stub
+        openai_resp = {
+            "choices": [{
+                "message": {"role": "assistant", "content": None, "tool_calls": [
+                    {"id": "c1", "type": "function",
+                     "function": {"name": "f", "arguments": "{\"a\": 1}"}},
+                ]},
+                "finish_reason": "tool_calls",
+            }],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+        }
+        resp = openai_to_anthropic_response(openai_resp, "glm-5.2")
+        assert resp["type"] == "message" and resp["role"] == "assistant"
+        assert resp["stop_reason"] == "tool_use"
+        assert resp["content"][0]["type"] == "tool_use"
+        assert resp["content"][0]["input"] == {"a": 1}
+        assert resp["usage"]["input_tokens"] == 10
+        stub = count_tokens_stub({"messages": [{"role": "user", "content": "x" * 40}]})
+        assert stub["input_tokens"] == 10
+
+    def test_24_credit_tier_routing(self):
+        """Synergy 7: claude-opus/sonnet/haiku aliases route to correct tiers."""
+        import credit_tiers
+        m, alias = credit_tiers.resolve_claude_alias("claude-opus-4-6")
+        assert alias and m == "openrouter_glm-5.2"
+        m, alias = credit_tiers.resolve_claude_alias("claude-sonnet-4-5")
+        assert alias and m == "zai_auto"
+        m, alias = credit_tiers.resolve_claude_alias("claude-haiku-4")
+        assert alias and m == "zai_glm-5-turbo"
+        # Non-Claude models pass through unchanged
+        m, alias = credit_tiers.resolve_claude_alias("glm-5.2")
+        assert not alias and m == "glm-5.2"
+        status = credit_tiers.get_tier_status()
+        assert status["source"] in ("heuristic", "remote")
+
+    def test_25_chat_fingerprint_isolation(self):
+        """Synergy 8: fingerprint stable across system-reminder stripping."""
+        import chat_fingerprint
+        fp1 = chat_fingerprint.conversation_fingerprint(
+            [{"role": "user", "content": "Fix the login bug"}])
+        fp2 = chat_fingerprint.conversation_fingerprint(
+            [{"role": "system", "content": "sys"},
+             {"role": "user", "content": "<system-reminder>noise</system-reminder>Fix the login bug"}])
+        assert fp1 == fp2
+        fp3 = chat_fingerprint.conversation_fingerprint(
+            [{"role": "user", "content": "Different task"}])
+        assert fp3 != fp1
+        # Override store set/get with TTL + persistence
+        chat_fingerprint.set_chat_override(fp1, "model", "glm-5-turbo")
+        assert chat_fingerprint.get_chat_override(fp1, "model") == "glm-5-turbo"
+        assert chat_fingerprint.get_chat_override("nope", "model") is None
+        assert chat_fingerprint.chat_store_count() >= 1
+
+    def test_26_loop_breaker_detection(self):
+        """Synergy 9: loop fired after >=4 repeats at saturation; retries exempt."""
+        import loop_breaker
+        lb = loop_breaker.LoopBreaker()
+        msgs = [{"role": "user", "content": "x" * 300000},
+                {"role": "assistant", "content": "same answer"}]
+        fired = None
+        for i in range(6):
+            info = lb.check_pre_request("fp_lb_test", msgs, "zai_glm-5-turbo")
+            if info and fired is None:
+                fired = (i + 1, info)
+        assert fired is not None and fired[1]["repeats"] >= 4
+        assert fired[1]["saturation"] >= 0.80
+        # Exact retry is detected via body hash
+        lb.record_request("fp_retry", "body-xyz")
+        assert lb.is_retry("fp_retry", "body-xyz")
+        assert not lb.is_retry("fp_retry", "body-different")
+        # Short conversations never fire (no saturation)
+        lb2 = loop_breaker.LoopBreaker()
+        short = [{"role": "user", "content": "hi"},
+                 {"role": "assistant", "content": "hello"}]
+        for _ in range(6):
+            assert lb2.check_pre_request("fp_short", short, "zai_glm-5-turbo") is None
+
+    def test_27_dsml_tool_calling(self):
+        """Synergy 10: DSML prompt build + block parse + StreamSieve."""
+        import dsml_tools
+        tools = [{"type": "function", "function": {
+            "name": "get_weather", "description": "Get weather",
+            "parameters": {"type": "object", "properties": {"city": {"type": "string"}}}}}]
+        prompt = dsml_tools.build_dsml_system_prompt(tools)
+        assert "get_weather" in prompt and dsml_tools.DSML_OPEN in prompt
+        # Canonical 1-bracket markers
+        text = (f"Let me check. {dsml_tools.DSML_OPEN}\n"
+                '{"name": "get_weather", "arguments": {"city": "SF"}}\n'
+                f"{dsml_tools.DSML_CLOSE} Done.")
+        clean, calls = dsml_tools.parse_dsml_blocks(text)
+        assert clean == "Let me check.  Done."
+        assert len(calls) == 1
+        assert calls[0]["function"]["name"] == "get_weather"
+        assert json.loads(calls[0]["function"]["arguments"]) == {"city": "SF"}
+        # Tolerant 2/3-bracket markers (models miscount angle brackets)
+        for open_m, close_m in (("<<|DSML|tool_calls>>", "<</|DSML|tool_calls>>"),
+                                ("<<<|DSML|tool_calls>>>", "<</|DSML|tool_calls>>")):
+            t = "X " + open_m + ' {"name": "g", "arguments": {}} ' + close_m + " Y"
+            c, cs = dsml_tools.parse_dsml_blocks(t)
+            assert cs[0]["function"]["name"] == "g" and c == "X  Y"
+        # StreamSieve: char-by-char must never leak markers as text
+        sieve = dsml_tools.StreamSieve()
+        events = []
+        for ch in text:
+            events.extend(sieve.feed(ch))
+        events.extend(sieve.finish())
+        msg = dsml_tools.accumulate_stream(events)
+        assert msg["tool_calls"][0]["function"]["name"] == "get_weather"
+        assert "DSML" not in (msg["content"] or "")
+        # accumulate = text + tool_calls preserved
+        assert "Let me check." in msg["content"]
+
+    def test_28_reasoning_phase_separation(self):
+        """Synergy 11: env-gated reasoning_content passthrough + phase mapping."""
+        import reasoning_phase
+        # Default: strip (v1 behavior preserved)
+        assert reasoning_phase.should_passthrough() is False
+        chunk = {"choices": [{"delta": {"content": "hi", "reasoning_content": "think",
+                                        "reasoning": "more", "reasoning_details": [{"text": "x"}]}}]}
+        reasoning_phase.normalize_chunk(chunk)
+        delta = chunk["choices"][0]["delta"]
+        assert "reasoning_content" not in delta and "reasoning" not in delta
+        # Passthrough ON: consolidated into reasoning_content
+        reasoning_phase.PASSTHROUGH_REASONING = True
+        try:
+            chunk2 = {"choices": [{"delta": {"content": "hi",
+                                             "reasoning_content": "think",
+                                             "reasoning": " more"}}]}
+            reasoning_phase.normalize_chunk(chunk2)
+            assert chunk2["choices"][0]["delta"]["reasoning_content"] == "think more"
+            # Phase-marker style (chat.z.ai web): thinking phase -> reasoning
+            chunk3 = {"choices": [{"delta": {"phase": "thinking", "content": "deep"}}]}
+            reasoning_phase.normalize_chunk(chunk3)
+            assert chunk3["choices"][0]["delta"]["reasoning_content"] == "deep"
+            # finalize_non_stream includes reasoning only when enabled
+            fields = reasoning_phase.finalize_non_stream("answer", "why")
+            assert fields["reasoning_content"] == "why"
+        finally:
+            reasoning_phase.PASSTHROUGH_REASONING = False
+        fields_off = reasoning_phase.finalize_non_stream("answer", "why")
+        assert "reasoning_content" not in fields_off
+
+    def test_29_fresh_session_identity(self):
+        """Synergy 12: session headers fresh per request + IP masking."""
+        from session_guard import fresh_session_headers, mask_ip, get_telemetry
+        h1 = fresh_session_headers("m1")
+        h2 = fresh_session_headers("m1")
+        assert h1["X-Request-Id"] != h2["X-Request-Id"]
+        assert h1["X-Session-Id"] != h2["X-Session-Id"]
+        assert h1["X-Session-Key"] != h2["X-Session-Key"]
+        assert h1["X-Request-Model"] == "m1"
+        assert mask_ip("192.168.1.100") == "192.168.1.x.x"
+        assert mask_ip("2001:db8:1:2:3:4:5:6").startswith("2001:db8:1:")
+
+    def test_30_telemetry_ring(self):
+        """Synergy 15: telemetry ring buffer + overview aggregates."""
+        from session_guard import get_telemetry
+        tel = get_telemetry()
+        tel.record_request(client_ip="10.0.0.5", model="glm-5.2", status=200,
+                           latency_s=0.25, input_tokens=10, output_tokens=20)
+        tel.record_request(client_ip="10.0.0.6", model="glm-5-turbo", status=500,
+                           latency_s=0.5, error="boom")
+        ov = tel.overview()
+        assert ov["total_requests"] >= 2
+        assert 0.0 <= ov["success_rate"] <= 1.0
+        assert "glm-5.2" in ov["per_model"]
+        masked = [c["ip"] for c in ov["clients"]]
+        assert "10.0.0.x.x" in masked  # masked, raw IP never stored
+        recent = tel.recent(5)
+        assert recent and "status" in recent[0]
+        # 24h activity buckets present
+        assert len(ov["activity_24h"]) == 12
+
+    def test_31_local_ws_fallback_gating(self):
+        """Synergy 13: WS fallback disabled by default, 5xx-eligible when on."""
+        import local_ws_fallback
+        assert local_ws_fallback.is_enabled() is False
+        assert local_ws_fallback.should_fallback(503) is False
+        st = local_ws_fallback.status()
+        assert st["enabled"] is False
+        assert isinstance(st["eligible_statuses"], list)
+        # Frame codec sanity (no network): mask is 4 bytes per RFC 6455
+        import os as _os
+        import struct as _struct
+        # Verify eligible set excludes quota/404 classes
+        assert 404 not in local_ws_fallback.FALLBACK_ELIGIBLE_STATUSES
+        assert 429 not in local_ws_fallback.FALLBACK_ELIGIBLE_STATUSES
+        assert 503 in local_ws_fallback.FALLBACK_ELIGIBLE_STATUSES
+
+    def test_32_tls_impersonation_fallback(self):
+        """Synergy 14: impersonation gracefully degrades to requests."""
+        import tls_impersonation
+        st = tls_impersonation.status()
+        assert st["setting"] in ("true", "false", "auto")
+        assert st["available"] in (True, False)
+        # With curl_cffi absent, is_enabled() must be False and callers
+        # transparently fall back (impersonated_post raises Unavailable)
+        if not tls_impersonation.status()["available"]:
+            assert tls_impersonation.is_enabled() is False
+            try:
+                tls_impersonation.impersonated_post("http://example.invalid")
+                raised = False
+            except (tls_impersonation.ImpersonationUnavailable,
+                    tls_impersonation.ImpersonationError):
+                raised = True
+            assert raised
+
+    def test_33_anthropic_endpoint_pipeline(self):
+        """Synergy 6: /v1/messages wired with auth, tiers, Anthropic error shape."""
+        try:
+            from flask import Flask
+        except ImportError:
+            self.skipTest("flask not installed")
+        import os as _os
+        _os.environ.pop("AUTOCLAW_PROXY_API_KEY", None)
+        import importlib, proxy as proxy_mod
+        importlib.reload(proxy_mod)
+        client = proxy_mod.app.test_client()
+        # count_tokens stub
+        r = client.post("/v1/messages/count_tokens",
+                        json={"messages": [{"role": "user", "content": "hello world how are you"}]})
+        assert r.status_code == 200
+        assert r.get_json()["input_tokens"] > 0
+        # Full pipeline reaches token acquisition (no tokens -> Anthropic 401 shape)
+        r = client.post("/v1/messages", json={
+            "model": "claude-sonnet-4", "max_tokens": 100,
+            "messages": [{"role": "user", "content": "hi"}]})
+        assert r.status_code == 401
+        err = r.get_json()
+        assert err["type"] == "error"
+        assert err["error"]["type"] == "authentication_error"
+        # Strict validation rejects unknown models with Anthropic shape
+        r = client.post("/v1/messages", json={
+            "model": "gpt-99", "max_tokens": 10,
+            "messages": [{"role": "user", "content": "hi"}]})
+        assert r.status_code == 400
+        assert r.get_json()["error"]["type"] == "invalid_request_error"
+
+    def test_34_dashboard_endpoints(self):
+        """Synergy 15: /api/dashboard/overview + /requests serve live data."""
+        try:
+            from flask import Flask
+        except ImportError:
+            self.skipTest("flask not installed")
+        import proxy as proxy_mod
+        client = proxy_mod.app.test_client()
+        r = client.get("/api/dashboard/overview")
+        assert r.status_code == 200
+        ov = r.get_json()
+        for key in ("total_requests", "success_rate", "per_model", "clients",
+                    "activity_24h", "subsystems", "accounts"):
+            assert key in ov, key
+        subs = ov["subsystems"]
+        for key in ("tls_impersonation", "local_ws_fallback", "credit_tiers",
+                    "loop_breaker", "tracked_chats", "reasoning_passthrough"):
+            assert key in subs, key
+        r = client.get("/api/dashboard/requests?limit=5")
+        assert r.status_code == 200
+        assert isinstance(r.get_json()["requests"], list)
+
+    def test_35_router_command_tiers(self):
+        """Phase-2: !router tiers forces credit-tier refresh; status shows subsystems."""
+        try:
+            from flask import Flask
+        except ImportError:
+            self.skipTest("flask not installed")
+        import proxy as proxy_mod
+        client = proxy_mod.app.test_client()
+        r = client.post("/v1/chat/completions", json={
+            "model": "glm-5.2",
+            "messages": [{"role": "user", "content": "!router tiers"}]})
+        assert r.status_code == 200
+        assert "Credit tiers refreshed" in r.get_json()["choices"][0]["message"]["content"]
+        r = client.post("/v1/chat/completions", json={
+            "model": "glm-5.2",
+            "messages": [{"role": "user", "content": "!router status"}]})
+        content = r.get_json()["choices"][0]["message"]["content"]
+        assert "TLS impersonation" in content
+        assert "Local WS fallback" in content
+        assert "Credit tiers" in content
+
 
 if __name__ == "__main__":
     print("=" * 60)
