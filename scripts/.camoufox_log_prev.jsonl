@@ -1,0 +1,113 @@
+{"ev": "boot", "ts": 1790028401.9337044}
+{"ev": "ready"}
+{"ev": "resp", "url": "https://autoglm.ai/login", "status": 200, "body_head": "<!DOCTYPE html>\n<!-- 2026-09-20 14:52:51｜环境：production | 版本：1.44.0 -->\n<html lang=\"en\">\n  <head>\n    <script type=\"module\" crossorigin src=\"/assets/polyfills-CXHyrTtu.js\"></script>\n\n    <meta charset=\"UTF-8\" />\n    <link rel=\"icon\" type=\"image/png\" href=\"/favicon-96x96-oversea.png?t=20250809\" sizes=\"96x96\" />\n    <link rel=\"icon\" type=\"image/svg+xml\" href=\"/favicon-oversea.svg?t=20250809\" />\n    <link rel=\"shortcut icon\" href=\"/favicon-oversea.ico?t=20250809\" />\n    <link rel=\"apple-touch-icon\" "}
+{"ev": "ok", "cmd": "goto", "url": "https://autoglm.ai/login"}
+{"ev": "resp", "url": "https://autoglm.ai/locales/en/login.json?v=1.44.0", "status": 200, "body_head": "{\n  \"welcome\": \"Welcome to AutoGLM\",\n  \"welcome2\": \"Welcome to \",\n  \"introduce\": \"AutoGLM – Ask Easily, Execute Automatically\",\n  \"userName\": \"User Name\",\n  \"phoneNumber\": \"Phone number\",\n  \"userPhone\": \"Enter your phone number\",\n  \"verifyCode\": \"Verification Code\",\n  \"sendCode\": \"Send Code\",\n  \"sendCodeWaiting\": \"Send Code ({{time}}s)\",\n  \"login\": \"Login\",\n  \"logout\": \"Logout\",\n  \"agreement\": \"Accept <0>User Agreement</0> and the <1>Privacy Policy</1>\",\n  \"phoneInvalid\": \"Phone number not valid"}
+{"ev": "resp", "url": "https://apmplus.ap-southeast-1.volces.com/monitor_web/collect?did=22efc329-a23c-491c-851d-b963859b2f78&sid=7cbcad75-67fe-43f7-a2e9-834597103690&release=1.44.0&env=production&sname=", "status": 204, "body_head": ""}
+{"ev": "resp", "url": "https://apmplus.ap-southeast-1.volces.com/monitor_web/collect?did=22efc329-a23c-491c-851d-b963859b2f78&sid=7cbcad75-67fe-43f7-a2e9-834597103690&release=1.44.0&env=production&sname=", "status": 204, "body_head": ""}
+{"ev": "resp", "url": "https://apmplus.ap-southeast-1.volces.com/monitor_web/collect?did=22efc329-a23c-491c-851d-b963859b2f78&sid=7cbcad75-67fe-43f7-a2e9-834597103690&release=1.44.0&env=production&sname=", "status": 204, "body_head": ""}
+{"ev": "clicked", "x": 960, "y": 633}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "resp", "url": "https://apmplus.ap-southeast-1.volces.com/monitor_web/collect?did=22efc329-a23c-491c-851d-b963859b2f78&sid=7cbcad75-67fe-43f7-a2e9-834597103690&release=1.44.0&env=production&sname=", "status": 204, "body_head": ""}
+{"ev": "ok", "cmd": "screenshot", "path": "/home/z/my-project/scripts/g1_captcha.png"}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "ok", "cmd": "eval", "value": "{\"cx\":800,\"cy\":545}"}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "clicked", "x": 800, "y": 545}
+{"ev": "resp", "url": "https://apmplus.ap-southeast-1.volces.com/monitor_web/collect?did=22efc329-a23c-491c-851d-b963859b2f78&sid=7cbcad75-67fe-43f7-a2e9-834597103690&release=1.44.0&env=production&sname=", "status": 204, "body_head": ""}
+{"ev": "ok", "cmd": "screenshot", "path": "/home/z/my-project/scripts/g2_captcha.png"}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "ok", "cmd": "screenshot", "path": "/home/z/my-project/scripts/cf5_now.png"}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "ok", "cmd": "eval", "value": "{\"x\":629,\"y\":270,\"w\":342,\"h\":171}"}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "clicked", "x": 920, "y": 359}
+{"ev": "clicked", "x": 744, "y": 362}
+{"ev": "clicked", "x": 932, "y": 303}
+{"ev": "resp", "url": "https://apmplus.ap-southeast-1.volces.com/monitor_web/collect?did=22efc329-a23c-491c-851d-b963859b2f78&sid=7cbcad75-67fe-43f7-a2e9-834597103690&release=1.44.0&env=production&sname=", "status": 204, "body_head": ""}
+{"ev": "clicked", "x": 853, "y": 341}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "ok", "cmd": "url", "url": "https://autoglm.ai/login"}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "ok", "cmd": "screenshot", "path": "/home/z/my-project/scripts/g3_state.png"}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "ok", "cmd": "screenshot", "path": "/home/z/my-project/scripts/cf5_now.png"}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "ok", "cmd": "eval", "value": "{\"x\":629,\"y\":270,\"w\":342,\"h\":171}"}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "clicked", "x": 730, "y": 380}
+{"ev": "clicked", "x": 783, "y": 323}
+{"ev": "clicked", "x": 874, "y": 332}
+{"ev": "resp", "url": "https://apmplus.ap-southeast-1.volces.com/monitor_web/collect?did=22efc329-a23c-491c-851d-b963859b2f78&sid=7cbcad75-67fe-43f7-a2e9-834597103690&release=1.44.0&env=production&sname=", "status": 204, "body_head": ""}
+{"ev": "clicked", "x": 681, "y": 357}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "ok", "cmd": "url", "url": "https://autoglm.ai/login"}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "ok", "cmd": "url", "url": "https://autoglm.ai/login"}
+{"ev": "ok", "cmd": "screenshot", "path": "/home/z/my-project/scripts/g4_state.png"}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "ok", "cmd": "screenshot", "path": "/home/z/my-project/scripts/cf5_now.png"}
+{"ev": "ok", "cmd": "eval", "value": "{\"x\":629,\"y\":270,\"w\":342,\"h\":171}"}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "clicked", "x": 859, "y": 362}
+{"ev": "clicked", "x": 827, "y": 398}
+{"ev": "clicked", "x": 729, "y": 362}
+{"ev": "resp", "url": "https://apmplus.ap-southeast-1.volces.com/monitor_web/collect?did=22efc329-a23c-491c-851d-b963859b2f78&sid=7cbcad75-67fe-43f7-a2e9-834597103690&release=1.44.0&env=production&sname=", "status": 204, "body_head": ""}
+{"ev": "clicked", "x": 937, "y": 322}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "ok", "cmd": "url", "url": "https://autoglm.ai/login"}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "ok", "cmd": "url", "url": "https://autoglm.ai/login"}
+{"ev": "ok", "cmd": "screenshot", "path": "/home/z/my-project/scripts/g5_state.png"}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "ok", "cmd": "screenshot", "path": "/home/z/my-project/scripts/cf5_now.png"}
+{"ev": "ok", "cmd": "eval", "value": "{\"x\":629,\"y\":270,\"w\":342,\"h\":171}"}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "clicked", "x": 759, "y": 315}
+{"ev": "clicked", "x": 859, "y": 388}
+{"ev": "clicked", "x": 789, "y": 352}
+{"ev": "resp", "url": "https://apmplus.ap-southeast-1.volces.com/monitor_web/collect?did=22efc329-a23c-491c-851d-b963859b2f78&sid=7cbcad75-67fe-43f7-a2e9-834597103690&release=1.44.0&env=production&sname=", "status": 204, "body_head": ""}
+{"ev": "clicked", "x": 901, "y": 395}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "ok", "cmd": "url", "url": "https://autoglm.ai/login"}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "ok", "cmd": "url", "url": "https://autoglm.ai/login"}
+{"ev": "ok", "cmd": "screenshot", "path": "/home/z/my-project/scripts/g6_state.png"}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "ok", "cmd": "screenshot", "path": "/home/z/my-project/scripts/cf5_now.png"}
+{"ev": "ok", "cmd": "eval", "value": "{\"x\":629,\"y\":270,\"w\":342,\"h\":171}"}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "clicked", "x": 926, "y": 382}
+{"ev": "clicked", "x": 781, "y": 400}
+{"ev": "clicked", "x": 754, "y": 358}
+{"ev": "resp", "url": "https://apmplus.ap-southeast-1.volces.com/monitor_web/collect?did=22efc329-a23c-491c-851d-b963859b2f78&sid=7cbcad75-67fe-43f7-a2e9-834597103690&release=1.44.0&env=production&sname=", "status": 204, "body_head": ""}
+{"ev": "clicked", "x": 829, "y": 315}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "ok", "cmd": "url", "url": "https://autoglm.ai/login"}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "ok", "cmd": "url", "url": "https://autoglm.ai/login"}
+{"ev": "ok", "cmd": "screenshot", "path": "/home/z/my-project/scripts/g7_state.png"}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "hb", "url": "https://autoglm.ai/login", "pages": 1}
+{"ev": "bye"}
+{"ev": "exit"}
