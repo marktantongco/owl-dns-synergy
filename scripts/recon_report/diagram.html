@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    html, body { margin: 0; padding: 0; background: #ffffff; }
+    .diagram {
+      position: relative; width: 1000px; height: 372px;
+      background: #ffffff;
+      font-family: 'DejaVu Sans', 'Liberation Sans', sans-serif;
+    }
+    .node {
+      position: absolute; top: 74px;
+      width: 170px; height: 224px;
+      background: #e4ecf5;
+      border: 2px solid #2d7ab3;
+      border-radius: 8px;
+      box-sizing: border-box;
+      padding: 14px 10px 10px 10px;
+      text-align: center;
+    }
+    .chip {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: #1a4a7a; color: #ffffff;
+      font-size: 17px; font-weight: bold; line-height: 34px;
+      margin: 0 auto 10px auto;
+    }
+    .stage {
+      font-size: 24px; font-weight: bold; color: #1a4a7a;
+      margin-bottom: 10px; line-height: 1.15;
+    }
+    .tool {
+      font-size: 18px; color: #142840; line-height: 1.35;
+      margin-top: 6px;
+    }
+    .lane {
+      position: absolute; left: 10px; right: 10px; top: 18px;
+      font-size: 20px; color: #5a7a96; letter-spacing: 3px;
+    }
+    svg.wire { position: absolute; top: 0; left: 0; }
+  </style>
+</head>
+<body>
+<div class="diagram">
+  <div class="lane">PIPELINE &nbsp;&mdash;&nbsp; STAGES A &rarr; E MAPPED TO LAYERS L5 &rarr; L4 &rarr; L3 &rarr; L2/L1</div>
+  <svg class="wire" width="1000" height="372">
+    <defs>
+      <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+        <path d="M0,0 L6,3 L0,6 Z" fill="#5a7a96"/>
+      </marker>
+    </defs>
+    <line x1="184" y1="186" x2="207" y2="186" stroke="#5a7a96" stroke-width="2" marker-end="url(#arr)"/>
+    <line x1="386" y1="186" x2="409" y2="186" stroke="#5a7a96" stroke-width="2" marker-end="url(#arr)"/>
+    <line x1="588" y1="186" x2="611" y2="186" stroke="#5a7a96" stroke-width="2" marker-end="url(#arr)"/>
+    <line x1="790" y1="186" x2="813" y2="186" stroke="#5a7a96" stroke-width="2" marker-end="url(#arr)"/>
+  </svg>
+  <div class="node" style="left:10px;">
+    <div class="chip">A</div>
+    <div class="stage">Acquire</div>
+    <div class="tool">phantom CLI</div>
+    <div class="tool">secret-agent / browser-use</div>
+    <div class="tool">cdp-proxy-interceptor</div>
+  </div>
+  <div class="node" style="left:212px;">
+    <div class="chip">B</div>
+    <div class="stage">Harvest</div>
+    <div class="tool">CDP token capture</div>
+    <div class="tool">harvest_token.py</div>
+    <div class="tool">ACLAW_IMPORT_DIR</div>
+  </div>
+  <div class="node" style="left:414px;">
+    <div class="chip">C</div>
+    <div class="stage">Accept</div>
+    <div class="tool">/v1/messages</div>
+    <div class="tool">smoke_test_live</div>
+    <div class="tool">sync-SDK WAF probe</div>
+  </div>
+  <div class="node" style="left:616px;">
+    <div class="chip">D</div>
+    <div class="stage">Operate</div>
+    <div class="tool">SmartChannelRouter</div>
+    <div class="tool">rotator cooldowns</div>
+    <div class="tool">negative cache</div>
+  </div>
+  <div class="node" style="left:818px;">
+    <div class="chip">E</div>
+    <div class="stage">Phase-3</div>
+    <div class="tool">phantomrelay JA4</div>
+    <div class="tool">WARP egress pool</div>
+    <div class="tool">dual-mode channel</div>
+  </div>
+</div>
+</body>
+</html>
