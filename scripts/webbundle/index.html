@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<!-- 2026-09-20 14:52:51｜环境：production | 版本：1.44.0 -->
+<html lang="en">
+  <head>
+    <script type="module" crossorigin src="/assets/polyfills-CXHyrTtu.js"></script>
+
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/favicon-96x96-oversea.png?t=20250809" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/favicon-oversea.svg?t=20250809" />
+    <link rel="shortcut icon" href="/favicon-oversea.ico?t=20250809" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-oversea.png?t=20250809" />
+    <link rel="canonical" href="https://autoglm.ai">
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no"
+    />
+    <title>AutoGLM: Your Supercharged Report Assistant</title>
+    <meta name="baidu-site-verification" content="codeva-iuc71oULmi" />
+    <meta name="keywords" content="AutoGLM, z ai, GLM, GLM4.7,GLM4.6,AI Agent, SOTA Performance, GUI Agent, Browser Use, Phone Use, Deep Research, MCP, A2A, China’s ChatGPT Alternative, 2026 AI, AI Office Assistant, AI Productivity Tool, AI Research Assistant, AI PPT, Mobile Agent, Universal Phone Agent, AI Report Generation, AI Education Assistant, AI Learning Assistant" />
+    <meta name="description" content="Powered by deep search and WebAgent capabilities, AutoGLM is a supercharged research and report assistant that rapidly gathers high-quality information, auto-generates structured research reports, and creates PPT , web pages and other deliverables with one click. It also supports  browser use, video summarization and code execution, streamlining the full workflow from research to delivery for greater efficiency."/>
+    <meta name="google" content="notranslate">
+    <style type="text/css">
+      body {
+        min-height: 100vh;
+        margin: 0;
+        background: #f7f7f7 url(/logo-loading.webp) no-repeat center center / 60px;
+      }
+
+      .arachnid{
+        margin: -999999px;
+        position: absolute;
+      }
+
+      .preRendered {
+        visibility: hidden;
+      }
+
+      /* PC端不显示预渲染内容 */
+      @media (min-width: 769px){
+        .preRendered{
+          display: none;
+          visibility: hidden;
+          opacity: 0;
+          position: absolute;
+          margin: -999999px;
+        }
+      }
+    </style>
+
+    <style id="preRenderedStyle" type="text/css">
+      /* 首页预加载样式 */
+      @media (max-width: 768px) {
+        body {
+          background: url(/logo-loading.webp) no-repeat center center / 60px, linear-gradient(to top, rgba(255, 243, 235, 0.9) 20%, rgba(255, 243, 235, 0.9), #f7f7f7);
+        }
+
+        .preRendered {
+          visibility: visible;
+        }
+      }
+    </style>
+
+    <script>
+      // 预加载模式的时候删掉<head>内所有<script>标签以阻止其执行
+      const loadMode = new URLSearchParams(window.location.search).get('load_mode');
+      if(loadMode === 'pre'){
+        // 创建一个 MutationObserver，监听 <head> 插入的 <script> 标签
+        const observer = new MutationObserver(mutations => {
+            mutations.forEach(mutation => {
+                mutation.addedNodes.forEach(node => {
+                    if (node.tagName === 'SCRIPT') {
+                        // <script> 移除掉，阻止其执行。但判断下带 src 的就不删除了，要下载缓存起来；
+                        !node.src && node.parentNode.removeChild(node); // 删除节点
+                    }
+                });
+            });
+        });
+
+        // 开始监听
+        observer.observe(document.head, { childList: true });
+      }
+    </script>
+
+    <script>
+      if(window.location.pathname !== '/' && window.location.pathname !== '/index.html'){
+        // 非首页直接移除预渲染样式
+        document.getElementById('preRenderedStyle').remove();
+      }
+    </script>
+
+    <script>
+      const { hostname } = window.location;
+      const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
+      const isTest = false;
+      const isOversea = true;
+
+      // 仅在非ip和本地环境监控
+      if(!isTest){
+        // 火山性能监控
+        (function(n,e,r,t,a,o,s,i,c,l,f,m,p,u){o="precollect";s="getAttribute";i="addEventListener";c="PerformanceObserver";l=function(e){f=[].slice.call(arguments);f.push(Date.now(),location.href);(e==o?l.p.a:l.q).push(f)};l.q=[];l.p={a:[]};n[a]=l;m=document.createElement("script");m.src=r+"?aid="+t+"&globalName="+a;m.crossOrigin="anonymous";e.getElementsByTagName("head")[0].appendChild(m);if(i        in        n){l.pcErr=function(e){e=e||n.event;p=e.target||e.srcElement;if(p        instanceof        Element||p        instanceof        HTMLElement){n[a](o,"st",{tagName:p.tagName,url:p[s]("href")||p[s]("src")})}else{n[a](o,"err",e.error||e.message)}};l.pcRej=function(e){e=e||n.event;n[a](o,"reject",e.reason||e.detail&&e.detail.reason)};n[i]("error",l.pcErr,true);n[i]("unhandledrejection",l.pcRej,true)}if("PerformanceLongTaskTiming"in        n){u=l.pp={entries:[]};u.observer=new        PerformanceObserver(function(e){u.entries=u.entries.concat(e.getEntries())});u.observer.observe({entryTypes:["longtask"]})}})(window,document,"https://apm.volccdn.com/mars-web/apmplus/web/browser.cn.js",0,"apmPlus");
+        window.apmPlus("init",{
+          aid: isOversea ? 1000233 : 711986,
+          token: isOversea ? '871bb6e023c84afa8040e0cc460db850' :'f726b596f7b548a088bd8c1aa1bbc34f',
+          release: '1.44.0', // 会在build的时候替换
+          domain: isOversea ? 'https://apmplus.ap-southeast-1.volces.com' : 'https://apmplus.volces.com', // 上报域名。中国发布的应用：上报到中国大陆服务器，域名为https://apmplus.volces.com。海外发布的应用，上报到马来西亚柔佛服务器，域名为https://apmplus.ap-southeast-1.volces.com。如不配置，默认上报到中国大陆服务器。
+          plugins: {
+            resourceError: {
+              ignoreUrls: new RegExp("volccdn.com"), // 火山自己的资源不监控
+            },
+            jsError: {
+              ignoreErrors: ['Failed to fetch', 'Load failed'], // 忽略fetch相关错误
+            }
+          },
+        });
+
+        window.apmPlus('on', 'beforeSend', (ev) => {
+          if(
+            ev.ev_type === 'js_error' &&
+            // chrome插件的报错不上报
+            ev.payload?.error?.filename?.startsWith('chrome-extension://')
+          ) {
+            return false // 不再上报
+          }
+          return ev // 继续上报
+        })
+        
+        window.apmPlus("start");
+      }
+    </script>
+
+    <script>    
+    // 此段代码的作用是将SDK主文件未加载完成时，业务代码中调用的API依次进行放到数组q中缓存，等待SDK主文件加载完成后，再取出，并执行。
+    (function(win, export_obj) {
+        win['LogAnalyticsObject'] = export_obj;
+        if (!win[export_obj]) {
+            var _collect = function() {
+                _collect.q.push(arguments);
+            }
+            _collect.q = _collect.q || [];
+            win[export_obj] = _collect;                
+        }
+        win[export_obj].l = +new Date();
+    })(window, 'collectEvent');
+    </script>
+    <script async src="https://lf3-data.volccdn.com/obj/data-static/log-sdk/collect/5.0/collect-rangers-v5.2.6.js"></script>
+
+    <script>
+      window.collectEvent("init", {
+        app_id: isOversea ? 20004072 : isTest ? 20011414 : 20006465,
+        channel_domain: isOversea ? 'https://gator.uba.ap-southeast-1.volces.com' : "https://gator.volces.com", // 数据上送地址
+        disable_sdk_monitor: true, //用于禁止SDK启动后自身监控事件 onload 的上报
+        log: isTest,
+        // channel: 'cn', // 使用默认的数据上报地址
+        enable_ab_test: true, // boolean类型，是否开启A/B实验功能
+        ab_channel_domain: isOversea ? 'https://tab.ab.ap-southeast-1.volces.com' : 'https://tab.volces.com', // ab测试分流请求域名
+        // auto_exposure_expriment: true // boolean类型，按需开启，默认关闭，是否自动曝光全量实验 5.1.10版本支持
+      });
+
+      let _tm = 'web';
+      
+      // 判断下设备类型
+      const _ua = window.navigator.userAgent.toLocaleLowerCase();
+      if(_ua.includes('autoglmandroid')) {
+        _tm = 'android'
+      }else if(_ua.includes('autoglmios')) {
+        _tm = 'ios'
+      }else if(document.documentElement.clientWidth <= 768) {
+        _tm = 'wap'
+      }
+
+      // 获取渠道值
+      const channel = new URLSearchParams(window.location.search).get('channel');
+
+      // 配置下公共属性
+      window.collectEvent('config', {
+        product: 'rumination',
+        env: isTest ? 'test' : 'prod',
+        channel,
+        tm: _tm,
+        version: '1.44.0', // 会在build的时候替换
+        pd: "autoglm",
+        fr: "autoglm-web",
+      });
+      window.collectEvent("start");
+    </script>
+    <script>
+      // 火山的token
+      window._volcToken = {}
+
+      // 基础配置
+      const baseOpts = {
+        usid: "",
+        deid: "",
+      };
+
+      (async () => {
+        try {
+          const getCookie = async (name) => {
+            // 支持 cookieStore API 的浏览器，直接使用 cookieStore API 获取 cookie
+            if("cookieStore" in window) return (await cookieStore.get(name))?.value;
+
+            // 将cookie字符串拆分成键值对数组
+            const cookiePairs = document.cookie.split('; ');
+            
+            // 创建对象来存储所有cookie
+            const cookies = {};
+            
+            // 遍历所有cookie键值对
+            for (const pair of cookiePairs) {
+                // 跳过空字符串
+                if (!pair) continue;
+                
+                // 将键值对拆分为键和值
+                const [key, value] = pair.split('=');
+                
+                // 存储到cookies对象中，键名转换为小写以便不区分大小写比较
+                cookies[key.toLowerCase()] = decodeURIComponent(value || '');
+            }
+            
+            // 查找指定名称的cookie（不区分大小写）
+            const cookieName = name.toLowerCase();
+            return cookies.hasOwnProperty(cookieName) ? cookies[cookieName] : null;
+          };
+
+          const userIdKey = "user_id";
+          const deviceIdKey = "device_id";
+
+          // 取一下用户id
+          // const user_id = (await cookieStore.get(userIdKey))?.value;
+          const user_id = await getCookie(userIdKey);
+
+          const setUserId = (user_unique_id) => {
+            baseOpts.usid = user_unique_id;
+            window.collectEvent("config", {
+              user_unique_id,
+            });
+          };
+          !!user_id && setUserId(user_id);
+
+          // 拿一下火山的token信息
+          window.collectEvent("getToken", (volcToken) => {
+            window._volcToken = volcToken;
+          });
+
+          // 设备id
+          // const deid = (await cookieStore.get(deviceIdKey))?.value;
+          const deid = await getCookie(deviceIdKey);
+          if (deid) baseOpts.deid = deid;
+
+          // 不支持 cookieStore API 的浏览器就不执行监听了
+          if (!("cookieStore" in window)) return;
+
+          cookieStore.addEventListener("change", (event) => {
+            // 新增和修改的情况
+            const new_user_id = event.changed?.find(
+              (item) => item.name === userIdKey
+            )?.value;
+            if (new_user_id) setUserId(new_user_id);
+            const new_device_id = event.changed?.find(
+              (item) => item.name === deviceIdKey
+            )?.value;
+            if (new_device_id) baseOpts.deid = new_device_id;
+
+            // 删除的情况（退登）
+            const deleted_user_id = event.deleted?.find(
+              (item) => item.name === userIdKey
+            );
+            if (deleted_user_id) setUserId(null);
+            const deleted_device_id = event.deleted?.find(
+              (item) => item.name === deviceIdKey
+            );
+            if (deleted_device_id) baseOpts.deid = "";
+          });
+
+        } catch (error) {
+        }
+      })();
+
+      // 全局埋点方法
+      const sendCl = (event, opts = {}) => {
+        const eventIsStr = typeof event === "string";
+        opts = eventIsStr ? opts : event;
+        event = eventIsStr ? event : "cl";
+
+        window.collectEvent(event, {
+          ...baseOpts,
+          ...opts,
+          t: Date.now(),
+          bt: event,
+        });
+      };
+      const sendPv = (event, opts = {}) => {
+        const eventIsStr = typeof event === "string";
+        opts = eventIsStr ? opts : event;
+        event = eventIsStr ? event : "pv";
+
+        window.collectEvent(event, {
+          ...baseOpts,
+          ...opts,
+          t: Date.now(),
+          bt: event,
+        });
+      };
+    </script>
+    <script>
+      if (!Object.hasOwn) {
+        Object.hasOwn = function (obj, prop) {
+          return Object.prototype.hasOwnProperty.call(obj, prop);
+        };
+      }
+    </script>
+    <script type="module" crossorigin src="/assets/index-Dg1UNjIK.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-BbsaFWTb.css">
+    <script type="module">import.meta.url;import("_").catch(()=>1);(async function*(){})().next();if(location.protocol!="file:"){window.__vite_is_modern_browser=true}</script>
+    <script type="module">!function(){if(window.__vite_is_modern_browser)return;console.warn("vite: loading legacy chunks, syntax error above and the same error below should be ignored");var e=document.getElementById("vite-legacy-polyfill"),n=document.createElement("script");n.src=e.src,n.onload=function(){System.import(document.getElementById('vite-legacy-entry').getAttribute('data-src'))},document.body.appendChild(n)}();</script>
+  </head>
+  <body class="is_oversea">
+    <img src="/brand-oversea.jpg" alt="AutoGLM: Your Supercharged Report Assistant" style="width: 140px; height: 93.5px; position: absolute; transform: translate(-99999px, -99999px);">
+    <div id="root">
+      <div class="arachnid">
+        <h1>AutoGLM: Your Supercharged Report Assistant</h1>
+      </div>
+
+      <style>
+        .greet {
+          display: flex;
+          flex-direction: column;
+          text-align: center;
+          vertical-align: middle;
+          box-sizing: border-box;
+          padding-top: 160px;
+          padding-left: 16px;
+          padding-right: 16px;
+
+          @media  (max-height: 800px) {
+            padding-top: 120px;
+          }
+
+          width: 100%;
+          padding-top: 70px;
+          text-align: left;
+
+          @media screen and (max-height: 775px) {
+            padding-top: 50px;
+          }
+
+          .greetText {
+            font-family: PingFang SC;
+            font-weight: 600;
+            font-size: 32px;
+            line-height: 44px;
+            letter-spacing: 0%;
+            color: rgba(31, 31, 31, 1);
+            color: var(--grey-01, rgba(31, 31, 31, 1));
+            display: flex;
+            gap: 12px;
+            align-items: start;
+
+            flex-wrap: wrap;
+            font-size: 20px;
+            line-height: 28px;
+            gap: 0;
+
+            .logoColored{
+              width: 44px;
+              height: 44px;
+              flex-shrink: 0;
+
+              width: 68px;
+              height: 68px;
+              margin-left: -5px;
+            }
+
+            .greetWelcome{
+              max-width: 700px;
+              flex-basis: 100%;
+              font-weight: 600;
+              white-space: nowrap; /* 强制不换行 */
+              overflow: hidden; /* 隐藏超出部分 */
+              text-overflow: ellipsis; /*  显示省略号 */
+            }
+          }
+          
+          .greetSupply {
+            font-family: PingFang SC;
+            font-weight: 400;
+            font-size: 28px;
+            line-height: 44px;
+            letter-spacing: 0%;
+            color: rgba(117, 117, 117, 1);
+            color: var(--grey-04, rgba(117, 117, 117, 1));
+            padding-bottom: 28px;
+
+            font-size: 20px;
+            line-height: 28px;
+          }
+        }
+      </style>
+      <div class="greet preRendered">
+        <span class="greetText">
+          <svg class="logoColored" width="44" height="44" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M74.2469 29.8209C74.7406 29.868 75.1897 30.1273 75.4773 30.5313C75.8073 30.9954 75.7868 31.8134 75.7457 33.448L75.5107 42.7858C75.4563 44.9513 75.429 46.0344 74.9954 46.5066C74.6195 46.9159 74.0676 47.1173 73.5165 47.0458C72.8809 46.9629 72.1629 46.1513 70.7284 44.5289L70.6123 44.3974L69.1553 46.921C68.2085 48.5606 66.1115 49.1225 64.4718 48.176C62.832 47.2293 62.2702 45.1323 63.2168 43.4925L64.6744 40.9679L64.499 40.9323C62.3767 40.5012 61.3148 40.2853 60.9253 39.7763C60.5877 39.3347 60.4863 38.7561 60.6528 38.2259C60.8449 37.6143 61.7693 37.0491 63.6174 35.9192L71.5867 31.0468C72.9818 30.1939 73.6799 29.7671 74.2469 29.8209Z" fill="#792200"></path><mask id="mask0_13370_283535" maskUnits="userSpaceOnUse" x="6" y="17" width="57" height="46" style="mask-type: alpha;"><path d="M58.5889 51.4626C59.6784 51.4626 60.6212 51.8816 61.4174 52.7197C62.2555 53.5578 62.6746 54.4797 62.6746 55.4854C62.6746 56.575 62.1717 57.6016 61.166 58.5654C60.2022 59.4873 58.9241 60.2207 57.3317 60.7654C55.7812 61.3102 54.1888 61.5826 52.5546 61.5826C47.4422 61.5826 43.7336 58.6702 41.4289 52.8454C36.1489 59.215 30.2612 62.3997 23.766 62.3997C20.4555 62.3997 17.5222 61.6035 14.966 60.0111C12.4098 58.4188 10.4193 56.1978 8.99456 53.3483C7.5698 50.4988 6.85742 47.2092 6.85742 43.4797C6.85742 39.1635 7.77933 34.9731 9.62314 30.9083C11.5089 26.8435 14.1489 23.5331 17.5431 20.9769C20.9793 18.4207 24.8765 17.1426 29.2346 17.1426C33.6346 17.1426 37.1755 18.4207 39.8574 20.9769C42.5393 23.5331 44.4669 26.8435 45.6403 30.9083L49.9774 23.114C50.3127 22.4854 50.7946 21.9826 51.4231 21.6054C52.0936 21.1864 52.806 20.9769 53.5603 20.9769C54.6917 20.9769 55.6555 21.375 56.4517 22.1711C57.2479 22.9673 57.646 23.9102 57.646 24.9997C57.646 25.7121 57.3946 26.5712 56.8917 27.5769C52.6593 35.2035 49.5165 40.6931 47.4631 44.0454C48.4269 50.2892 50.2498 53.4111 52.9317 53.4111C53.4346 53.4111 53.8746 53.3273 54.2517 53.1597C54.6288 52.9921 55.1317 52.7407 55.7603 52.4054C56.1793 52.154 56.6403 51.9445 57.1431 51.7769C57.646 51.5673 58.1279 51.4626 58.5889 51.4626ZM15.0289 43.4797C15.0289 46.874 15.8041 49.514 17.3546 51.3997C18.905 53.2854 21.0422 54.2283 23.766 54.2283C26.1965 54.2283 28.4174 53.5159 30.4288 52.0911C32.4403 50.6664 34.3469 48.7388 36.1488 46.3083C37.0288 45.0931 37.9717 43.7102 38.9774 42.1597L38.6631 38.4511C38.3698 34.4283 37.4689 31.2435 35.9603 28.8969C34.4517 26.5083 32.1679 25.314 29.1089 25.314C26.5108 25.314 24.1222 26.1731 21.9431 27.8911C19.806 29.6092 18.1089 31.8721 16.8517 34.6797C15.6365 37.4873 15.0289 40.4207 15.0289 43.4797Z" fill="#FF511C"></path></mask><g mask="url(#mask0_13370_283535)"><rect x="6.61328" y="11.8848" width="58.9431" height="58.9431" fill="#FF5C1C"></rect><path d="M41.3164 52.9534C43.6936 49.8917 45.0646 47.9453 47.4922 43.9824L54.1672 52.9534L47.4922 66.8789L41.3164 52.9534Z" fill="url(#paint0_linear_13370_283535)"></path><path d="M30.9492 28.9783L38.9182 42.2539C41.7587 37.6909 43.2762 35.1813 45.6683 30.8545L41.249 13.56L30.9492 28.9783Z" fill="url(#paint1_linear_13370_283535)"></path></g><defs><linearGradient id="paint0_linear_13370_283535" x1="44.2975" y1="47.3314" x2="50.932" y2="58.0323" gradientUnits="userSpaceOnUse"><stop stop-color="#E64404"></stop><stop offset="1" stop-color="#FF5C1C"></stop></linearGradient><linearGradient id="paint1_linear_13370_283535" x1="44.559" y1="36.309" x2="33.858" y2="29.6744" gradientUnits="userSpaceOnUse"><stop stop-color="#F34500"></stop><stop offset="1" stop-color="#FF5C1C"></stop></linearGradient></defs></svg>
+          <span class="greetWelcome"><script>
+              const HI_WORDS = {
+                goodMorning: '上午好',
+                goodNoon: '中午好',
+                goodAfternoon: '下午好',
+                goodEvening: '晚上好',
+              }
+
+              const timeWelcome = () => {
+                const hour = new Date().getHours(); // 获取当前小时（0-23）
+
+                if (hour >= 5 && hour < 11) {
+                  return "goodMorning";
+                } else if (hour >= 11 && hour < 13) {
+                  return "goodNoon";
+                } else if (hour >= 13 && hour < 17) {
+                  return "goodAfternoon";
+                } else {
+                  return "goodEvening"; // 包括 17:00 - 4:59
+                }
+              };
+
+              document.currentScript.outerHTML = HI_WORDS[timeWelcome()];
+            </script>&nbsp;&nbsp;&nbsp;</span>
+          <!-- <span class="greetSupply">想做点什么？</span> -->
+        </span>
+      </div>
+
+      <style>
+        @keyframes rotate {
+          to {
+            transform: rotate(-360deg);
+          }
+        }
+        
+        .chatInput{
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          width: calc(100% - 32px);
+          height: 55px;
+          line-height: 55px;
+          padding: 0 12px 0 14px;
+          margin: 0 16px 32px;
+          box-sizing: border-box;
+          bottom: 0;
+          position: absolute;
+          overflow: hidden;
+          font-size: 14px;
+          font-weight: 400;
+          color: #c6c6c6;
+          border-radius: 24px;
+          border: 0.5px solid #ebebeb;
+          background: #ffffff;
+          border-radius: 16px;
+          border-color: transparent;
+          transition: all 0.2s ease-in-out;
+          box-shadow: 0px 4px 16px -4px rgba(0, 0, 0, 0.01), 0px 6px 40px 0px rgba(0, 0, 0, 0.02), 0px 8px 60px 0px rgba(0, 0, 0, 0.03);
+          
+          svg{
+            width: 26px;
+            height: 26px;
+          }
+
+          svg.loading{
+            animation: rotate 1s linear infinite;
+          }
+        }
+      </style>
+      <div class="chatInput preRendered">
+        <!-- 请提供详细指令/网址，体验更佳 -->
+        <svg class="loading" width="26" height="26" viewBox="0 0 16 16" fill="currentcolor" stroke="currentcolor" xmlns="http://www.w3.org/2000/svg"><circle cx="7.99707" cy="3.5" r="1.5" stroke="none"></circle><circle opacity="0.8" cx="11.8945" cy="5.75" r="1.5" stroke="none"></circle><circle opacity="0.6" cx="11.8945" cy="10.25" r="1.5" stroke="none"></circle><circle opacity="0.4" cx="7.99707" cy="12.5" r="1.5" stroke="none"></circle><circle opacity="0.3" cx="4.1001" cy="10.25" r="1.5" stroke="none"></circle><circle opacity="0.1" cx="4.1001" cy="5.75" r="1.5" stroke="none"></circle></svg>
+        <svg class="" width="26" height="26" viewBox="0 0 32 32" fill="currentcolor" stroke="currentcolor" xmlns="http://www.w3.org/2000/svg"><rect x="0.5" y="0.5" width="31" height="31" rx="15.5"></rect><rect x="0.5" y="0.5" width="31" height="31" rx="15.5" stroke="url(#paint0_linear_437_3659)"></rect><path d="M10.5 14.5L14.5858 10.4142C15.3668 9.63317 16.6332 9.63316 17.4142 10.4142L21.5 14.5M16 10V22.5" stroke="#FCFCFC" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path><defs><linearGradient id="paint0_linear_437_3659" x1="16" y1="0" x2="16" y2="32" gradientUnits="userSpaceOnUse"><stop stop-color="white" stop-opacity="0.08"></stop><stop offset="1" stop-color="white" stop-opacity="0.04"></stop></linearGradient></defs></svg>
+      </div>
+    </div>
+    <script nomodule>!function(){var e=document,t=e.createElement("script");if(!("noModule"in t)&&"onbeforeload"in t){var n=!1;e.addEventListener("beforeload",(function(e){if(e.target===t)n=!0;else if(!e.target.hasAttribute("nomodule")||!n)return;e.preventDefault()}),!0),t.type="module",t.src=".",e.head.appendChild(t),t.remove()}}();</script>
+    <script nomodule crossorigin id="vite-legacy-polyfill" src="/assets/polyfills-legacy-Da3BFNAL.js"></script>
+    <script nomodule crossorigin id="vite-legacy-entry" data-src="/assets/index-legacy-DrlshE7p.js">System.import(document.getElementById('vite-legacy-entry').getAttribute('data-src'))</script>
+  </body>
+</html>

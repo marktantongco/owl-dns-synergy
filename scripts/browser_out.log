@@ -1,0 +1,129 @@
+[18:09:45] daemon started (headed chromium, profile=/home/z/my-project/scripts/browser_profile)
+[18:11:31] daemon started (headed chromium, profile=/home/z/my-project/scripts/browser_profile)
+[18:13:12] daemon started (headed chromium, profile=/home/z/my-project/scripts/browser_profile)
+[18:16:08] daemon v2 started (headed, profile=/home/z/my-project/scripts/browser_profile)
+[18:16:08] control http://127.0.0.1:18899/cmd ready
+[18:16:19] cmd open https://autoglm.ai/login?product=autoclaw -> ok=False
+[18:16:19] cmd eval JSON.stringify(wd:navigator.webdriver) -> ok=False
+[18:16:19] cmd eval JSON.stringify(ua:navigator.userAgent.slice(0) -> ok=False
+[18:16:20] cmd eval JSON.stringify(70)) -> ok=False
+[18:16:47] daemon v2 started (headed, profile=/home/z/my-project/scripts/browser_profile)
+[18:16:47] control http://127.0.0.1:18899/cmd ready
+[18:17:01] cmd open https://autoglm.ai/login?product=autoclaw -> ok=True
+[18:17:01] cmd eval JSON.stringify(wd:navigator.webdriver) -> ok=False
+[18:17:01] cmd eval JSON.stringify(ua:navigator.userAgent.slice(0) -> ok=False
+[18:17:01] cmd eval JSON.stringify(70)) -> ok=False
+[18:18:33] daemon v2 started (headed, profile=/home/z/my-project/scripts/browser_profile)
+[18:18:33] control http://127.0.0.1:18899/cmd ready
+[18:18:42] cmd url  -> ok=True
+[18:18:50] cmd open https://autoglm.ai/login?product=autoclaw -> ok=True
+[18:18:59] cmd eval JSON.stringify({wd: navigator.webdriver, ua: navigator.userA -> ok=True
+[18:18:59] cmd eval (function(){ const els=[...document.querySelectorAll('button -> ok=True
+[18:19:14] cmd wait 3000 -> ok=True
+[18:19:14] cmd eval (function(){ const all=[...document.querySelectorAll('*')];  -> ok=True
+[18:19:21] cmd click 657,535 -> ok=True
+[18:19:25] cmd wait 4000 -> ok=True
+[18:19:25] cmd shot /home/z/my-project/scripts/webbundle/st_captcha.png -> ok=True
+[18:19:50] cmd click 737,308 -> ok=True
+[18:19:52] cmd click 760,263 -> ok=True
+[18:19:54] cmd click 668,346 -> ok=True
+[18:19:55] cmd click 543,323 -> ok=True
+[18:20:00] cmd wait 3500 -> ok=True
+[18:20:00] cmd shot /home/z/my-project/scripts/webbundle/st_after_click.png -> ok=True
+[18:20:00] cmd url  -> ok=True
+[18:20:56] cmd click 604,318 -> ok=True
+[18:20:58] cmd click 512,331 -> ok=True
+[18:20:59] cmd click 516,296 -> ok=True
+[18:21:01] cmd click 567,351 -> ok=True
+[18:21:05] cmd wait 3500 -> ok=True
+[18:21:05] cmd url  -> ok=True
+[18:21:05] CAPTURED 302 https://accounts.google.com/o/oauth2/auth?client_id=1070296600523-b25marksrcnbbrp57gc97r4l6q410umg.apps.googleusercontent.com&redi
+[18:21:05] CAPTURED 200 https://accounts.google.com/v3/signin/identifier?opparams=%253Fhl%253Den&dsh=S1260532452%3A1790014861866148&client_id=107029660052
+[18:21:05] cmd shot /home/z/my-project/scripts/webbundle/st_after2.png -> ok=True
+[18:22:09] cmd type input[type="email"]:::mymarky0@gmail.com -> ok=False
+[18:22:09] cmd press Enter -> ok=True
+[18:22:14] cmd wait 5000 -> ok=True
+[18:22:14] cmd url  -> ok=True
+[18:22:25] cmd shot /home/z/my-project/scripts/webbundle/g_state.png -> ok=True
+[18:23:20] daemon v2 started (headed, profile=/home/z/my-project/scripts/browser_profile)
+[18:23:20] control http://127.0.0.1:18899/cmd ready
+[18:23:32] cmd open https://autoglm.ai/login?product=autoclaw -> ok=True
+[18:23:55] cmd wait 2500 -> ok=True
+[18:23:55] cmd eval (function(){ const all=[...document.querySelectorAll('*')];  -> ok=True
+[18:23:55] cmd click 657,535 -> ok=True
+[18:23:59] cmd wait 4000 -> ok=True
+[18:23:59] cmd shot /home/z/my-project/scripts/webbundle/c3.png -> ok=True
+[18:24:19] cmd click 657,298 -> ok=True
+[18:24:20] cmd click 536,351 -> ok=True
+[18:24:22] cmd click 759,271 -> ok=True
+[18:24:23] cmd click 774,331 -> ok=True
+[18:24:28] cmd wait 3500 -> ok=True
+[18:24:28] cmd url  -> ok=True
+[18:24:34] CAPTURED 302 https://accounts.google.com/o/oauth2/auth?client_id=1070296600523-b25marksrcnbbrp57gc97r4l6q410umg.apps.googleusercontent.com&redi
+[18:24:34] CAPTURED 200 https://accounts.google.com/v3/signin/identifier?opparams=%253Fhl%253Den&dsh=S1160282232%3A1790015064558826&client_id=107029660052
+[18:24:34] cmd shot /home/z/my-project/scripts/webbundle/c4.png -> ok=True
+[18:25:31] cmd type input[type="email"]:::mymarky0@gmail.com -> ok=False
+[18:25:32] cmd press Enter -> ok=True
+[18:25:37] cmd wait 5000 -> ok=True
+[18:25:37] cmd url  -> ok=True
+[18:25:47] cmd eval JSON.stringify([...document.querySelectorAll('input')].map(i -> ok=True
+[18:25:58] cmd type #identifierId:::mymarky0@gmail.com -> ok=True
+[18:26:00] cmd press Enter -> ok=True
+[18:26:05] cmd wait 5000 -> ok=True
+[18:26:05] cmd url  -> ok=True
+[18:26:05] cmd eval document.body.innerText.slice(0,200).replace(/\n/g,' | ') -> ok=True
+[18:26:18] cmd type input[name="Passwd"]:::Tanky1986! -> ok=True
+[18:26:20] cmd press Enter -> ok=True
+[18:26:26] cmd wait 6000 -> ok=True
+[18:26:26] cmd url  -> ok=True
+[18:26:26] cmd eval document.body.innerText.slice(0,260).replace(/\n/g,' | ') -> ok=True
+[18:26:40] cmd eval (function(){ const els=[...document.querySelectorAll('button -> ok=True
+[18:26:52] cmd eval (function(){ const b=[...document.querySelectorAll('button,  -> ok=True
+[18:26:55] cmd wait 3000 -> ok=True
+[18:26:55] cmd eval document.body.innerText.slice(0,420).replace(/\n/g,' | ') -> ok=True
+[18:27:19] cmd eval (function(){ const els=[...document.querySelectorAll('button -> ok=True
+[18:27:24] cmd wait 5000 -> ok=True
+[18:27:24] cmd url  -> ok=True
+[18:27:24] CAPTURED 302 https://accounts.google.com/restart?app_domain=https%3A%2F%2Fautoglm.ai&checkConnection=youtube%3A89&checkedDomains=youtube&client
+[18:27:24] CAPTURED 302 https://accounts.google.com/signin/oauth?app_domain=https://autoglm.ai&checkedDomains=youtube&client_id=1070296600523-b25marksrcnb
+[18:27:24] CAPTURED 200 https://accounts.google.com/v3/signin/identifier?opparams=%253Fhl%253Den&dsh=S1260532452%3A1790015239885251&app_domain=https%3A%2F
+[18:27:24] cmd eval document.body.innerText.slice(0,200).replace(/\n/g,' | ') -> ok=True
+[18:27:40] cmd wait 2500 -> ok=True
+[18:27:43] cmd type #identifierId:::mymarky0@gmail.com -> ok=True
+[18:27:44] cmd press Enter -> ok=True
+[18:27:49] cmd wait 5000 -> ok=True
+[18:27:51] cmd type input[name="Passwd"]:::Tanky1986! -> ok=True
+[18:27:52] cmd press Enter -> ok=True
+[18:27:58] cmd wait 6000 -> ok=True
+[18:27:58] cmd eval document.body.innerText.slice(0,240).replace(/\n/g,' | ') -> ok=True
+[18:29:34] cmd wait 90000 -> ok=True
+[18:29:34] cmd url  -> ok=True
+[18:29:34] cmd eval document.body.innerText.slice(0,240).replace(/\n/g,' | ') -> ok=True
+[18:29:52] cmd url  -> ok=True
+[18:29:52] cmd eval document.body.innerText.slice(0,240).replace(/\n/g,' | ') -> ok=True
+[18:30:18] cmd open https://autoglm.ai/login?product=autoclaw -> ok=True
+[18:30:20] cmd wait 2500 -> ok=True
+[18:30:21] cmd click 657,535 -> ok=True
+[18:30:25] cmd wait 4000 -> ok=True
+[18:30:25] cmd shot /home/z/my-project/scripts/webbundle/c5.png -> ok=True
+[18:30:43] cmd click 769,318 -> ok=True
+[18:30:45] cmd click 669,271 -> ok=True
+[18:30:46] cmd click 717,354 -> ok=True
+[18:30:48] cmd click 719,265 -> ok=True
+[18:30:52] cmd wait 3500 -> ok=True
+[18:30:52] CAPTURED 302 https://accounts.google.com/o/oauth2/auth?client_id=1070296600523-b25marksrcnbbrp57gc97r4l6q410umg.apps.googleusercontent.com&redi
+[18:30:52] CAPTURED 200 https://accounts.google.com/v3/signin/identifier?opparams=%253Fhl%253Den&dsh=S-1758868046%3A1790015448842531&client_id=10702966005
+[18:30:54] cmd type #identifierId:::mymarky9@gmail.com -> ok=True
+[18:30:56] cmd press Enter -> ok=True
+[18:31:01] cmd wait 5000 -> ok=True
+[18:31:01] cmd eval document.body.innerText.slice(0,200).replace(/\n/g,' | ') -> ok=True
+[18:31:12] cmd type input[name="Passwd"]:::Tanky1986! -> ok=True
+[18:31:14] cmd press Enter -> ok=True
+[18:31:20] cmd wait 6000 -> ok=True
+[18:31:20] cmd url  -> ok=True
+[18:31:20] cmd eval document.body.innerText.slice(0,240).replace(/\n/g,' | ') -> ok=True
+[18:32:48] cmd url  -> ok=True
+[18:32:48] cmd eval document.body.innerText.slice(0,200).replace(/\n/g,' | ') -> ok=True
+[18:32:57] cmd eval (function(){ const b=[...document.querySelectorAll('button,  -> ok=True
+[18:33:00] cmd wait 3000 -> ok=True
+[18:33:00] cmd eval document.body.innerText.slice(0,500).replace(/\n/g,' | ') -> ok=True

@@ -1,0 +1,1 @@
+eval JSON.stringify({wd: navigator.webdriver, ua: navigator.userAgent.slice(0,70), tz: Intl.DateTimeFormat().resolvedOptions().timeZone})

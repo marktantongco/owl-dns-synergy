@@ -1,0 +1,794 @@
+     1→#!/usr/bin/env python3
+     2→"""
+     3→AutoClaw Auto-Login — Google OAuth automation for AutoClaw/Z.ai
+     4→Copies Google SSO handler pattern from qoder_autologin.py.
+     5→
+     6→Input:  email:password  (Google account)
+     7→Output: AutoClaw access_token + refresh_token saved to tokens.json
+     8→
+     9→Prerequisites:
+    10→  - Proxy running: python proxy.py (ports 31000 + 18432)
+    11→  - cloakbrowser installed: pip install cloakbrowser
+    12→
+    13→Usage:
+    14→  python autoclaw_autologin.py email@gmail.com:password123
+    15→  python autoclaw_autologin.py --batch accounts.txt
+    16→  python autoclaw_autologin.py --test email@gmail.com:password123
+    17→  python autoclaw_autologin.py --headless --batch accounts.txt
+    18→"""
+    19→
+    20→import asyncio
+    21→import sys
+    22→import os
+    23→import time
+    24→import uuid
+    25→import json
+    26→import hashlib
+    27→import requests as req_lib
+    28→
+    29→# Force unbuffered output
+    30→sys.stdout.reconfigure(line_buffering=True)
+    31→sys.stderr.reconfigure(line_buffering=True)
+    32→
+    33→# ── Config from autoclaw-proxy ──
+    34→sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    35→from config import (
+    36→    APP_ID, APP_KEY, PRODUCT, VERSION, PLATFORM,
+    37→    USER_API_BASE, GOOGLE_OAUTH_URL, GOOGLE_OAUTH_LOGIN,
+    38→    TOKENS_FILE,
+    39→)
+    40→from auth import google_oauth_url, google_oauth_login, add_token, load_tokens
+    41→
+    42→HEADLESS = False
+    43→DEBUG = os.getenv("DEBUG", "false").lower() == "true"
+    44→PROXY_BASE = "http://localhost:31000"
+    45→
+    46→
+    47→# ── Terminal colors (Windows Terminal / ANSI) ──
+    48→C_RED = "\033[91m"
+    49→C_YELLOW = "\033[93m"
+    50→C_GREEN = "\033[92m"
+    51→C_CYAN = "\033[96m"
+    52→C_BOLD = "\033[1m"
+    53→C_DIM = "\033[2m"
+    54→C_RESET = "\033[0m"
+    55→
+    56→def log(msg, level="INFO"):
+    57→    ts = time.strftime("%H:%M:%S")
+    58→    colors = {"INFO": "", "OK": C_GREEN, "ERR": C_RED, "DBG": C_DIM, "WAIT": C_YELLOW}
+    59→    pfx = {"INFO": "ℹ", "OK": "✅", "ERR": "❌", "DBG": "🔍", "WAIT": "⏳"}.get(level, " ")
+    60→    c = colors.get(level, "")
+    61→    r = C_RESET if c else ""
+    62→    print(f"[{ts}] {c}{pfx} {msg}{r}", flush=True)
+    63→
+    64→def dbg(msg):
+    65→    if DEBUG:
+    66→        log(msg, "DBG")
+    67→
+    68→
+    69→# ══════════════════════════════════════════════════════════════════════
+    70→#  Phase 1 — Get OAuth URL via proxy API
+    71→# ══════════════════════════════════════════════════════════════════════
+    72→def get_oauth_url():
+    73→    """Call proxy /api/login-url to get OAuth URL + state + device_id."""
+    74→    try:
+    75→        resp = req_lib.post(f"{PROXY_BASE}/api/login-url", timeout=120)
+    76→        data = resp.json()
+    77→    except Exception as e:
+    78→        log(f"Failed to get OAuth URL: proxy request failed ({e})", "ERR")
+    79→        return None, None, None
+    80→
+    81→    if "oauth_url" in data:
+    82→        return data["oauth_url"], data["state"], data["device_id"]
+    83→
+    84→    # Error — show useful detail
+    85→    detail = data.get("detail") or {}
+    86→    err_code = detail.get("code", "?")
+    87→    err_msg = detail.get("msg", data.get("error", "Unknown"))
+    88→    retried = detail.get("retried", 0)
+    89→
+    90→    if err_code == 400005:
+    91→        log(f"OAuth URL failed: RATE LIMITED (400005) — AutoClaw APP_ID shared across ALL users, "
+    92→            f"server is throttling. Retried {retried}x. Try again later or off-peak.", "ERR")
+    93→    elif err_code == 400001:
+    94→        log(f"OAuth URL failed: REQUEST DATA ERROR (400001) — {err_msg}. "
+    95→            f"Check device_id/navigate_uri. Retried {retried}x.", "ERR")
+    96→    else:
+    97→        log(f"OAuth URL failed: code={err_code}, msg={err_msg} (retried {retried}x)", "ERR")
+    98→    return None, None, None
+    99→
+   100→
+   101→# ══════════════════════════════════════════════════════════════════════
+   102→#  Phase 2 — Browser Automation (Google login)
+   103→# ══════════════════════════════════════════════════════════════════════
+   104→async def automate_google_login(oauth_url, email, password):
+   105→    """Open OAuth URL in CloakBrowser, handle Google login, wait for callback."""
+   106→    from cloakbrowser import launch_async
+   107→
+   108→    log(f"Opening OAuth URL for {email}...")
+   109→    dbg(f"URL: {oauth_url[:100]}...")
+   110→
+   111→    browser = await launch_async(
+   112→        headless=HEADLESS,
+   113→        humanize=True,
+   114→    )
+   115→    ctx = await browser.new_context(
+   116→        viewport={"width": 500, "height": 700},
+   117→        locale="en-US",
+   118→    )
+   119→
+   120→    page = await ctx.new_page()
+   121→    page.set_default_timeout(30000)
+   122→
+   123→    # Auto-dismiss dialogs
+   124→    async def _auto_dismiss(dialog):
+   125→        try:
+   126→            await dialog.dismiss()
+   127→        except:
+   128→            pass
+   129→    page.on("dialog", lambda d: asyncio.ensure_future(_auto_dismiss(d)))
+   130→
+   131→    state = {"login_done": False, "error": None}
+   132→
+   133→    try:
+   134→        await page.goto(oauth_url, wait_until="domcontentloaded", timeout=30000)
+   135→        await asyncio.sleep(1)
+   136→        url = page.url
+   137→        log(f"Page: {url[:80]}...")
+   138→
+   139→        # Should be on accounts.google.com directly (OAuth URL goes straight to Google)
+   140→        if "accounts.google.com" in url or "accounts.google.co" in url:
+   141→            log("On Google login page. Automating...", "OK")
+   142→            await _handle_google_login(page, email, password)
+   143→        else:
+   144→            dbg(f"Unexpected page: {url}")
+   145→
+   146→        # Quick check: did we already hit callback?
+   147→        try:
+   148→            content = await page.content()
+   149→            if "Login Success" in content or "localhost:18432" in page.url:
+   150→                log("Login Success detected! Grabbing token...", "OK")
+   151→                state["login_done"] = True
+   152→        except:
+   153→            pass
+   154→
+   155→        # Wait for redirect to localhost:18432/callback (or any non-Google URL)
+   156→        for i in range(60):
+   157→            if state["login_done"]:
+   158→                break
+   159→            await asyncio.sleep(0.5)
+   160→            try:
+   161→                url = page.url
+   162→                content = await page.content()
+   163→            except:
+   164→                break
+   165→
+   166→            # Check if we hit the callback OR page shows Login Success
+   167→            if "localhost:18432" in url or "callback-google" in url or "Login Success" in content:
+   168→                log("Redirected to callback! Token exchange should be happening...", "OK")
+   169→                state["login_done"] = True
+   170→                break
+   171→
+   172→            # Check if we left Google (redirected somewhere else)
+   173→            if "accounts.google.com" not in url and "accounts.google.co" not in url:
+   174→                log(f"Left Google. Now at: {url[:80]}", "OK")
+   175→                state["login_done"] = True
+   176→                break
+   177→
+   178→            if i % 10 == 0 and i > 0:
+   179→                dbg(f"Still waiting... ({i*0.5:.0f}s) url={url[:60]}")
+   180→
+   181→    except Exception as e:
+   182→        log(f"Browser error: {e}", "ERR")
+   183→        state["error"] = str(e)
+   184→    finally:
+   185→        try:
+   186→            await browser.close()
+   187→        except:
+   188→            pass
+   189→
+   190→    return state
+   191→
+   192→
+   193→# ══════════════════════════════════════════════════════════════════════
+   194→#  Google Login Handler (copied from qoder_autologin.py)
+   195→# ══════════════════════════════════════════════════════════════════════
+   196→async def _handle_google_login(page, email, password):
+   197→    """Handle Google's login page: email → password → consent → redirect."""
+   198→    log(f"[{email}] On Google login page. Automating...")
+   199→
+   200→    for attempt in range(120):
+   201→        # Check URL — if page closed, we can't do anything more
+   202→        try:
+   203→            url = page.url
+   204→        except:
+   205→            log(f"[{email}] Page closed/navigated away", "OK")
+   206→            return
+   207→
+   208→        # Debug: log exact URL on first few attempts
+   209→        if attempt < 2:
+   210→            dbg(f"[{email}] attempt={attempt} url={url[:80]}")
+   211→
+   212→        # ── Check if we left Google (redirect back to callback) ──
+   213→        if "google.com" not in url:
+   214→            log(f"[{email}] Left Google. Now at: {url[:80]}", "OK")
+   215→            return
+   216→
+   217→        # ── Check if page shows Login Success ──
+   218→        try:
+   219→            content = await page.content()
+   220→            if "Login Success" in content:
+   221→                log(f"[{email}] Login Success detected in page!", "OK")
+   222→                return
+   223→            # Also check if we're on callback page (localhost) — check hostname only
+   224→            from urllib.parse import urlparse
+   225→            parsed = urlparse(url)
+   226→            if parsed.hostname in ("localhost", "127.0.0.1"):
+   227→                log(f"[{email}] On callback page — login complete!", "OK")
+   228→                return
+   229→        except Exception as e:
+   230→            dbg(f"[{email}] content check exception: {e}")
+   231→            pass
+   232→
+   233→        # ── Email step ──
+   234→        email_visible = False
+   235→        try:
+   236→            email_visible = await page.evaluate("""() => {
+   237→                const el = document.querySelector('#identifierId');
+   238→                return el && el.offsetParent !== null;
+   239→            }""")
+   240→        except:
+   241→            await asyncio.sleep(0.5)
+   242→            # DON'T continue — fall through to consent handler below
+   243→
+   244→        if email_visible:
+   245→            dbg(f"[{email}] Filling Google email...")
+   246→            loc = page.locator("#identifierId").first
+   247→            await loc.click(force=True)
+   248→            await asyncio.sleep(0.2)
+   249→            await loc.press("Control+a")
+   250→            await loc.press("Backspace")
+   251→            await loc.press_sequentially(email, delay=40)
+   252→            await asyncio.sleep(0.3)
+   253→            await page.evaluate("""() => {
+   254→                const btn = document.querySelector('#identifierNext button');
+   255→                if (btn) btn.click();
+   256→            }""")
+   257→            # Wait for password field
+   258→            for _w in range(10):
+   259→                await asyncio.sleep(0.5)
+   260→                try:
+   261→                    pwd_check = await page.evaluate("""() => {
+   262→                        for (const el of document.querySelectorAll(
+   263→                                'input[name="Passwd"], input[type="password"]')) {
+   264→                            if (el.offsetParent !== null) return true;
+   265→                        }
+   266→                        return false;
+   267→                    }""")
+   268→                    if pwd_check:
+   269→                        break
+   270→                except:
+   271→                    pass
+   272→            await asyncio.sleep(0.5)
+   273→            continue
+   274→
+   275→        # ── Password step ──
+   276→        pwd_visible = False
+   277→        try:
+   278→            pwd_visible = await page.evaluate("""() => {
+   279→                for (const el of document.querySelectorAll(
+   280→                        'input[name="Passwd"], input[type="password"]')) {
+   281→                    if (el.offsetParent !== null) return true;
+   282→                }
+   283→                return false;
+   284→            }""")
+   285→        except:
+   286→            await asyncio.sleep(0.5)
+   287→            # DON'T continue — fall through to consent handler below
+   288→
+   289→        if pwd_visible:
+   290→            dbg(f"[{email}] Filling Google password...")
+   291→            try:
+   292→                loc = page.locator('input[name="Passwd"]').first
+   293→                if await loc.count() == 0 or not await loc.is_visible():
+   294→                    loc = page.locator('input[type="password"]').first
+   295→                await loc.click(force=True)
+   296→                await asyncio.sleep(0.2)
+   297→                await loc.press("Control+a")
+   298→                await loc.press("Backspace")
+   299→                await loc.press_sequentially(password, delay=30)
+   300→                await asyncio.sleep(0.2)
+   301→                await page.evaluate("""() => {
+   302→                    const btn = document.querySelector('#passwordNext button');
+   303→                    if (btn) btn.click();
+   304→                }""")
+   305→            except Exception as e:
+   306→                dbg(f"[{email}] Password field error (likely navigating): {e}")
+   307→                await asyncio.sleep(1)
+   308→                continue
+   309→            # After password submit, Google navigates (SetSID → OAuth consent)
+   310→            # Wait for navigation to settle — DON'T try to detect password again
+   311→            try:
+   312→                await page.wait_for_load_state("domcontentloaded", timeout=10000)
+   313→            except:
+   314→                pass
+   315→            await asyncio.sleep(1)
+   316→
+   317→            # Check if we've left Google or hit consent page
+   318→            try:
+   319→                url = page.url
+   320→                if "accounts.google.com" not in url and "accounts.google.co" not in url:
+   321→                    log(f"[{email}] Left Google after password. Now at: {url[:60]}", "OK")
+   322→                    return
+   323→            except:
+   324→                return
+   325→
+   326→        # ── Consent / Agreement / Speedbump screens ──
+   327→        # Only run if NOT on email/password page (avoid clicking "Next" on login buttons)
+   328→        # Consent handler runs after email+password checks above — if we reach here,
+   329→        # we're either on consent page, account chooser, or transitioning.
+   330→        # Guard: skip if password field still visible (page hasn't navigated yet)
+   331→        if pwd_visible:
+   332→            await asyncio.sleep(0.5)
+   333→            continue
+   334→
+   335→        consent_clicked = None
+   336→        try:
+   337→            consent_clicked = await page.evaluate("""() => {
+   338→                // Priority 1: Known consent IDs (NOT identifierNext/passwordNext/next — those are login step buttons)
+   339→                const knownIds = ['submit_approve_access', 'approve_button', 'confirm'];
+   340→                for (const id of knownIds) {
+   341→                    const el = document.getElementById(id);
+   342→                    if (el && el.offsetParent !== null) {
+   343→                        el.click(); return 'clicked id: ' + id;
+   344→                    }
+   345→                }
+   346→                // Priority 2: Known names
+   347→                const knownNames = ['confirm', 'continue', 'approve', 'accept'];
+   348→                for (const name of knownNames) {
+   349→                    const el = document.querySelector(`[name="${name}"]`);
+   350→                    if (el && el.offsetParent !== null) {
+   351→                        el.click(); return 'clicked name: ' + name;
+   352→                    }
+   353→                }
+   354→                // Priority 3: Text matching (multi-language)
+   355→                const buttons = document.querySelectorAll(
+   356→                    'button, [role="button"], span[role="button"], input[type="submit"], ' +
+   357→                    'span.VfPpkd-vQzf8d, div.VfPpkd-RLmnJb, [jsname="V67aGc"]'
+   358→                );
+   359→                const consentTexts = [
+   360→                    'i understand', 'i agree', 'agree', 'allow', 'continue',
+   361→                    'approve', 'confirm', 'accept', 'got it', 'accept all', 'done',
+   362→                    'i accept', 'accept & continue',
+   363→                    'sign in', 'log in', 'get started', 'proceed',
+   364→                    'saya mengerti', 'saya setuju', 'setuju', 'lanjutkan', 'terima',
+   365→                    'izinkan', 'konfirmasi', 'mengerti', 'oke', 'ya',
+   366→                    'masuk', 'mulai', 'lanjut'
+   367→                ];
+   368→                for (const btn of buttons) {
+   369→                    const txt = (btn.textContent || btn.value || '').toLowerCase().trim();
+   370→                    if (consentTexts.some(t => txt.includes(t) || txt === t)) {
+   371→                        btn.click();
+   372→                        if (btn.tagName === 'SPAN' && btn.parentElement && btn.parentElement.tagName === 'BUTTON') {
+   373→                            btn.parentElement.click();
+   374→                        }
+   375→                        return 'clicked text: ' + txt;
+   376→                    }
+   377→                }
+   378→                // Priority 4: "Advanced" link (unverified app warning)
+   379→                const advEl = document.querySelector('#advancedButton') ||
+   380→                              document.querySelector('[id*="advanced"]');
+   381→                if (advEl) { advEl.click(); return 'clicked: advanced'; }
+   382→                for (const el of document.querySelectorAll('a, button, span')) {
+   383→                    const t = (el.textContent || '').toLowerCase();
+   384→                    if (t.includes('advanced') || t.includes('lanjutan')) {
+   385→                        el.click(); return 'clicked: advanced (text)';
+   386→                    }
+   387→                }
+   388→                return null;
+   389→            }""")
+   390→        except Exception as e:
+   391→            dbg(f"[{email}] Consent evaluate exception: {e}")
+   392→
+   393→        if consent_clicked:
+   394→            dbg(f"[{email}] Consent: {consent_clicked}")
+   395→            # If we clicked "Advanced", look for "Go to [app] (unsafe)" link
+   396→            if "advanced" in str(consent_clicked):
+   397→                await asyncio.sleep(1.5)
+   398→                try:
+   399→                    unsafe_clicked = await page.evaluate("""() => {
+   400→                        const links = document.querySelectorAll('a, button, [role="button"]');
+   401→                        for (const el of links) {
+   402→                            const t = (el.textContent || '').toLowerCase();
+   403→                            if (t.includes('go to') || t.includes('unsafe') || t.includes('proceed')) {
+   404→                                el.click(); return 'clicked: ' + t.trim().substring(0, 40);
+   405→                            }
+   406→                        }
+   407→                        return null;
+   408→                    }""")
+   409→                    if unsafe_clicked:
+   410→                        dbg(f"[{email}] Unsafe link: {unsafe_clicked}")
+   411→                        await asyncio.sleep(2)
+   412→                except:
+   413→                    pass
+   414→                continue
+   415→            # Normal consent click — continue loop immediately
+   416→            # Next iteration will detect callback redirect or click again if still on consent
+   417→            await asyncio.sleep(0.3)
+   418→            continue
+   419→        else:
+   420→            # Debug: log URL every 5 attempts
+   421→            if attempt % 5 == 0:
+   422→                dbg(f"[{email}] Waiting... attempt={attempt} url={url[:80]}")
+   423→
+   424→        # ── Choose account page ──
+   425→        try:
+   426→            account_clicked = await page.evaluate("""() => {
+   427→                const accounts = document.querySelectorAll('[data-identifier], [data-email]');
+   428→                if (accounts.length > 0) { accounts[0].click(); return 'picked first account'; }
+   429→                return null;
+   430→            }""")
+   431→            if account_clicked:
+   432→                dbg(f"[{email}] Google account: {account_clicked}")
+   433→                await asyncio.sleep(1)
+   434→                continue
+   435→        except:
+   436→            pass
+   437→
+   438→        await asyncio.sleep(0.5)
+   439→
+   440→    log(f"[{email}] Google login timed out (180s)", "ERR")
+   441→
+   442→
+   443→# ══════════════════════════════════════════════════════════════════════
+   444→#  Phase 3 — Check login result via proxy API
+   445→# ══════════════════════════════════════════════════════════════════════
+   446→def check_login_result(state=None):
+   447→    """Check if proxy captured the callback and exchanged tokens.
+   448→    Pass state for concurrent login tracking."""
+   449→    for i in range(30):
+   450→        url = f"{PROXY_BASE}/api/login-status"
+   451→        if state:
+   452→            url += f"?state={state}"
+   453→        resp = req_lib.get(url, timeout=5)
+   454→        data = resp.json()
+   455→        status = data.get("status")
+   456→        if status == "ok":
+   457→            return data.get("account")
+   458→        elif status == "error":
+   459→            log(f"Login error: {data.get('error')}", "ERR")
+   460→            return None
+   461→        time.sleep(1)
+   462→    return None
+   463→
+   464→
+   465→# ══════════════════════════════════════════════════════════════════════
+   466→#  Main — process single account
+   467→# ══════════════════════════════════════════════════════════════════════
+   468→async def process_account(email, password, test_only=False):
+   469→    tag = "[TEST] " if test_only else ""
+   470→    # Check proxy for this account
+   471→    from auth import _next_proxy
+   472→    _px = _next_proxy()
+   473→    _px_host = _px["server"].split("//")[-1] if _px else "direct"
+   474→    log(f"{tag}Processing: {email}" + (f" via {_px_host}" if _px else ""))
+   475→
+   476→    # Check if already in tokens.json
+   477→    tokens = load_tokens()
+   478→    existing = [a for a in tokens.get("accounts", []) if a.get("email") == email]
+   479→    if existing and not test_only:
+   480→        log(f"Already have token for {email}, skipping. Use --force to re-login.", "OK")
+   481→        return {"success": True, "email": email, "skipped": True}
+   482→
+   483→    # 1. Get OAuth URL (uses rotating proxy from config)
+   484→    oauth_url, state, device_id = get_oauth_url()
+   485→    if not oauth_url:
+   486→        return {"success": False, "email": email, "error": "oauth_url_failed"}
+   487→
+   488→    dbg(f"state={state}, device_id={device_id}")
+   489→
+   490→    # 2. Browser automation — Google login
+   491→    result = await automate_google_login(oauth_url, email, password)
+   492→
+   493→    if result.get("error") and not result.get("login_done"):
+   494→        log(f"Login failed: {result['error']}", "ERR")
+   495→        return {"success": False, "email": email, "error": result["error"]}
+   496→
+   497→    # 3. Check if proxy captured the callback (use state for concurrent tracking)
+   498→    log("Checking if token was captured...", "WAIT")
+   499→    account = check_login_result(state)
+   500→
+   501→    if account:
+   502→        log(f"Login success! Email: {account.get('email')}, User ID: {account.get('user_id')}", "OK")
+   503→        return {
+   504→            "success": True,
+   505→            "email": account.get("email", email),
+   506→            "user_id": account.get("user_id"),
+   507→            "first_login": account.get("first_login"),
+   508→        }
+   509→
+   510→    # Fallback: check tokens.json directly
+   511→    await asyncio.sleep(2)
+   512→    tokens = load_tokens()
+   513→    new_acc = [a for a in tokens.get("accounts", []) if a.get("email") == email]
+   514→    if new_acc:
+   515→        log(f"Token found in tokens.json for {email}", "OK")
+   516→        return {"success": True, "email": email, "user_id": new_acc[0].get("user_id")}
+   517→
+   518→    log("Token not captured! Check proxy logs.", "ERR")
+   519→    return {"success": False, "email": email, "error": "token_not_captured"}
+   520→
+   521→
+   522→# ══════════════════════════════════════════════════════════════════════
+   523→#  Concurrent batch runner
+   524→# ══════════════════════════════════════════════════════════════════════
+   525→async def run_batch(accounts, test_only=False, concurrent=1):
+   526→    """Run multiple accounts concurrently with semaphore."""
+   527→    sem = asyncio.Semaphore(concurrent)
+   528→
+   529→    async def _run(email, password):
+   530→        async with sem:
+   531→            return await process_account(email, password, test_only=test_only)
+   532→
+   533→    tasks = []
+   534→    for acc in accounts:
+   535→        email, pwd = acc.split(":", 1)
+   536→        tasks.append(_run(email, pwd))
+   537→
+   538→    results = await asyncio.gather(*tasks, return_exceptions=True)
+   539→
+   540→    processed = []
+   541→    for i, r in enumerate(results):
+   542→        if isinstance(r, Exception):
+   543→            email = accounts[i].split(":", 1)[0]
+   544→            processed.append({"success": False, "email": email, "error": str(r)})
+   545→        else:
+   546→            processed.append(r)
+   547→
+   548→    return processed
+   549→
+   550→
+   551→# ══════════════════════════════════════════════════════════════════════
+   552→#  CLI
+   553→# ══════════════════════════════════════════════════════════════════════
+   554→def parse_args():
+   555→    import argparse
+   556→    parser = argparse.ArgumentParser(
+   557→        description="AutoClaw Auto-Login — Google OAuth automation",
+   558→        formatter_class=argparse.RawDescriptionHelpFormatter,
+   559→        epilog="""
+   560→Examples:
+   561→  python autoclaw_autologin.py user@gmail.com:password
+   562→  python autoclaw_autologin.py --batch accounts.txt
+   563→  python autoclaw_autologin.py --batch accounts.txt --headless --concurrent 3
+   564→  python autoclaw_autologin.py --batch accounts.txt --interactive
+   565→  python autoclaw_autologin.py --test user@gmail.com:password
+   566→
+   567→Account format (in file):
+   568→  email:password
+   569→  # lines starting with # are comments
+   570→  # blank lines are ignored
+   571→        """,
+   572→    )
+   573→    parser.add_argument("accounts", nargs="*",
+   574→                        help="email:password pairs (space-separated)")
+   575→    parser.add_argument("--batch", "-b", metavar="FILE",
+   576→                        help="Read accounts from file (one email:password per line)")
+   577→    parser.add_argument("--test", "-t", action="store_true",
+   578→                        help="Test mode: get token but don't save")
+   579→    parser.add_argument("--headless", action="store_true",
+   580→                        help="Run browser in headless mode (invisible)")
+   581→    parser.add_argument("--concurrent", "-c", type=int, default=1,
+   582→                        help="Number of concurrent browser sessions (default: 1, max: 3 — higher gets blocked by Google without proxy)")
+   583→    parser.add_argument("--debug", "-d", action="store_true",
+   584→                        help="Enable debug output")
+   585→    parser.add_argument("--interactive", "-i", action="store_true",
+   586→                        help="Interactive mode: show info and ask before running")
+   587→    parser.add_argument("--force", action="store_true",
+   588→                        help="Re-login even if account already exists in tokens.json")
+   589→    return parser.parse_args()
+   590→
+   591→
+   592→async def main():
+   593→    global HEADLESS, DEBUG
+   594→    args = parse_args()
+   595→
+   596→    if args.debug:
+   597→        DEBUG = True
+   598→        os.environ["DEBUG"] = "true"
+   599→
+   600→    HEADLESS = args.headless
+   601→
+   602→    # Check proxy is running
+   603→    try:
+   604→        r = req_lib.get(f"{PROXY_BASE}/health", timeout=5)
+   605→        if r.status_code != 200:
+   606→            log("Proxy not healthy! Start it first: python proxy.py", "ERR")
+   607→            sys.exit(1)
+   608→    except:
+   609→        log("Proxy not running! Start it first: python proxy.py", "ERR")
+   610→        sys.exit(1)
+   611→
+   612→    log(f"Proxy OK ({r.json()})")
+   613→
+   614→    # Load accounts
+   615→    if args.batch:
+   616→        accounts = []
+   617→        with open(args.batch) as f:
+   618→            for line in f:
+   619→                line = line.strip()
+   620→                if line and not line.startswith("#") and ":" in line:
+   621→                    accounts.append(line)
+   622→        log(f"Loaded {len(accounts)} accounts from {args.batch}")
+   623→    else:
+   624→        accounts = args.accounts
+   625→
+   626→    if not accounts:
+   627→        print(__doc__)
+   628→        sys.exit(1)
+   629→
+   630→    # Filter bad format
+   631→    accounts = [acc for acc in accounts if ":" in acc]
+   632→
+   633→    # Skip existing (unless --force)
+   634→    if not args.test and not args.force:
+   635→        tokens = load_tokens()
+   636→        existing = {a.get("email", "").lower() for a in tokens.get("accounts", [])}
+   637→        if existing:
+   638→            before = len(accounts)
+   639→            accounts = [acc for acc in accounts if acc.split(":", 1)[0].lower() not in existing]
+   640→            skipped = before - len(accounts)
+   641→            if skipped:
+   642→                log(f"Skipped {skipped} account(s) already in tokens.json")
+   643→            if not accounts:
+   644→                log("All accounts already exist. Nothing to do.", "OK")
+   645→                sys.exit(0)
+   646→
+   647→    # ── Proxy check ──
+   648→    from config import PROXY_LIST as _PROXIES
+   649→    proxy_count = len(_PROXIES) if _PROXIES else 0
+   650→    if proxy_count == 0:
+   651→        print()
+   652→        print(f"  {C_RED}{C_BOLD}⚠️  WARNING: No proxy configured!{C_RESET}")
+   653→        print(f"  {C_RED}─────────────────────────────────────────────────────────{C_RESET}")
+   654→        print(f"  Registering multiple accounts without proxy will hit")
+   655→        print(f"  {C_YELLOW}rate limit (630014){C_RESET} after ~2 accounts per IP.")
+   656→        print()
+   657→        print(f"  {C_BOLD}To enable rotating proxy:{C_RESET}")
+   658→        print(f"    {C_CYAN}1.{C_RESET} Create {C_BOLD}proxies.txt{C_RESET} in this folder")
+   659→        print(f"    {C_CYAN}2.{C_RESET} Add one proxy per line: {C_DIM}host:port:username:password{C_RESET}")
+   660→        print(f"       {C_DIM}45.39.75.38:5952:user123:pass456{C_RESET}")
+   661→        print(f"       {C_DIM}82.21.231.11:7325:user123:pass456{C_RESET}")
+   662→        print(f"    {C_CYAN}3.{C_RESET} Get proxies from {C_CYAN}webshare.io{C_RESET} or your provider")
+   663→        print(f"    {C_CYAN}4.{C_RESET} {C_YELLOW}One proxy per account recommended{C_RESET}")
+   664→        print(f"  {C_RED}─────────────────────────────────────────────────────────{C_RESET}")
+   665→        print()
+   666→        if args.interactive:
+   667→            cont = input(f"  {C_YELLOW}Continue without proxy? [y/N]: {C_RESET}").strip().lower()
+   668→            if cont != "y":
+   669→                print("  Cancelled. Configure proxies.txt first.")
+   670→                sys.exit(0)
+   671→            print()
+   672→        elif len(accounts) > 2 and not args.test and not args.force:
+   673→            print(f"  {C_RED}Aborting. Use --interactive to override.{C_RESET}")
+   674→            sys.exit(1)
+   675→    elif proxy_count < len(accounts):
+   676→        print(f"  {C_YELLOW}Proxy:{C_RESET} {proxy_count} proxies for {len(accounts)} accounts (some IPs will repeat)")
+   677→        print()
+   678→    else:
+   679→        print(f"  {C_GREEN}Proxy:{C_RESET} {proxy_count} rotating proxies ready")
+   680→        print()
+   681→
+   682→    # ── Interactive mode ──
+   683→    if args.interactive:
+   684→        print(f"  [i] Found {len(accounts)} account(s)")
+   685→        print()
+   686→        print("  ---------------------------------------------------")
+   687→        for i, acc in enumerate(accounts[:10]):
+   688→            email = acc.split(":", 1)[0]
+   689→            print(f"    {email}")
+   690→        if len(accounts) > 10:
+   691→            print(f"    ... dan {len(accounts)-10} akun lainnya")
+   692→        print("  ---------------------------------------------------")
+   693→        print()
+   694→
+   695→        # Ask headless
+   696→        headless_input = input("  Headless mode? (browser invisible) [y/N]: ").strip().lower()
+   697→        HEADLESS = headless_input == "y"
+   698→        args.headless = HEADLESS
+   699→        print()
+   700→
+   701→        # Ask concurrent
+   702→        conc_input = input("  Concurrent browsers (1-3) [1]: ").strip()
+   703→        try:
+   704→            conc = int(conc_input) if conc_input else 1
+   705→            conc = max(1, min(3, conc))
+   706→        except:
+   707→            conc = 1
+   708→        args.concurrent = conc
+   709→        print()
+   710→
+   711→        # Summary
+   712→        mode_str = "Headless (invisible)" if HEADLESS else "Visible"
+   713→        proxy_count = len(_PROXIES) if _PROXIES else 0
+   714→        print("  +--------------------------------------+")
+   715→        print(f"  |  Accounts:   {len(accounts)}")
+   716→        print(f"  |  Browser:    {mode_str}")
+   717→        print(f"  |  Concurrent: {args.concurrent}")
+   718→        print(f"  |  Proxies:    {proxy_count}" + (" (rotating per account)" if proxy_count else " (NONE — will hit rate limit!)"))
+   719→        print(f"  |  Save to:    tokens.json")
+   720→        print("  +--------------------------------------+")
+   721→        print()
+   722→
+   723→        # Confirm
+   724→        confirm = input("  Start login? [Y/n]: ").strip().lower()
+   725→        if confirm == "n":
+   726→            print()
+   727→            print("  Cancelled.")
+   728→            sys.exit(0)
+   729→        print()
+   730→        print("  Starting...")
+   731→        print()
+   732→
+   733→    # Header
+   734→    mode = "HEADLESS" if HEADLESS else "VISIBLE"
+   735→    test = " | TEST MODE" if args.test else ""
+   736→    proxy_str = f"{len(_PROXIES)} proxies" if _PROXIES else "no proxy"
+   737→    log(f"AutoClaw Auto-Login | {len(accounts)} account(s) | {mode} | concurrent={args.concurrent} | {proxy_str}{test}")
+   738→
+   739→    # Run
+   740→    start = time.time()
+   741→    results = await run_batch(accounts, test_only=args.test, concurrent=args.concurrent)
+   742→
+   743→    # ── Retry loop for failed accounts ──
+   744→    max_retries = 3
+   745→    retry_count = 0
+   746→
+   747→    while True:
+   748→        # Summary
+   749→        ok_count = sum(1 for r in results if r.get("success"))
+   750→        fail_count = len(results) - ok_count
+   751→        skipped = sum(1 for r in results if r.get("skipped"))
+   752→        elapsed = time.time() - start
+   753→
+   754→        log(f"\n{'='*50}")
+   755→        log(f"SUMMARY{' (retry ' + str(retry_count) + ')' if retry_count else ''}")
+   756→        log(f"{'='*50}")
+   757→        log(f"Total: {len(results)} | OK {ok_count} (skipped: {skipped}) | FAIL {fail_count} | {elapsed:.1f}s")
+   758→        for r in results:
+   759→            s = "OK" if r.get("success") else "FAIL"
+   760→            if r.get("skipped"):
+   761→                s = "SKIP"
+   762→            e = r.get("error", "")
+   763→            log(f"  [{s}] {r['email']}{' — '+e if e else ''}")
+   764→
+   765→        if fail_count == 0 or retry_count >= max_retries:
+   766→            break
+   767→
+   768→        # Retry failed
+   769→        failed_emails = {r["email"] for r in results if not r.get("success")}
+   770→        failed_accounts = [acc for acc in accounts if acc.split(":", 1)[0] in failed_emails]
+   771→        if not failed_accounts:
+   772→            break
+   773→
+   774→        retry_count += 1
+   775→        log(f"\nRetrying {len(failed_accounts)} failed accounts (attempt {retry_count}/{max_retries})...")
+   776→        await asyncio.sleep(3)
+   777→        retry_results = await run_batch(failed_accounts, test_only=args.test, concurrent=args.concurrent)
+   778→
+   779→        # Merge results
+   780→        for i, r in enumerate(retry_results):
+   781→            email = failed_accounts[i].split(":", 1)[0]
+   782→            for j, orig in enumerate(results):
+   783→                if orig["email"] == email:
+   784→                    results[j] = r
+   785→                    break
+   786→
+   787→    # Final
+   788→    ok_count = sum(1 for r in results if r.get("success"))
+   789→    log(f"\nFinal: {ok_count}/{len(results)} accounts active")
+   790→
+   791→
+   792→if __name__ == "__main__":
+   793→    asyncio.run(main())
+   794→
