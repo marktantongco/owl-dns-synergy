@@ -1,0 +1,116 @@
+[
+  {
+    "label": "p1 email+pwd",
+    "code": "400001",
+    "msg": "Request data error",
+    "has_data": false
+  },
+  {
+    "label": "p2 +source_id",
+    "code": "400001",
+    "msg": "Request data error",
+    "has_data": false
+  },
+  {
+    "label": "p3 +device_id",
+    "code": "400001",
+    "msg": "Request data error",
+    "has_data": false
+  },
+  {
+    "label": "p4 user_name",
+    "code": "400001",
+    "msg": "Request data error",
+    "has_data": false
+  },
+  {
+    "label": "p5 account",
+    "code": "400001",
+    "msg": "Request data error",
+    "has_data": false
+  },
+  {
+    "label": "p6 username",
+    "code": "400001",
+    "msg": "Request data error",
+    "has_data": false
+  },
+  {
+    "label": "p7 phone",
+    "code": "400001",
+    "msg": "Request data error",
+    "has_data": false
+  },
+  {
+    "label": "p8 md5",
+    "code": "400001",
+    "msg": "Request data error",
+    "has_data": false
+  },
+  {
+    "label": "p9 sha256",
+    "code": "400001",
+    "msg": "Request data error",
+    "has_data": false
+  },
+  {
+    "label": "p10 +platform",
+    "code": "400001",
+    "msg": "Request data error",
+    "has_data": false
+  },
+  {
+    "label": "p11 +version",
+    "code": "400001",
+    "msg": "Request data error",
+    "has_data": false
+  },
+  {
+    "label": "p12 +app_id",
+    "code": "400001",
+    "msg": "Request data error",
+    "has_data": false
+  },
+  {
+    "label": "p13 +login_type",
+    "code": "400001",
+    "msg": "Request data error",
+    "has_data": false
+  },
+  {
+    "label": "p14 +grant_type",
+    "code": "400001",
+    "msg": "Request data error",
+    "has_data": false
+  },
+  {
+    "label": "p15 +navigate_uri",
+    "code": "400001",
+    "msg": "Request data error",
+    "has_data": false
+  },
+  {
+    "label": "p16 token field",
+    "code": "400001",
+    "msg": "Request data error",
+    "has_data": false
+  },
+  {
+    "label": "p17 code field",
+    "code": "400001",
+    "msg": "Request data error",
+    "has_data": false
+  },
+  {
+    "label": "p18 empty",
+    "code": "400001",
+    "msg": "Request data error",
+    "has_data": false
+  },
+  {
+    "label": "real p3-shape",
+    "code": "400001",
+    "msg": "Request data error",
+    "has_data": false
+  }
+]

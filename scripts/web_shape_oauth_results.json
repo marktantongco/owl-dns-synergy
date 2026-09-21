@@ -1,0 +1,38 @@
+[
+  {
+    "label": "V1 full-web-shape",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "V2 no-fingerprint",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "V3 web-hdrs+autoclaw-src",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "V4 tm=desktop",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "V5 zai-oauth-url",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "V6 navigate-root",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  }
+]

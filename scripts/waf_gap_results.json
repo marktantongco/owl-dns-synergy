@@ -1,0 +1,433 @@
+[
+  {
+    "label": "A tm=win32 v=1.0.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=win32 v=1.2.3",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=win32 v=2.0.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=win32 v=2.5.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=win32 v=3.0.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=win32 v=3.5.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=win32 v=4.0.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=win32 v=4.2.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=win32 v=4.2.2",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=win32 v=5.2.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=win32 v=6.1.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=win32 v=8.0.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=darwin v=1.0.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=darwin v=1.2.3",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=darwin v=2.0.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=darwin v=2.5.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=darwin v=3.0.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=darwin v=3.5.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=darwin v=4.0.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=darwin v=4.2.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=darwin v=4.2.2",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=darwin v=5.2.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=darwin v=6.1.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=darwin v=8.0.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=android v=1.0.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=android v=1.2.3",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=android v=2.0.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=android v=2.5.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=android v=3.0.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=android v=3.5.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=android v=4.0.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=android v=4.2.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=android v=4.2.2",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=android v=5.2.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=android v=6.1.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=android v=8.0.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=ios v=1.0.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=ios v=1.2.3",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=ios v=2.0.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=ios v=2.5.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=ios v=3.0.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=ios v=3.5.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=ios v=4.0.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=ios v=4.2.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=ios v=4.2.2",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=ios v=5.2.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=ios v=6.1.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "A tm=ios v=8.0.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "B absent",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "B integer",
+    "code": "EXC",
+    "msg": "Header part (25) from ('X-Version', 25) must be of type str or bytes, not <class"
+  },
+  {
+    "label": "B empty",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "B 2-digit",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "B 4-part",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "B v-prefix",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "B build",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "B date",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "B huge",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "C X-App-Version 2.5.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "C X-Client-Version 2.5.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "C X-Appver 2.5.0",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "C X-Client-Type desktop",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "C X-Device-Id",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "C X-Auth-Ver 1",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "C X-Region oversea",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "C X-Lang en",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "C product=AutoClaw",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "C product=autoclaw-desktop",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "C product=autoclaw_app",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "C product=desktop",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "D control oauth-login",
+    "code": "400001",
+    "msg": "Request data error",
+    "data": null
+  },
+  {
+    "label": "D sign+product oauth-url",
+    "code": "400002",
+    "msg": "Middleware sign error",
+    "data": null
+  },
+  {
+    "label": "D sign-sha256 oauth-url",
+    "code": "400002",
+    "msg": "Middleware sign error",
+    "data": null
+  }
+]

@@ -1,0 +1,330 @@
+{
+  "ts": "2026-09-21 21:13:26",
+  "base": "https://autoglm-api.autoglm.ai",
+  "results": [
+    {
+      "shape": "requests+desktopUA tm=win",
+      "route": "oauth-url",
+      "path": "/userapi/overseasv1/google-oauth-url",
+      "status": 200,
+      "code": "631002",
+      "msg": "This version is no longer supported. Download the latest ver",
+      "note": ""
+    },
+    {
+      "shape": "requests+desktopUA tm=win32",
+      "route": "oauth-url",
+      "path": "/userapi/overseasv1/google-oauth-url",
+      "status": 200,
+      "code": "400001",
+      "msg": "Request data error",
+      "note": ""
+    },
+    {
+      "shape": "requests+desktopUA",
+      "route": "refresh",
+      "path": "/userapi/v1/refresh",
+      "status": 200,
+      "code": "400001",
+      "msg": "Request data error",
+      "note": ""
+    },
+    {
+      "shape": "requests+desktopUA",
+      "route": "chat",
+      "path": "/autoclaw-proxy/proxy/autoclaw/chat/completions",
+      "status": 401,
+      "code": "None",
+      "msg": "",
+      "note": ""
+    },
+    {
+      "shape": "requests+pythonUA tm=win",
+      "route": "oauth-url",
+      "path": "/userapi/overseasv1/google-oauth-url",
+      "status": 405,
+      "code": "WAF-HTML",
+      "msg": "",
+      "note": ""
+    },
+    {
+      "shape": "requests+pythonUA tm=win32",
+      "route": "oauth-url",
+      "path": "/userapi/overseasv1/google-oauth-url",
+      "status": 405,
+      "code": "WAF-HTML",
+      "msg": "",
+      "note": ""
+    },
+    {
+      "shape": "requests+pythonUA",
+      "route": "refresh",
+      "path": "/userapi/v1/refresh",
+      "status": 200,
+      "code": "400001",
+      "msg": "Request data error",
+      "note": ""
+    },
+    {
+      "shape": "requests+pythonUA",
+      "route": "chat",
+      "path": "/autoclaw-proxy/proxy/autoclaw/chat/completions",
+      "status": 405,
+      "code": "WAF-HTML",
+      "msg": "",
+      "note": ""
+    },
+    {
+      "shape": "httpx+desktopUA tm=win",
+      "route": "oauth-url",
+      "path": "/userapi/overseasv1/google-oauth-url",
+      "status": 200,
+      "code": "631002",
+      "msg": "This version is no longer supported. Download the latest ver",
+      "note": ""
+    },
+    {
+      "shape": "httpx+desktopUA tm=win32",
+      "route": "oauth-url",
+      "path": "/userapi/overseasv1/google-oauth-url",
+      "status": 200,
+      "code": "400001",
+      "msg": "Request data error",
+      "note": ""
+    },
+    {
+      "shape": "httpx+desktopUA",
+      "route": "refresh",
+      "path": "/userapi/v1/refresh",
+      "status": 200,
+      "code": "400001",
+      "msg": "Request data error",
+      "note": ""
+    },
+    {
+      "shape": "httpx+desktopUA",
+      "route": "chat",
+      "path": "/autoclaw-proxy/proxy/autoclaw/chat/completions",
+      "status": 401,
+      "code": "None",
+      "msg": "",
+      "note": ""
+    },
+    {
+      "shape": "curlcffi-chrome120+desktopUA tm=win",
+      "route": "oauth-url",
+      "path": "/userapi/overseasv1/google-oauth-url",
+      "status": 200,
+      "code": "631002",
+      "msg": "This version is no longer supported. Download the latest ver",
+      "note": ""
+    },
+    {
+      "shape": "curlcffi-chrome120+desktopUA tm=win32",
+      "route": "oauth-url",
+      "path": "/userapi/overseasv1/google-oauth-url",
+      "status": 200,
+      "code": "400001",
+      "msg": "Request data error",
+      "note": ""
+    },
+    {
+      "shape": "curlcffi-chrome120+desktopUA",
+      "route": "refresh",
+      "path": "/userapi/v1/refresh",
+      "status": 200,
+      "code": "400001",
+      "msg": "Request data error",
+      "note": ""
+    },
+    {
+      "shape": "curlcffi-chrome120+desktopUA",
+      "route": "chat",
+      "path": "/autoclaw-proxy/proxy/autoclaw/chat/completions",
+      "status": 401,
+      "code": "None",
+      "msg": "",
+      "note": ""
+    },
+    {
+      "shape": "curlcffi-chrome124+anthropicHdrs tm=win",
+      "route": "oauth-url",
+      "path": "/userapi/overseasv1/google-oauth-url",
+      "status": 405,
+      "code": "WAF-HTML",
+      "msg": "",
+      "note": ""
+    },
+    {
+      "shape": "curlcffi-chrome124+anthropicHdrs tm=win32",
+      "route": "oauth-url",
+      "path": "/userapi/overseasv1/google-oauth-url",
+      "status": 405,
+      "code": "WAF-HTML",
+      "msg": "",
+      "note": ""
+    },
+    {
+      "shape": "curlcffi-chrome124+anthropicHdrs",
+      "route": "refresh",
+      "path": "/userapi/v1/refresh",
+      "status": 200,
+      "code": "400001",
+      "msg": "Request data error",
+      "note": ""
+    },
+    {
+      "shape": "curlcffi-chrome124+anthropicHdrs",
+      "route": "chat",
+      "path": "/autoclaw-proxy/proxy/autoclaw/chat/completions",
+      "status": 405,
+      "code": "WAF-HTML",
+      "msg": "",
+      "note": ""
+    },
+    {
+      "shape": "anthropicSDK-httpx+sdkHdrs tm=win",
+      "route": "oauth-url",
+      "path": "/userapi/overseasv1/google-oauth-url",
+      "status": 405,
+      "code": "WAF-HTML",
+      "msg": "",
+      "note": ""
+    },
+    {
+      "shape": "anthropicSDK-httpx+sdkHdrs tm=win32",
+      "route": "oauth-url",
+      "path": "/userapi/overseasv1/google-oauth-url",
+      "status": 405,
+      "code": "WAF-HTML",
+      "msg": "",
+      "note": ""
+    },
+    {
+      "shape": "anthropicSDK-httpx+sdkHdrs",
+      "route": "refresh",
+      "path": "/userapi/v1/refresh",
+      "status": 200,
+      "code": "400001",
+      "msg": "Request data error",
+      "note": ""
+    },
+    {
+      "shape": "anthropicSDK-httpx+sdkHdrs",
+      "route": "chat",
+      "path": "/autoclaw-proxy/proxy/autoclaw/chat/completions",
+      "status": 405,
+      "code": "WAF-HTML",
+      "msg": "",
+      "note": ""
+    },
+    {
+      "shape": "openaiSDK-httpx+sdkHdrs tm=win",
+      "route": "oauth-url",
+      "path": "/userapi/overseasv1/google-oauth-url",
+      "status": 405,
+      "code": "WAF-HTML",
+      "msg": "",
+      "note": ""
+    },
+    {
+      "shape": "openaiSDK-httpx+sdkHdrs tm=win32",
+      "route": "oauth-url",
+      "path": "/userapi/overseasv1/google-oauth-url",
+      "status": 405,
+      "code": "WAF-HTML",
+      "msg": "",
+      "note": ""
+    },
+    {
+      "shape": "openaiSDK-httpx+sdkHdrs",
+      "route": "refresh",
+      "path": "/userapi/v1/refresh",
+      "status": 200,
+      "code": "400001",
+      "msg": "Request data error",
+      "note": ""
+    },
+    {
+      "shape": "openaiSDK-httpx+sdkHdrs",
+      "route": "chat",
+      "path": "/autoclaw-proxy/proxy/autoclaw/chat/completions",
+      "status": 405,
+      "code": "WAF-HTML",
+      "msg": "",
+      "note": ""
+    },
+    {
+      "shape": "requests+electronFullHdrs tm=win",
+      "route": "oauth-url",
+      "path": "/userapi/overseasv1/google-oauth-url",
+      "status": 0,
+      "code": "HTTP 0",
+      "msg": "",
+      "note": "EXC requests_full"
+    },
+    {
+      "shape": "requests+electronFullHdrs tm=win32",
+      "route": "oauth-url",
+      "path": "/userapi/overseasv1/google-oauth-url",
+      "status": 0,
+      "code": "HTTP 0",
+      "msg": "",
+      "note": "EXC requests_full"
+    },
+    {
+      "shape": "requests+electronFullHdrs",
+      "route": "refresh",
+      "path": "/userapi/v1/refresh",
+      "status": 0,
+      "code": "HTTP 0",
+      "msg": "",
+      "note": "EXC requests_full"
+    },
+    {
+      "shape": "requests+electronFullHdrs",
+      "route": "chat",
+      "path": "/autoclaw-proxy/proxy/autoclaw/chat/completions",
+      "status": 0,
+      "code": "HTTP 0",
+      "msg": "",
+      "note": "EXC requests_full"
+    },
+    {
+      "shape": "curl+desktopUA tm=win",
+      "route": "oauth-url",
+      "path": "/userapi/overseasv1/google-oauth-url",
+      "status": 200,
+      "code": "631002",
+      "msg": "This version is no longer supported. Download the latest ver",
+      "note": ""
+    },
+    {
+      "shape": "curl+desktopUA tm=win32",
+      "route": "oauth-url",
+      "path": "/userapi/overseasv1/google-oauth-url",
+      "status": 200,
+      "code": "400001",
+      "msg": "Request data error",
+      "note": ""
+    },
+    {
+      "shape": "curl+desktopUA",
+      "route": "refresh",
+      "path": "/userapi/v1/refresh",
+      "status": 200,
+      "code": "400001",
+      "msg": "Request data error",
+      "note": ""
+    },
+    {
+      "shape": "curl+desktopUA",
+      "route": "chat",
+      "path": "/autoclaw-proxy/proxy/autoclaw/chat/completions",
+      "status": 401,
+      "code": "None",
+      "msg": "",
+      "note": ""
+    }
+  ]
+}

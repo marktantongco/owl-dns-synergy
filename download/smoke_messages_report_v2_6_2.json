@@ -1,0 +1,79 @@
+{
+  "generated_at": "2026-09-21T22:02:17",
+  "base_url": "http://127.0.0.1:31998",
+  "passed": 11,
+  "total": 14,
+  "token_provenance": "see stage 2 detail",
+  "results": [
+    {
+      "name": "boot + /health",
+      "ok": true,
+      "detail": "pid=6341 port=31998"
+    },
+    {
+      "name": "import subsystem live",
+      "ok": true,
+      "detail": "counters={'files_seen': 0, 'records_seen': 0, 'imported': 0, 'rejected': 0}"
+    },
+    {
+      "name": "import accepted",
+      "ok": true,
+      "detail": "HTTP 200: imported=1 updated=0 rejected=0 warnings=1"
+    },
+    {
+      "name": "account listed",
+      "ok": true,
+      "detail": "1 account(s) in rotation"
+    },
+    {
+      "name": "v1/models exposes claude-* aliases",
+      "ok": true,
+      "detail": "claude aliases: ['claude-opus-latest', 'claude-sonnet-latest', 'claude-haiku-latest']"
+    },
+    {
+      "name": "auth gate (x-api-key/Authorization required)",
+      "ok": true,
+      "detail": "HTTP 401 type=authentication_error"
+    },
+    {
+      "name": "count_tokens",
+      "ok": true,
+      "detail": "HTTP 200 input_tokens=2"
+    },
+    {
+      "name": "non-stream glm-5-turbo (Anthropic wire in/out)",
+      "ok": false,
+      "detail": "upstream status 400: Upstream error 400: {\"message\":\"非法模型\"} (0.1s)"
+    },
+    {
+      "name": "non-stream claude-haiku-latest (credit-tier route)",
+      "ok": false,
+      "detail": "upstream status 400: Upstream error 400: {\"message\":\"非法模型\"} (0.1s) · tier routing logged: True"
+    },
+    {
+      "name": "permanent-failure negative cache",
+      "ok": true,
+      "detail": "upstream 400 unclassified (not cached) → replay HTTP 400 (forwarded again)"
+    },
+    {
+      "name": "stream claude-sonnet-latest (Anthropic SSE)",
+      "ok": false,
+      "detail": "upstream status 402: Upstream error 402: {\"message\":\"Insufficient points\"} (0.1s)"
+    },
+    {
+      "name": "in-chat !router status (tier table)",
+      "ok": true,
+      "detail": "HTTP 200, mentions tier table: True"
+    },
+    {
+      "name": "telemetry records /v1/messages traffic",
+      "ok": true,
+      "detail": "models counter: ['cheap', 'claude-haiku-latest', 'claude-sonnet-latest', 'glm-5-turbo']"
+    },
+    {
+      "name": "dashboard state exposes credit_tiers",
+      "ok": true,
+      "detail": "source=heuristic tiers={'high': 'openrouter_glm-5.2', 'low': 'zai_glm-5-turbo', 'medium': 'zai_auto'}"
+    }
+  ]
+}

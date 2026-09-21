@@ -1,0 +1,970 @@
+[
+  {
+    "section": "A",
+    "label": "full-dump",
+    "code": "631002",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "b87bcb49-987a-43b4-828a-4b8f0fd7bf5c",
+      "navigate_uri": "http://localhost:18432/auth/callback-google"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025313",
+      "X-Product": "autoclaw",
+      "X-Version": "2.5.0",
+      "X-Tm": "win",
+      "X-Trace-Id": "4aa381e0-d1e2-420f-a0b0-45626f858460",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/2.5.0 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "B",
+    "label": "v=2.5.0",
+    "code": "631002",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "7cfe4760-38ee-47c0-bf6f-1d069124e5b0",
+      "navigate_uri": "http://localhost:18432/auth/callback-google"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025313",
+      "X-Product": "autoclaw",
+      "X-Version": "2.5.0",
+      "X-Tm": "win",
+      "X-Trace-Id": "732e09ac-d7bd-4ace-ac46-1a455325ca3f",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/2.5.0 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "B",
+    "label": "v=3.0.0",
+    "code": "631002",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "fbf724d1-c5c7-42d7-9d7a-da2a07587154",
+      "navigate_uri": "http://localhost:18432/auth/callback-google"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025313",
+      "X-Product": "autoclaw",
+      "X-Version": "3.0.0",
+      "X-Tm": "win",
+      "X-Trace-Id": "5ad0e58d-36bf-418f-897e-df22859e589d",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/3.0.0 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "B",
+    "label": "v=4.0.0",
+    "code": "631002",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "6d9994a3-4767-4f36-929a-a02efeb2d3e4",
+      "navigate_uri": "http://localhost:18432/auth/callback-google"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025314",
+      "X-Product": "autoclaw",
+      "X-Version": "4.0.0",
+      "X-Tm": "win",
+      "X-Trace-Id": "514205c4-6044-465d-b5e5-cac67f44832c",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/4.0.0 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "B",
+    "label": "v=4.1.0",
+    "code": "631002",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "558f6b28-7a0e-47bd-a457-1612030ad253",
+      "navigate_uri": "http://localhost:18432/auth/callback-google"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025314",
+      "X-Product": "autoclaw",
+      "X-Version": "4.1.0",
+      "X-Tm": "win",
+      "X-Trace-Id": "24869847-cd10-440e-968f-7757fb5418be",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/4.1.0 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "B",
+    "label": "v=4.2.0",
+    "code": "631002",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "d2403ada-08c5-47fb-a15f-3d88c9f366da",
+      "navigate_uri": "http://localhost:18432/auth/callback-google"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025314",
+      "X-Product": "autoclaw",
+      "X-Version": "4.2.0",
+      "X-Tm": "win",
+      "X-Trace-Id": "532d0d79-0899-4925-8edc-159dc16f9108",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/4.2.0 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "B",
+    "label": "v=4.2.2",
+    "code": "631002",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "d084960d-7944-4644-9a10-a51c766be6c3",
+      "navigate_uri": "http://localhost:18432/auth/callback-google"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025315",
+      "X-Product": "autoclaw",
+      "X-Version": "4.2.2",
+      "X-Tm": "win",
+      "X-Trace-Id": "8073a380-6945-471e-8ddf-a6ba464cc716",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/4.2.2 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "B",
+    "label": "v=4.5.0",
+    "code": "631002",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "786af193-a8ed-4245-8e0d-94631929d321",
+      "navigate_uri": "http://localhost:18432/auth/callback-google"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025315",
+      "X-Product": "autoclaw",
+      "X-Version": "4.5.0",
+      "X-Tm": "win",
+      "X-Trace-Id": "654f2e62-b96c-4836-b0f2-e80587b5e349",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/4.5.0 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "B",
+    "label": "v=5.0.0",
+    "code": "631002",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "08fe5184-32c3-49c0-a291-a331ef0c904d",
+      "navigate_uri": "http://localhost:18432/auth/callback-google"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025316",
+      "X-Product": "autoclaw",
+      "X-Version": "5.0.0",
+      "X-Tm": "win",
+      "X-Trace-Id": "487b9b02-1da2-4052-8f5b-e4e989d78b18",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/5.0.0 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "B",
+    "label": "v=6.0.0",
+    "code": "631002",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "e068d517-de2b-4572-89eb-85b1f59ced16",
+      "navigate_uri": "http://localhost:18432/auth/callback-google"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025316",
+      "X-Product": "autoclaw",
+      "X-Version": "6.0.0",
+      "X-Tm": "win",
+      "X-Trace-Id": "cee835df-5fcd-4e56-8ee6-10f68dd867aa",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/6.0.0 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "B",
+    "label": "v=10.0.0",
+    "code": "631002",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "949bfd3a-0bc6-4cda-b539-151a20979058",
+      "navigate_uri": "http://localhost:18432/auth/callback-google"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025317",
+      "X-Product": "autoclaw",
+      "X-Version": "10.0.0",
+      "X-Tm": "win",
+      "X-Trace-Id": "a48a343b-e051-4ff2-a274-c6926e487f10",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/10.0.0 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "B",
+    "label": "v=100.0.0",
+    "code": "631002",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "b48e53d2-6fb1-41e5-abd8-7b4433a5f0c0",
+      "navigate_uri": "http://localhost:18432/auth/callback-google"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025317",
+      "X-Product": "autoclaw",
+      "X-Version": "100.0.0",
+      "X-Tm": "win",
+      "X-Trace-Id": "791ac622-6acb-4fd1-80a6-cdbd4587d25c",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/100.0.0 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "B",
+    "label": "v=2.5",
+    "code": "631002",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "02b70ed5-1312-4c72-a377-3eab813a3905",
+      "navigate_uri": "http://localhost:18432/auth/callback-google"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025317",
+      "X-Product": "autoclaw",
+      "X-Version": "2.5",
+      "X-Tm": "win",
+      "X-Trace-Id": "39308ca0-061e-4f61-a379-0198700dc8c0",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/2.5 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "B",
+    "label": "v=2.5.0.0",
+    "code": "631002",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "5698506d-995e-421f-a71b-f7930bb774ae",
+      "navigate_uri": "http://localhost:18432/auth/callback-google"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025318",
+      "X-Product": "autoclaw",
+      "X-Version": "2.5.0.0",
+      "X-Tm": "win",
+      "X-Trace-Id": "1ce6752c-b32f-4515-b6fe-b3143a7f185b",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/2.5.0.0 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "B",
+    "label": "v=2.5.0-beta",
+    "code": "631002",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "f2a1399e-6bf5-4c5a-8029-789c888bf9c3",
+      "navigate_uri": "http://localhost:18432/auth/callback-google"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025318",
+      "X-Product": "autoclaw",
+      "X-Version": "2.5.0-beta",
+      "X-Tm": "win",
+      "X-Trace-Id": "f0d09afe-0195-4cda-906e-8a9d21bfca37",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/2.5.0-beta Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "B",
+    "label": "v=2.5.0-rc1",
+    "code": "631002",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "e877614a-a881-4315-b970-224b0181b585",
+      "navigate_uri": "http://localhost:18432/auth/callback-google"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025319",
+      "X-Product": "autoclaw",
+      "X-Version": "2.5.0-rc1",
+      "X-Tm": "win",
+      "X-Trace-Id": "57d1a08f-7206-4f1a-9735-dc61383fbf51",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/2.5.0-rc1 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "B",
+    "label": "v=25.0.0",
+    "code": "631002",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "09bd66da-6dd4-4844-a67d-18864414f894",
+      "navigate_uri": "http://localhost:18432/auth/callback-google"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025319",
+      "X-Product": "autoclaw",
+      "X-Version": "25.0.0",
+      "X-Tm": "win",
+      "X-Trace-Id": "21d790fe-f332-4d20-8b8b-4fbb48f4893a",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/25.0.0 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "B",
+    "label": "v=0.0.1",
+    "code": "631002",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "880b3cad-4e0c-46db-873d-ef76308337b3",
+      "navigate_uri": "http://localhost:18432/auth/callback-google"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025320",
+      "X-Product": "autoclaw",
+      "X-Version": "0.0.1",
+      "X-Tm": "win",
+      "X-Trace-Id": "e8edd507-1077-4700-ba58-8bdd1770adce",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/0.0.1 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "C",
+    "label": "c1 baseline",
+    "code": "400001",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "36e8e410-c376-481a-898d-3b8e8cde48b8",
+      "navigate_uri": "http://localhost:18432/auth/callback-google"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025320",
+      "X-Product": "autoclaw",
+      "X-Version": "2.5.0",
+      "X-Tm": "win32",
+      "X-Trace-Id": "5e7ede03-fdf4-4c26-8bf5-254493ccda3b",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/2.5.0 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "C",
+    "label": "c2 no navigate_uri",
+    "code": "400001",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "380525cb-c7ec-40ef-8f17-905918c7e25f"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025320",
+      "X-Product": "autoclaw",
+      "X-Version": "2.5.0",
+      "X-Tm": "win32",
+      "X-Trace-Id": "6152b41d-7881-43ac-a2fd-f821bc7cc1c0",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/2.5.0 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "C",
+    "label": "c3 no source_id",
+    "code": "400001",
+    "body": {
+      "device_id": "380525cb-c7ec-40ef-8f17-905918c7e25f",
+      "navigate_uri": "http://localhost:18432/auth/callback-google"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025321",
+      "X-Product": "autoclaw",
+      "X-Version": "2.5.0",
+      "X-Tm": "win32",
+      "X-Trace-Id": "d98c0853-6675-42ec-85f9-9cd5aea8df1b",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/2.5.0 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "C",
+    "label": "c4 no device_id",
+    "code": "400001",
+    "body": {
+      "source_id": "autoclaw",
+      "navigate_uri": "http://localhost:18432/auth/callback-google"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025321",
+      "X-Product": "autoclaw",
+      "X-Version": "2.5.0",
+      "X-Tm": "win32",
+      "X-Trace-Id": "ed995b3c-36fd-4b9b-8288-d10ae0d00670",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/2.5.0 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "C",
+    "label": "c5 empty body",
+    "code": "400001",
+    "body": {},
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025322",
+      "X-Product": "autoclaw",
+      "X-Version": "2.5.0",
+      "X-Tm": "win32",
+      "X-Trace-Id": "4dc6c625-d5cf-4a14-91b2-bf17a020bb36",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/2.5.0 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "C",
+    "label": "c6 https callback",
+    "code": "400001",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "380525cb-c7ec-40ef-8f17-905918c7e25f",
+      "navigate_uri": "https://localhost:18432/auth/callback-google"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025322",
+      "X-Product": "autoclaw",
+      "X-Version": "2.5.0",
+      "X-Tm": "win32",
+      "X-Trace-Id": "9e0dcc54-0b1b-4516-a4fd-905c361300ce",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/2.5.0 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "C",
+    "label": "c7 deep-link callback",
+    "code": "400001",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "380525cb-c7ec-40ef-8f17-905918c7e25f",
+      "navigate_uri": "autoclaw://auth/callback-google"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025322",
+      "X-Product": "autoclaw",
+      "X-Version": "2.5.0",
+      "X-Tm": "win32",
+      "X-Trace-Id": "0efbe6a2-8a4e-4871-a220-b3d57f32db18",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/2.5.0 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "C",
+    "label": "c8 +platform",
+    "code": "400001",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "fa14f226-f547-4b47-a7e1-7f73b011109f",
+      "navigate_uri": "http://localhost:18432/auth/callback-google",
+      "platform": "win32"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025323",
+      "X-Product": "autoclaw",
+      "X-Version": "2.5.0",
+      "X-Tm": "win32",
+      "X-Trace-Id": "9c7cf513-96d9-4678-a43c-2feda112deb2",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/2.5.0 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "C",
+    "label": "c9 +os/version",
+    "code": "400001",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "9d04195c-303a-448b-8384-f60ced6c9415",
+      "navigate_uri": "http://localhost:18432/auth/callback-google",
+      "os": "windows",
+      "version": "2.5.0"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025323",
+      "X-Product": "autoclaw",
+      "X-Version": "2.5.0",
+      "X-Tm": "win32",
+      "X-Trace-Id": "66cfbace-aa7c-48cb-9f7b-00e5498ccea9",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/2.5.0 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "C",
+    "label": "c10 +device_name",
+    "code": "400001",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "b2375179-0bab-4096-99f8-77bfdde592b0",
+      "navigate_uri": "http://localhost:18432/auth/callback-google",
+      "device_name": "DESKTOP-PROBE"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025324",
+      "X-Product": "autoclaw",
+      "X-Version": "2.5.0",
+      "X-Tm": "win32",
+      "X-Trace-Id": "21b1a2f0-6ee2-40ba-9f29-8ed05188b2a3",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/2.5.0 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "C",
+    "label": "c11 +app_version",
+    "code": "400001",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "19b63382-e235-43b7-82b3-eddaff54301a",
+      "navigate_uri": "http://localhost:18432/auth/callback-google",
+      "app_version": "2.5.0"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025324",
+      "X-Product": "autoclaw",
+      "X-Version": "2.5.0",
+      "X-Tm": "win32",
+      "X-Trace-Id": "f5e684db-aa61-4fe0-801c-07735bb9c9d8",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/2.5.0 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "C",
+    "label": "c12 +channel",
+    "code": "400001",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "29671c48-8d65-4ac3-b95d-3632d941f607",
+      "navigate_uri": "http://localhost:18432/auth/callback-google",
+      "channel": "official"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025325",
+      "X-Product": "autoclaw",
+      "X-Version": "2.5.0",
+      "X-Tm": "win32",
+      "X-Trace-Id": "99cceb1f-2227-46f7-b5bf-ca189495ab5c",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/2.5.0 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "C",
+    "label": "c13 +login_type",
+    "code": "400001",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "79923e44-af7a-4d1d-ad42-1b47db97d028",
+      "navigate_uri": "http://localhost:18432/auth/callback-google",
+      "login_type": "google"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025325",
+      "X-Product": "autoclaw",
+      "X-Version": "2.5.0",
+      "X-Tm": "win32",
+      "X-Trace-Id": "98de832a-b93a-43a6-b585-b8807e364be4",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/2.5.0 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "C",
+    "label": "c14 +state",
+    "code": "400001",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "0f8b0f25-9a0d-4177-bf22-dc7c54efd31d",
+      "navigate_uri": "http://localhost:18432/auth/callback-google",
+      "state": "3fbcf65f-8ed8-4740-919f-a1f11b713e85"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025325",
+      "X-Product": "autoclaw",
+      "X-Version": "2.5.0",
+      "X-Tm": "win32",
+      "X-Trace-Id": "75b6a61f-07a2-40b2-b2be-cbcbe4aa5785",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/2.5.0 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "C",
+    "label": "c15 google source",
+    "code": "400001",
+    "body": {
+      "source_id": "google",
+      "device_id": "380525cb-c7ec-40ef-8f17-905918c7e25f",
+      "navigate_uri": "http://localhost:18432/auth/callback-google"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025326",
+      "X-Product": "autoclaw",
+      "X-Version": "2.5.0",
+      "X-Tm": "win32",
+      "X-Trace-Id": "335d0b99-e682-4f2e-aa42-8898e470ce4e",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/2.5.0 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "C",
+    "label": "c16 +redirect_uri",
+    "code": "400001",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "c1931df5-199c-4963-975a-14cfd4cc49ba",
+      "navigate_uri": "http://localhost:18432/auth/callback-google",
+      "redirect_uri": "http://localhost:18432/auth/callback-google"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025326",
+      "X-Product": "autoclaw",
+      "X-Version": "2.5.0",
+      "X-Tm": "win32",
+      "X-Trace-Id": "7c9ca8b0-ad5f-4679-b171-7f1100914d9d",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/2.5.0 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "D",
+    "label": "tm=win",
+    "code": "631002",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "85338680-029c-4e83-adf4-5cc6244e47c5",
+      "navigate_uri": "http://localhost:18432/auth/callback-google"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025327",
+      "X-Product": "autoclaw",
+      "X-Version": "2.5.0",
+      "X-Tm": "win",
+      "X-Trace-Id": "df2b1ed6-ecd5-4292-af2a-d1d96246882e",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/2.5.0 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "D",
+    "label": "tm=win32",
+    "code": "400001",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "848bc338-b1cf-497c-9016-a080901a1891",
+      "navigate_uri": "http://localhost:18432/auth/callback-google"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025327",
+      "X-Product": "autoclaw",
+      "X-Version": "2.5.0",
+      "X-Tm": "win32",
+      "X-Trace-Id": "0132c4b5-5a04-496c-8724-7a35f82918e1",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/2.5.0 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "D",
+    "label": "tm=win64",
+    "code": "400001",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "3055cea9-4cb6-40dd-a9e7-727c2ad76f61",
+      "navigate_uri": "http://localhost:18432/auth/callback-google"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025328",
+      "X-Product": "autoclaw",
+      "X-Version": "2.5.0",
+      "X-Tm": "win64",
+      "X-Trace-Id": "a8453657-7c71-4bca-ba8c-70a4ea7885bc",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/2.5.0 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "D",
+    "label": "tm=darwin",
+    "code": "400001",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "a11d50ed-47b0-4071-99e7-ce2b97a9c3cb",
+      "navigate_uri": "http://localhost:18432/auth/callback-google"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025328",
+      "X-Product": "autoclaw",
+      "X-Version": "2.5.0",
+      "X-Tm": "darwin",
+      "X-Trace-Id": "cc3c2750-1d16-4fe0-a6cb-dff56c326ac0",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/2.5.0 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "D",
+    "label": "tm=android",
+    "code": "400001",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "c4053847-b780-4a94-8e43-5364756f5d21",
+      "navigate_uri": "http://localhost:18432/auth/callback-google"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025328",
+      "X-Product": "autoclaw",
+      "X-Version": "2.5.0",
+      "X-Tm": "android",
+      "X-Trace-Id": "36af354e-c675-4c67-aa99-a3264483d751",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/2.5.0 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "D",
+    "label": "tm=ios",
+    "code": "400001",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "9760ef48-4eff-43ec-babb-420f751b78a7",
+      "navigate_uri": "http://localhost:18432/auth/callback-google"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025329",
+      "X-Product": "autoclaw",
+      "X-Version": "2.5.0",
+      "X-Tm": "ios",
+      "X-Trace-Id": "6efca8ba-4fc4-4e40-b6e6-465b60e2ecfc",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/2.5.0 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "D",
+    "label": "tm=web",
+    "code": "400001",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "762caf5a-2650-425d-813a-df25b6016860",
+      "navigate_uri": "http://localhost:18432/auth/callback-google"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025329",
+      "X-Product": "autoclaw",
+      "X-Version": "2.5.0",
+      "X-Tm": "web",
+      "X-Trace-Id": "053bcaaa-e461-4f8a-b2b3-ba3d862efb53",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/2.5.0 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "D",
+    "label": "tm=harmony",
+    "code": "400001",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "74622574-3bec-47db-a6e7-256ea4d3dd51",
+      "navigate_uri": "http://localhost:18432/auth/callback-google"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025330",
+      "X-Product": "autoclaw",
+      "X-Version": "2.5.0",
+      "X-Tm": "harmony",
+      "X-Trace-Id": "991fcf50-4fcb-4f68-b090-58325939a03f",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/2.5.0 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "D",
+    "label": "tm=linux",
+    "code": "400001",
+    "body": {
+      "source_id": "autoclaw",
+      "device_id": "018879c6-ce36-46e7-8602-2112ac7b55d4",
+      "navigate_uri": "http://localhost:18432/auth/callback-google"
+    },
+    "headers": {
+      "X-Auth-Appid": "100003",
+      "X-Auth-TimeStamp": "1790025330",
+      "X-Product": "autoclaw",
+      "X-Version": "2.5.0",
+      "X-Tm": "linux",
+      "X-Trace-Id": "4a25cdf4-91c9-4725-b809-7569d87b60d1",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) autoclaw/2.5.0 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36",
+      "Accept": "application/json"
+    }
+  },
+  {
+    "section": "E",
+    "label": "GET /userapi/v1/version",
+    "code": "404",
+    "body": null,
+    "headers": {}
+  },
+  {
+    "section": "E",
+    "label": "GET /userapi/v1/app/version",
+    "code": "404",
+    "body": null,
+    "headers": {}
+  },
+  {
+    "section": "E",
+    "label": "GET /userapi/overseasv1/version",
+    "code": "404",
+    "body": null,
+    "headers": {}
+  },
+  {
+    "section": "E",
+    "label": "GET /userapi/v1/check-update",
+    "code": "404",
+    "body": null,
+    "headers": {}
+  },
+  {
+    "section": "E",
+    "label": "GET /userapi/v1/app-version",
+    "code": "404",
+    "body": null,
+    "headers": {}
+  },
+  {
+    "section": "E",
+    "label": "GET /version",
+    "code": "WAF-HTML",
+    "body": null,
+    "headers": {}
+  },
+  {
+    "section": "E",
+    "label": "GET /userapi/v1/config",
+    "code": "404",
+    "body": null,
+    "headers": {}
+  },
+  {
+    "section": "E",
+    "label": "GET /userapi/v1/latest",
+    "code": "404",
+    "body": null,
+    "headers": {}
+  },
+  {
+    "section": "E",
+    "label": "POST /userapi/v1/update/check",
+    "code": "404",
+    "body": null,
+    "headers": {}
+  }
+]

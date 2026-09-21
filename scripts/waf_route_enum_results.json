@@ -1,0 +1,188 @@
+[
+  {
+    "label": "a1 garbage (task16 control)",
+    "path": "/userapi/overseasv1/google-oauth-login",
+    "code": "400001",
+    "msg": "Request data error"
+  },
+  {
+    "label": "a2 realistic google code",
+    "path": "/userapi/overseasv1/google-oauth-login",
+    "code": "400001",
+    "msg": "Request data error"
+  },
+  {
+    "label": "a3 empty code",
+    "path": "/userapi/overseasv1/google-oauth-login",
+    "code": "400001",
+    "msg": "Request data error"
+  },
+  {
+    "label": "a4 no state",
+    "path": "/userapi/overseasv1/google-oauth-login",
+    "code": "400001",
+    "msg": "Request data error"
+  },
+  {
+    "label": "a5 + navigate_uri",
+    "path": "/userapi/overseasv1/google-oauth-login",
+    "code": "400001",
+    "msg": "Request data error"
+  },
+  {
+    "label": "a6 + source_id",
+    "path": "/userapi/overseasv1/google-oauth-login",
+    "code": "500009",
+    "msg": "Config error"
+  },
+  {
+    "label": "B",
+    "path": "/userapi/overseasv1/email-login",
+    "code": "404",
+    "msg": "Not Found"
+  },
+  {
+    "label": "B",
+    "path": "/userapi/overseasv1/mail-login",
+    "code": "404",
+    "msg": "Not Found"
+  },
+  {
+    "label": "B",
+    "path": "/userapi/overseasv1/password-login",
+    "code": "404",
+    "msg": "Not Found"
+  },
+  {
+    "label": "B",
+    "path": "/userapi/overseasv1/account-login",
+    "code": "404",
+    "msg": "Not Found"
+  },
+  {
+    "label": "B",
+    "path": "/userapi/overseasv1/login",
+    "code": "404",
+    "msg": "Not Found"
+  },
+  {
+    "label": "B",
+    "path": "/userapi/overseasv1/user-login",
+    "code": "404",
+    "msg": "Not Found"
+  },
+  {
+    "label": "B",
+    "path": "/userapi/overseasv1/email-register",
+    "code": "404",
+    "msg": "Not Found"
+  },
+  {
+    "label": "B",
+    "path": "/userapi/overseasv1/register",
+    "code": "404",
+    "msg": "Not Found"
+  },
+  {
+    "label": "B",
+    "path": "/userapi/overseasv1/sso-login",
+    "code": "404",
+    "msg": "Not Found"
+  },
+  {
+    "label": "B",
+    "path": "/userapi/overseasv1/token-login",
+    "code": "404",
+    "msg": "Not Found"
+  },
+  {
+    "label": "B",
+    "path": "/userapi/overseasv1/apple-login",
+    "code": "404",
+    "msg": "Not Found"
+  },
+  {
+    "label": "B",
+    "path": "/userapi/overseasv1/github-login",
+    "code": "404",
+    "msg": "Not Found"
+  },
+  {
+    "label": "B",
+    "path": "/userapi/overseasv1/oauth-login",
+    "code": "404",
+    "msg": "Not Found"
+  },
+  {
+    "label": "B",
+    "path": "/userapi/overseasv1/google-login",
+    "code": "404",
+    "msg": "Not Found"
+  },
+  {
+    "label": "B",
+    "path": "/userapi/overseasv1/google-oauth-callback",
+    "code": "404",
+    "msg": "Not Found"
+  },
+  {
+    "label": "B",
+    "path": "/userapi/overseasv1/google-oauth-token",
+    "code": "404",
+    "msg": "Not Found"
+  },
+  {
+    "label": "B",
+    "path": "/userapi/v1/email-login",
+    "code": "404",
+    "msg": "Not Found"
+  },
+  {
+    "label": "B",
+    "path": "/userapi/v1/login",
+    "code": "400001",
+    "msg": "Request data error"
+  },
+  {
+    "label": "B",
+    "path": "/userapi/v1/oauth-login",
+    "code": "404",
+    "msg": "Not Found"
+  },
+  {
+    "label": "B",
+    "path": "/userapi/v1/sso-login",
+    "code": "404",
+    "msg": "Not Found"
+  },
+  {
+    "label": "B",
+    "path": "/userapi/overseasv1/oneclick-login",
+    "code": "404",
+    "msg": "Not Found"
+  },
+  {
+    "label": "B",
+    "path": "/userapi/overseasv1/app-login",
+    "code": "404",
+    "msg": "Not Found"
+  },
+  {
+    "label": "B",
+    "path": "/userapi/overseasv1/refresh",
+    "code": "404",
+    "msg": "Not Found"
+  },
+  {
+    "label": "B",
+    "path": "/userapi/overseasv1/v1/refresh",
+    "code": "404",
+    "msg": "Not Found"
+  },
+  {
+    "label": "B",
+    "path": "/userapi/overseasv1/user-profile",
+    "code": "404",
+    "msg": "Not Found"
+  }
+]
