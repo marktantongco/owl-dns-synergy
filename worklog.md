@@ -427,3 +427,36 @@ Stage Summary:
 - Release: https://github.com/marktantongco/autoclaw-autologin/releases/tag/v2.6.0
 - Key decision: adopted remote v2.5.0 as canonical (parallel session already implemented fingerprint/loop_breaker/DSML/WS fallback/dashboard more extensively); contributed only the missing synergies to avoid destroying that work
 - Local duplicate implementations (anthropic/credit_tiers kept; session_guard/reasoning_phase/tls_impersonation/local_ws_fallback/dsml_tools/chat_fingerprint/loop_breaker local versions superseded by remote's v2.2-v2.5 modules)
+
+---
+Task ID: 15
+Agent: main
+Task: Live smoke-test /v1/messages against real upstream with an imported token + wire claude-* aliases into the React dashboard model picker
+
+Work Log:
+- Verified upstream reachable (model-config 200, chat endpoint 401 pre-auth) + installed deps in /home/z/.venv
+- LIVE probe found upstream model-config uses creditConsumptionLevel (Low/High/中) — the credit_tiers extractor read credits/tier and silently never went remote. Fixed with _normalize_level (CJK-aware) + legacy/name fallbacks; OUTPUT_CAPS extended for zaicoding_glm-5.3 (307200), zai_auto-fast (131072), tdpsk_deepseek-v4-pro-202606 (32768)
+- Built scripts/smoke_test_messages_live.py (14-stage live battery: boot, import, models surface, auth gate, count_tokens, non-stream GLM alias, claude-* tier routing, negative-cache replay, Anthropic SSE, !router status, telemetry, remote tier refresh)
+- No real token available — harness synthesizes a structural probe JWT (jti=email, exp+24h) imported via the LIVE /api/tokens/import; --token-file flag accepts a real credential when harvested. Pass criteria: probe token → clean upstream auth verdict (401 JSON, not WAF HTML); real token → 200 success path
+- SMOKE RUN 1 caught 6 real defects (9/14):
+  1. Edge WAF 405-blocks python-requests/* UA with HTML challenge → added config.UPSTREAM_UA (Electron desktop profile, AUTOCLAW_UPSTREAM_UA override) to _sign_headers in proxy.py AND auth.py + credit_tiers refresher
+  2. /v1/messages never marked the permanent-failure negative cache → mirrored the OpenAI classifier (auth_failed/model_not_found/quota_exhausted/account_banned) + failure_class in error body
+  3. credit_tiers.start_background_refresh() was never called (v2.6.0 wiring miss) → started in proxy.__main__ + wsgi.py
+  4. /v1/messages hard-coded direct egress, bypassing owl→thermoptic→direct→ws chain → extracted shared _egress_chat_post() used by both endpoints
+  5. Dev-server emitted no app logs → AUTOCLAW_LOG_LEVEL basicConfig in __main__
+  6. /api/test-chat loopback self-call 401'd against its own API-key gate (broken since the gate existed) → self-authenticates with server-side Bearer
+- SMOKE RUN 2: 12/14 (import dedupe assertion + negative-cache expectations); SMOKE RUN 3: 14/14 with source=remote tiers {high: zaicoding_glm-5.3, medium: zai_auto-fast, low: zai_auto} — real edge verdict 401 {"error":"Invalid token"} through the full Anthropic wire, tier routing logged, replay 429
+- Dashboard Model picker: new /api/models catalog endpoint (glm family + claude-* with tier labels + CURRENT upstream targets + output caps, dash-guarded), /api/test-chat extended with endpoint=openai|anthropic driving OUR /v1/messages via loopback (error unwrapping fixed), credit_tiers embedded in /api/dashboard/state; ModelPicker.jsx (grouped dropdown, tier badges, wire segment switch, probe result panel with usage/failure class) + styles.css picker block; built with Vite into ui/dashboard (bundle index-Cz4gflSq.js)
+- Live-verified dashboard: /dashboard/ 200, picker bundle served, /api/models shows remote tiers, /api/test-chat loopback reaches the token gate both wires
+- Added 15 offline tests (TestCreditLevelExtraction, TestModelPickerSurface, TestAnthropicNegativeCache, TestUpstreamUserAgent) — 234/234 pass, 0 regressions
+- CHANGELOG v2.6.1 entry + deploy/env.template (AUTOCLAW_UPSTREAM_UA, AUTOCLAW_LOG_LEVEL)
+- Committed 85501a0, pushed main, tagged v2.6.1, created GitHub release with smoke-messages-report-2026-09-21.json asset; report copied to download/
+- tokens.json reset to empty after runs (probe token removed)
+
+Stage Summary:
+- Release: https://github.com/marktantongco/autoclaw-autologin/releases/tag/v2.6.1 (commit 85501a0)
+- Live smoke: 14/14 stages pass; upstream verdict with probe token = 401 {"error":"Invalid token"} (auth middleware reached — WAF + compat + cache + SSE all verified live); success path asserts automatically with a real token via --token-file
+- Live credit tiers: claude-opus-* → zaicoding_glm-5.3, claude-sonnet-* → zai_auto-fast, claude-haiku-* → zai_auto (remote source, 5-min refresh)
+- Tests: 234/234 (219 + 15 new)
+- New files: scripts/smoke_test_messages_live.py, dashboard/src/components/ModelPicker.jsx
+- Blocked on user for: real AutoClaw token (harvest via desktop app localStorage or autoclaw2api export → drop file into ACLAW_IMPORT_DIR or POST /api/tokens/import, then rerun the smoke test with --token-file for the success-path verdict)
