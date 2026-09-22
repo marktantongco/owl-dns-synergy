@@ -562,3 +562,28 @@ Stage Summary:
 - Sole blocker for the 200/SSE success-path verdict: mymarky0 Google 2FA (device-bound). User actions that unblock: (1) tap Yes+number on Honor 200 Pro while I hold a live prompt (I resend on request), or (2) read me the Settings security code (ootp), or (3) run download/autoclaw-token-harvest-kit on the desktop with the logged-in mymarky0 app, or (4) read me the emarkytanky verification code from the ma-...@gmail.com inbox
 - ymarkytanky is dead (no account); mymarky9 is 0-balance
 - Scripts added: drive.py, grind_prep.py, vlm_test.mjs; persistent driver pattern documented
+
+---
+Task ID: 19
+Agent: Super Z (Main)
+Task: Build the authorized-provider adapter layer into SmartChannelRouter (NVIDIA NIM channel) and run the live smoke test with the operator's own nvapi key (user pivot from extraction flows to the legitimate adapter path — accepted and shipped as v2.7.0)
+
+Work Log:
+- Explored autoclaw-autologin (the real v2.6.2 server): proxy.py /v1/messages + /v1/chat/completions pipelines, anthropic_compat converters, smoke_test_messages_live.py; .gitignore already covers .env
+- Built nim_adapter.py: nim/<id> model addressing (slash-bearing ids preserved), OpenAI transparent passthrough, Anthropic adapter reusing anthropic_compat, live /models catalog (10-min cache + static fallback), NIM error -> wire-shape translation, X-Upstream-Via: nim, direct TLS-verified Bearer egress (no token rotation / banner / DSML / clamp / negative cache — first-party contract)
+- Extended anthropic_compat: reasoning_content -> Anthropic thinking blocks (streaming: _ensure_kind_block open/close/advance on kind switch; non-stream: thinking prepended); AutoClaw aggregate path now carries reasoning too
+- Wired proxy.py: NIM intercepts in both chat endpoints before AutoClaw model resolution + /v1/models NIM section (key-gated); VERSION 2.7.0; env.template documented (NVIDIA_API_KEY, NVIDIA_NIM_BASE_URL, NVIDIA_NIM_TIMEOUT)
+- Unit tests scripts/test-nim-adapter.py: 36/36 offline checks (mocked upstream); test_owl_integration.py exit 0
+- LIVE smoke round 1 (scripts/smoke_test_nim_live.py): 6/11 — wire PROVEN (auth gate, 82-model live catalog, error translation, via header) but meta/llama-3.3-70b-instruct EOL upstream 2026-08-26 (HTTP 410) + deepseek-r1 404 → catalog drift
+- Live catalog probe: verified servable = deepseek-ai/deepseek-v4.1-flash (tools+reasoning), nvidia/nemotron-3-super-120b-a12b (tools+reasoning), z-ai/glm-5.3-flash (reasoning); kimi-k2.6/mistral-large-2 = "not found for account" (listed but unentitled); updated static NIM_MODELS with EOL warning
+- LIVE smoke round 2: 9/11 — stream stages returned 200 with EMPTY body; instrumented generator (dbg scripts, since removed) → ROOT CAUSE: anthropic_to_openai does not carry the stream flag → NIM answered non-stream JSON → SSE converter skipped everything (AutoClaw path forces stream=True upstream; FakeResp mocks masked the contract)
+- Fix: openai_body["stream"] = wants_stream in handle_anthropic_messages + 2 regression checks in unit tests
+- LIVE smoke round 3: 11/11 PASS (boot, catalog, auth gate, non-stream 'OK' + usage, full SSE sequence, tool round-trip get_weather{"city":"Tokyo"} stop=tool_use, OpenAI passthrough 'PONG', thinking_delta stream on glm-5.3-flash, 404 not_found_error, X-Upstream-Via: nim)
+- CHANGELOG v2.7.0 entry; report copied to download/smoke_nim_report_v2_7_0.json; secret sweep (0 key occurrences in diff); commit 593983c pushed e0bfda7..593983c
+
+Stage Summary:
+- SHIPPED v2.7.0: first authorized-provider channel — Anthropic /v1/messages in → NVIDIA NIM out, 11/11 live acceptance on the operator's own key, 36/36 unit checks
+- Key insight: catalog drift is a first-class failure mode (listed ≠ servable; llama-3.3 EOL despite listing) — live probe before adopting model defaults; "not found for account" = per-key entitlement
+- Streaming-contract bug fixed for ALL future OpenAI-compatible channels (anthropic_to_openai drops stream — every new adapter must set it explicitly)
+- Security posture: key only in env vars, never in source/diff; TLS verify=True on this channel; recommended key rotation since it transited chat
+- Next options: more authorized adapters on the same pattern (Groq / OpenRouter / AI Studio), claude-* alias → nim/* mapping, dashboard channel picker
