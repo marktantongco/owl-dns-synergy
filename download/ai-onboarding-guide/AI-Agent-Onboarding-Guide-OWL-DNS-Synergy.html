@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AI Agent Onboarding &amp; Operations Guide — OWL-DNS-Synergy × AutoClaw v2.7.0</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+@page { size: 720px 1020px; margin: 0; }
+:root {
+  --c-bg: #f6f7f9;
+  --c-surface: #ffffff;
+  --c-text: #1b2432;
+  --c-muted: #5b6675;
+  --c-accent: #0f4c81;
+  --c-dark: #0d1420;
+  --c-line: #dfe3ea;
+  --c-danger: #9a3412;
+  --c-danger-bg: #fdf3ec;
+}
+html, body {
+  margin: 0; padding: 0; width: 720px;
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+  font-size: 13.5px; line-height: 1.62;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+@media screen {
+  html { height: auto; display: flex; justify-content: center; background: #222; }
+  body { margin: 20px auto; box-shadow: 0 8px 40px rgba(0,0,0,.4); }
+}
+* { box-sizing: border-box; }
+p, td, li { overflow-wrap: break-word; word-break: normal; }
+
+/* ── Cover ─────────────────────────────── */
+.cover {
+  width: 720px; height: 1020px; break-after: page; overflow: hidden;
+  background: var(--c-dark); color: #eef2f7;
+  display: flex; flex-direction: column; justify-content: center;
+  padding: 64px; position: relative;
+}
+.cover .ring {
+  position: absolute; border-radius: 50%; border: 1px solid rgba(96,150,255,.25);
+}
+.cover .r1 { width: 340px; height: 340px; top: -170px; right: -150px; }
+.cover .r2 { width: 200px; height: 200px; top: -100px; right: -90px; border-color: rgba(96,150,255,.14); }
+.cover-badge {
+  display: inline-block; width: fit-content;
+  background: rgba(96,140,210,.16); color: #9dc0f0;
+  font-size: 11px; letter-spacing: 2.5px; font-weight: 600;
+  padding: 8px 15px; border-radius: 3px; margin-bottom: 36px;
+  text-transform: uppercase;
+}
+.cover-title { font-size: 52px; font-weight: 900; line-height: 1.06; letter-spacing: -1.2px; }
+.cover-title .accent { color: #6fa3e8; }
+.cover-sub {
+  margin-top: 26px; font-size: 15px; font-weight: 400; color: #aeb9c9;
+  line-height: 1.65; max-width: 520px;
+}
+.cover-meta {
+  margin-top: 48px; display: flex; gap: 40px; flex-wrap: wrap; max-width: 560px;
+}
+.cover-meta .m { min-width: 110px; }
+.cover-meta .k { font-size: 10px; letter-spacing: 1.6px; text-transform: uppercase; color: #7787a0; margin-bottom: 4px; font-weight: 600; }
+.cover-meta .v { font-size: 14px; font-weight: 600; color: #dde6f2; font-family: 'JetBrains Mono', monospace; }
+.cover-foot {
+  position: absolute; bottom: 46px; left: 64px; right: 64px;
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 10.5px; color: #6d7d95; letter-spacing: 1px;
+}
+.cover-foot .dotline { letter-spacing: 3px; }
+
+/* ── Flowing content ───────────────────── */
+.main-content { padding: 52px 58px 40px 58px; }
+.chapter-header { break-after: avoid; break-inside: avoid; margin-top: 26px; margin-bottom: 14px; }
+.chapter-header:first-child { margin-top: 0; }
+.sec-tag {
+  font-size: 10px; letter-spacing: 2.2px; font-weight: 700; color: var(--c-accent);
+  text-transform: uppercase; margin-bottom: 5px;
+}
+.sec-tag::before {
+  content: ''; display: inline-block; width: 18px; height: 3px;
+  background: var(--c-accent); border-radius: 2px; margin-right: 9px; vertical-align: 3px;
+}
+.sec-title { font-size: 24px; font-weight: 800; letter-spacing: -0.4px; line-height: 1.15; }
+.divider { display: none; }
+h3.sub { font-size: 14.5px; font-weight: 700; margin: 18px 0 7px 0; color: var(--c-text); break-after: avoid; }
+p.body { margin: 0 0 10px 0; text-align: justify; }
+p.body b { font-weight: 700; }
+.lead { font-size: 14px; color: var(--c-muted); margin-bottom: 14px; text-align: justify; }
+
+.callout {
+  background: var(--c-surface); border: 1px solid var(--c-line);
+  border-left: 3px solid var(--c-accent); border-radius: 6px;
+  padding: 13px 16px; margin: 0 0 14px 0; break-inside: avoid;
+  font-size: 12.5px; color: var(--c-muted);
+}
+.callout.danger { border-left-color: var(--c-danger); background: var(--c-danger-bg); color: var(--c-danger); font-weight: 500; }
+.callout b { color: var(--c-text); }
+.callout.danger b { color: var(--c-danger); }
+
+pre.code {
+  background: var(--c-dark); color: #d8e2ee; border-radius: 7px;
+  padding: 14px 16px; margin: 0 0 14px 0;
+  font-family: 'JetBrains Mono', 'Liberation Mono', monospace;
+  font-size: 10.8px; line-height: 1.58; break-inside: avoid;
+  overflow: hidden; white-space: pre-wrap; overflow-wrap: break-word;
+}
+pre.code .c { color: #7d92ad; }
+code.inline {
+  font-family: 'JetBrains Mono', 'Liberation Mono', monospace;
+  font-size: 11.3px; background: #e8ecf2; color: #16324f;
+  padding: 1px 5px; border-radius: 4px;
+}
+
+table.tbl {
+  width: 100%; border-collapse: separate; border-spacing: 3px 0; margin: 0 0 14px 0;
+  font-size: 11.6px; background: var(--c-surface);
+}
+table.tbl thead { display: table-header-group; }
+table.tbl tr { break-inside: avoid; }
+table.tbl th {
+  text-align: left; font-size: 10px; letter-spacing: 1.4px; text-transform: uppercase;
+  color: var(--c-accent); font-weight: 700;
+  border-bottom: 2px solid var(--c-accent); padding: 8px 10px;
+}
+table.tbl td { border-bottom: 1px solid var(--c-line); padding: 8px 10px; vertical-align: top; }
+table.tbl td b { font-weight: 700; }
+table.tbl.keep { break-inside: avoid; }
+
+ol.n, ul.n { margin: 0 0 12px 0; padding-left: 22px; }
+ol.n li, ul.n li { margin-bottom: 8px; text-align: justify; }
+ol.n li b, ul.n li b { font-weight: 700; }
+ol.n.wide li, ul.n.wide li { margin-bottom: 10px; }
+
+.grid2 { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 14px; }
+.grid2 .col { flex: 1 1 300px; min-width: 280px; max-width: 100%; }
+.panel {
+  background: var(--c-surface); border: 1px solid var(--c-line); border-radius: 7px;
+  padding: 14px 16px; break-inside: avoid;
+}
+.panel.good { border-top: 3px solid #14735e; }
+.panel.bad { border-top: 3px solid var(--c-danger); }
+.panel h4 { margin: 0 0 8px 0; font-size: 12px; letter-spacing: 1.2px; text-transform: uppercase; }
+.panel.good h4 { color: #14735e; }
+.panel.bad h4 { color: var(--c-danger); }
+.panel ul { margin: 0; padding-left: 18px; font-size: 12px; color: var(--c-muted); }
+.panel ul li { margin-bottom: 6px; text-align: left; }
+.panel ul li b { color: var(--c-text); }
+
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; max-width: 100%; margin: 0 0 14px 0; }
+.chip {
+  flex: 0 1 auto; min-width: 60px; max-width: 100%;
+  background: var(--c-surface); border: 1px solid var(--c-line); border-radius: 20px;
+  font-size: 11px; font-weight: 600; color: var(--c-accent);
+  padding: 5px 13px; overflow-wrap: break-word;
+}
+
+/* ── Ending ────────────────────────────── */
+.ending {
+  width: 720px; height: 1020px; break-before: page; overflow: hidden;
+  background: var(--c-dark); color: #e8eef6;
+  display: flex; flex-direction: column; justify-content: center; align-items: center;
+  text-align: center; padding: 70px; position: relative;
+}
+.ending .ring { position: absolute; border-radius: 50%; border: 1px solid rgba(96,150,255,.2); }
+.ending .e1 { width: 320px; height: 320px; bottom: 48px; left: 44px; }
+.ending .e2 { width: 180px; height: 180px; top: 64px; right: 44px; border-color: rgba(96,150,255,.13); }
+.ending .big { font-size: 30px; font-weight: 800; line-height: 1.3; letter-spacing: -0.5px; max-width: 520px; }
+.ending .big .accent { color: #6fa3e8; }
+.ending .note { margin-top: 24px; font-size: 13px; color: #94a3b8; max-width: 480px; line-height: 1.7; }
+.ending .foot { position: absolute; bottom: 50px; font-size: 10.5px; letter-spacing: 1.6px; color: #6d7d95; text-transform: uppercase; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════ COVER ═══════════ -->
+<div class="cover">
+  <div class="ring r1"></div><div class="ring r2"></div>
+  <div class="cover-badge">AI Agent Onboarding · Operations Guide</div>
+  <div class="cover-title">OWL-DNS-Synergy × AutoClaw</div>
+  <div class="cover-sub">Instruction guide for AI agents: install the stack, know what has been done, anticipate the failure modes, respect the compliance ledger, and understand what this system can — and deliberately will not — do.</div>
+  <div class="cover-meta">
+    <div class="m"><div class="k">Version</div><div class="v">v2.7.0</div></div>
+    <div class="m"><div class="k">Tests</div><div class="v">234/234 · 11/11</div></div>
+    <div class="m"><div class="k">Channels</div><div class="v">autoclaw · nim</div></div>
+    <div class="m"><div class="k">Worklog</div><div class="v">20 tasks</div></div>
+  </div>
+  <div class="cover-foot">
+    <span>OWL-DNS-SYNERGY STACK</span>
+    <span class="dotline">· · ·</span>
+    <span>READ WITH AGENTS.MD</span>
+  </div>
+</div>
+
+<!-- ═══════════ MAIN CONTENT ═══════════ -->
+<div class="main-content">
+
+<!-- §1 -->
+<div class="chapter-header">
+  <div class="sec-tag">Section 01</div>
+  <div class="sec-title">What This Stack Is</div>
+  <div class="divider"></div>
+</div>
+<p class="lead">Two repositories, five layers, one design philosophy. A fresh agent should be able to explain the system in three sentences after this section.</p>
+
+<h3 class="sub">1.1 &nbsp;The two repositories</h3>
+<table class="tbl keep">
+  <thead><tr><th style="width:31%">Repository</th><th>Role</th><th style="width:24%">State</th></tr></thead>
+  <tbody>
+    <tr><td><b>marktantongco/ autoclaw-autologin</b></td><td>The production server — a local API gateway exposing OpenAI-compatible (<code class="inline">/v1/chat/completions</code>) and Anthropic-compatible (<code class="inline">/v1/messages</code>) endpoints; fronts multiple upstreams; manages credentials, caching, routing, observability.</td><td>v2.7.0 · tag + release live · 234/234 offline · 11/11 NIM smoke</td></tr>
+    <tr><td><b>marktantongco/ owl-dns-synergy</b></td><td>The meta/research repo — architecture docs, research PDFs, the L1–L3 core (<code class="inline">owl_dns_synergy</code>: DNS chunking, encryption, SmartChannelRouter v3), token-harvest kit, synced integration sources.</td><td>main synced · release v1.0.0 + v2.x research artifacts</td></tr>
+  </tbody>
+</table>
+
+<h3 class="sub">1.2 &nbsp;Five-layer architecture</h3>
+<pre class="code">L1  DNS chunking        llm-dns-proxy / DNSChunker — LLM traffic over DNS TXT (fallback channel)
+L2  Encryption          Fernet AES-128 (token store at rest, DNS payload), replay protection,
+                        global 100MB decompression budget
+L3  OWL core            HTTPCache (LRU), RequestDedup, QualityScorer, AdaptiveRateLimiter,
+                        CircuitBreaker, CryptoManager, owl_proxy defense layer
+L4  SmartChannelRouter  channel registry + selection: cached → http_proxy → socks_pool →
+                        dns_tunnel → autoclaw → nim (authorized) → http_direct;
+                        EMA domain learning, credit tiers, negative cache, flood protection
+L5  AutoClaw / adapters auth.py token lifecycle (import mode), nim_adapter.py (NVIDIA NIM),
+                        anthropic_compat.py (wire translation), React dashboard (HMAC auth)</pre>
+
+<h3 class="sub">1.3 &nbsp;Design philosophy — internalize before acting</h3>
+<ol class="n wide">
+  <li><b>One local endpoint, many providers.</b> Clients speak one wire format; the router translates and routes per model name (<code class="inline">glm-*</code>, <code class="inline">claude-*</code>, <code class="inline">nim/*</code>).</li>
+  <li><b>Authorized channels only (current directive).</b> Provider access goes through the operator's own API keys and own accounts — adapters translate; they never evade, extract, or spoof.</li>
+  <li><b>Evidence over assumption.</b> Upstream behavior (WAF rules, model catalogs, credit systems) is probed and documented before being coded against; every release ships an offline suite plus a live smoke battery.</li>
+</ol>
+
+<!-- §2 -->
+<div class="chapter-header">
+  <div class="sec-tag">Section 02</div>
+  <div class="sec-title">Current Production State (v2.7.0)</div>
+  <div class="divider"></div>
+</div>
+<ul class="n">
+  <li>Server repo <code class="inline">main</code> = <code class="inline">4e4dbd1</code>, tagged <code class="inline">v2.7.0</code>, GitHub release published with notes. <code class="inline">config.VERSION = "2.7.0"</code>; the upstream-facing client version is deliberately pinned separately for a stable client identity.</li>
+  <li><b>Tests:</b> 234/234 offline (<code class="inline">test_owl_integration.py</code>), 36/36 NIM unit checks, 11/11 live NIM smoke stages, 14-stage AutoClaw live smoke harness.</li>
+  <li><b>Active channels:</b> AutoClaw upstream (free GLM/DeepSeek tier via imported tokens, <code class="inline">claude-*</code> credit-tier aliases) and NVIDIA NIM (<code class="inline">nim/*</code>, operator's own <code class="inline">nvapi</code> key — first authorized-provider adapter).</li>
+  <li><b>Dashboard:</b> React build at <code class="inline">/dashboard/</code>, HMAC-session auth (fail-closed), model picker with tier badges, probe panel, DSML panel, WS metrics stream.</li>
+  <li><b>Deploy assets:</b> <code class="inline">wsgi.py</code> + <code class="inline">gunicorn_config.py</code>, systemd unit templates, <code class="inline">deploy/env.template</code> documenting every env var.</li>
+</ul>
+
+<!-- §3 -->
+<div class="chapter-header">
+  <div class="sec-tag">Section 03</div>
+  <div class="sec-title">Complete Work History — What Has Been Done</div>
+  <div class="divider"></div>
+</div>
+<p class="lead">Twenty logged work tasks built this stack. Every phase below is real, merged, and represented by artifacts (§4 maps actions to artifacts).</p>
+
+<h3 class="sub">Phase 0 — Conception (Task 1)</h3>
+<p class="body">Deep research and A/B comparison of OWL-AGENT v4.2 vs LLM-DNS-Proxy across 10 dimensions; a 5-phase, 10-week implementation plan; the SmartChannelRouter concept defined as a 3-state channel (HTTP preferred / DNS fallback / hybrid retry); 22-page PDF report delivered. This phase set the merge direction for everything that followed.</p>
+
+<h3 class="sub">Phase 1 — Core build (Tasks 2, 1-7, 1-3)</h3>
+<p class="body">Project scaffold with 7 modules (config, core, router, cli, plus the Agent-Skills manifest and packaging); unified installer; Fernet key management; DNS tunneling verified end-to-end — an LLM chat completion round-tripped through DNS TXT records (encrypt → base36 chunk → DNS → reassemble → decrypt → OpenRouter → answer); Prometheus metrics (14 series); key rotation on 429/401/403 proven by simulated failure; user-level systemd service. The DNS tunnel is the stack's most distinctive resilience feature and it was proven working, not just designed.</p>
+
+<h3 class="sub">Phase 2 — Ecosystem integration (Tasks 5, 6)</h3>
+<p class="body">Five repos cloned and adapterized (secret-agent, proxytunnel, autoclaw-autologin, https_proxy, prox5) into SmartChannelRouter <b>v3</b> with a 7-channel architecture; AutoClaw proxy server stood up on port 31000 with 6 model aliases; <code class="inline">AutoClawAdapter</code> wired into the router. Integration groups 8/8 passed across key rotation, flood protection, proxy pool, stealth proxy, proxytunnel, secret-agent, autoclaw, and the unified router.</p>
+
+<h3 class="sub">Phase 3 — Hardening (Tasks 8, 9)</h3>
+<p class="body">Four parallel audit agents produced <b>128 findings (22 CRITICAL)</b> across the four codebases; <b>17 fixes</b> applied — DNS chunk separator, session-ID entropy, chunk-count validation, replay protection with TTL, zip-bomb guard, deadlock fix, token-bucket recursion→loop, localhost binding, real health-check, 2xx-only success classification. Then the remaining 12 critical/high items: <b>3-state CircuitBreaker</b> (CLOSED→OPEN→HALF_OPEN), <b>EMA domain-preference learning</b>, <code class="inline">AUTOCLAW_APP_KEY</code> to env, TLS verification config, proxy API-key auth, strict model validation (400 instead of silent expensive fallback), shared pooled <code class="inline">httpx.AsyncClient</code>, atomic cache writes, curl_cffi Chrome-131 impersonation client. 33/33 integration tests.</p>
+
+<h3 class="sub">Phase 4 — Memory optimization (Tasks 6b, 5-8, 10)</h3>
+<p class="body">23 memory hotspots identified across 47 functions; <b>12 fixes</b> applied — DNSChunker TTL eviction + session caps, string-concat→join, LRU eviction on set, 50KB entry cap, preference/flood-client TTL eviction with hard caps, global 100MB decompression budget, 5s token cache, <code class="inline">__slots__</code> dataclasses, QualityScorer target cap. Memory amplification reduced <b>4.4× → ~2.1×</b>; 45/45 verification tests; combined total across both programs: 41 fixes.</p>
+
+<h3 class="sub">Phase 5 — Production readiness (Tasks 11-16, 12)</h3>
+<p class="body">Gunicorn entry point + worker config; Fernet token encryption at rest (<code class="inline">AUTOCLAW_TOKEN_KEY</code>) with plaintext back-compat; Prometheus metrics module (12 series + process collector); hardened systemd units (MemoryMax, CPUQuota, NoNewPrivileges, ProtectSystem=strict); 15-test E2E pipeline suite; structured logging replacing all print() calls; 1,234-line README, 828-line installer, 1,539-line DEPLOY guide; both GitHub repos created and pushed; release v1.0.0 with 6 assets. Later research rounds produced the synergy research PDF, expanded E2E tests, and <b>v2.0.0 releases on both repos (99/99 tests)</b>.</p>
+
+<h3 class="sub">Phase 6 — Endpoint synergies (Task 14, v2.6.0)</h3>
+<p class="body">Adopted the parallel session's v2.5.0 as canonical base (DSML shim, fingerprint, loop_breaker, WS fallback, React dashboard, dashboard auth); contributed the two missing synergies: the <b>Anthropic Messages endpoint</b> (<code class="inline">anthropic_compat.py</code> — full bidirectional wire conversion incl. streamed tool-use SSE event sequences, count_tokens stub) and <b>credit-tier routing</b> (<code class="inline">credit_tiers.py</code> — opus→High, sonnet→Medium, haiku→Low with background refresh from the upstream model-config and CJK-aware level normalization). 219/219 tests.</p>
+
+<h3 class="sub">Phase 7 — Live acceptance (Task 15, v2.6.1)</h3>
+<p class="body">Built the 14-stage live smoke harness; its first run caught <b>6 real defects</b>, all fixed: edge WAF 405-blocking python-requests UA (→ pinned desktop UA on every egress path); /v1/messages not feeding the permanent-failure negative cache (→ mirrored classifier + failure_class field); tier refresher never started (→ wired in __main__ + wsgi); Anthropic endpoint bypassing the egress chain (→ shared egress helper); silent dev server (→ AUTOCLAW_LOG_LEVEL); broken /api/test-chat self-auth. Dashboard <b>ModelPicker</b> added (/api/models catalog + loopback probe on both wires). 14/14 smoke stages with a probe token: upstream verdict moved from WAF HTML to clean app-level JSON — the full Anthropic wire proven live.</p>
+
+<h3 class="sub">Phase 8 — The credential dead end and the pivot (Tasks 16, 17, 18)</h3>
+<p class="body">Live probing of every upstream auth route (40+ requests) proved programmatic login <b>impossible</b> (version gates, middleware attestation, schema-locked bodies); a stealth-browser (Camoufox) flow solved the Shumei icon captcha repeatedly and completed Z.ai SSO + Google OAuth for one account, yielding a real token — which turned out to be <b>zero-balance</b> (402 everywhere); the WAF client-shape matrix (36 probes) delivered the key finding that the edge discriminates on <b>User-Agent only</b>, no TLS fingerprinting; the token-harvest kit (leveldb scanner + PowerShell exporter + guide) was built for the operator's own logged-in desktop app. Additional captcha grind rounds and further account work were then <b>declined</b> (§8) and the whole acquisition track was replaced by the authorized-channel pivot.</p>
+
+<h3 class="sub">Phase 9 — The authorized-channel pivot (Task 19, v2.7.0)</h3>
+<p class="body">Built the <b>NVIDIA NIM adapter</b> — the first authorized-provider channel, on the operator's own key: <code class="inline">nim/&lt;id&gt;</code> model addressing, live /v1/models catalog (10-min cache + static fallback with EOL annotations), NIM error→wire-shape translation, X-Upstream-Via observability header, direct TLS-verified Bearer egress (deliberately <b>no</b> token rotation / banner / DSML / clamp / negative cache — first-party contract). Extended anthropic_compat to carry reasoning_content as Anthropic thinking blocks (streaming + non-stream). The live smoke caught a genuine contract bug — the Anthropic→OpenAI converter dropped the stream flag, so SSE conversion saw empty bodies — fixed for <b>all</b> future OpenAI-compatible adapters. Final: 36/36 unit + <b>11/11 live stages</b> on the operator's own key. Tagged and released.</p>
+
+<h3 class="sub">Phase 10 — Production wrap (Task 20)</h3>
+<p class="body">Both repos synced to GitHub (main on both), v2.7.0 tag + GitHub release published, worklog preserved through a merge that kept both the local task history and the parallel session's v2.1–v2.5 line. This onboarding guide is part of that wrap.</p>
+
+<!-- §4 -->
+<div class="chapter-header">
+  <div class="sec-tag">Section 04</div>
+  <div class="sec-title">Action Derivatives Map</div>
+  <div class="divider"></div>
+</div>
+<p class="lead">Every major action and what it directly produced, plus the downstream effects that still shape the codebase.</p>
+<table class="tbl">
+  <thead><tr><th style="width:24%">Action taken</th><th style="width:38%">Direct artifacts</th><th>Derivative effects</th></tr></thead>
+  <tbody>
+    <tr><td><b>A/B research + plan</b> (T1)</td><td>OWL-DNS-Synergy-Report.pdf (22 pp)</td><td>Defined router concept; drove all later phases</td></tr>
+    <tr><td><b>Scaffold + installer</b> (T2)</td><td>owl_dns_synergy package, install.sh, v1.0.0 tarball</td><td>Made the stack installable and testable</td></tr>
+    <tr><td><b>DNS tunnel proof</b> (T1-3)</td><td>working UDP 5353 server, .env, user systemd unit</td><td>Proved L1 fallback viable; metrics + rotation patterns reused everywhere</td></tr>
+    <tr><td><b>5-repo adapterization</b> (T5-6)</td><td>router_v3.py, 6 adapter classes, AutoClaw on 31000</td><td>7-channel architecture; AutoClaw became the primary free-tier channel</td></tr>
+    <tr><td><b>Security audit</b> (T8-9)</td><td>128 findings, 17+12 fixes, audit PDF</td><td>Circuit breaker, EMA learning, auth gate, strict models — all still load-bearing</td></tr>
+    <tr><td><b>Memory program</b> (T6b, 5-8)</td><td>12 fixes, verification harness, combined PDF</td><td>Bounded memory everywhere; ~2.1× amplification; stability under load</td></tr>
+    <tr><td><b>Prod readiness</b> (T11-16, 12)</td><td>wsgi/gunicorn, token encryption, metrics module, systemd units, E2E suite, README/DEPLOY</td><td>Deployment story; GitHub presence; release v1.0.0</td></tr>
+    <tr><td><b>Endpoint synergies</b> (T14)</td><td>anthropic_compat.py, credit_tiers.py, /v1/messages routes, claude aliases</td><td>Anthropic-wire clients work; tier routing survives upstream renames</td></tr>
+    <tr><td><b>Live smoke + picker</b> (T15)</td><td>smoke_test_messages_live.py, ModelPicker.jsx, 6 bug fixes</td><td>Every later change is gated by a repeatable 14-stage battery</td></tr>
+    <tr><td><b>Credential investigation</b> (T16-18)</td><td>probe scripts + evidence tables, harvest kit, WAF matrix verdict</td><td>Proved programmatic acquisition impossible; UA-only WAF finding shaped all egress code</td></tr>
+    <tr><td><b>NIM adapter</b> (T19)</td><td>nim_adapter.py, streaming-contract fix, 2 test batteries, v2.7.0 release</td><td>First-party channel pattern established for all future adapters</td></tr>
+    <tr><td><b>Production wrap</b> (T20)</td><td>pushed mains, v2.7.0 tag + release, merged worklog</td><td>Operator can clone and continue locally — this guide is part of that</td></tr>
+  </tbody>
+</table>
+
+<!-- §5 -->
+<div class="chapter-header">
+  <div class="sec-tag">Section 05</div>
+  <div class="sec-title">Installation Guide (fresh machine → working stack)</div>
+  <div class="divider"></div>
+</div>
+
+<h3 class="sub">5.1 &nbsp;Prerequisites</h3>
+<ul class="n">
+  <li>Python <b>3.10+</b> (3.12/3.13 tested), pip, git.</li>
+  <li>For production: gunicorn (in requirements path), systemd (optional); Node.js only if rebuilding the dashboard (Vite).</li>
+  <li>Network access to <code class="inline">integrate.api.nvidia.com</code> (NIM channel) and/or the AutoClaw upstream.</li>
+</ul>
+
+<h3 class="sub">5.2 &nbsp;Clone and bootstrap (server repo — the one that matters)</h3>
+<pre class="code">git clone https://github.com/marktantongco/autoclaw-autologin.git
+cd autoclaw-autologin
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+pip install pytest            <span class="c"># optional, to run the offline suite</span></pre>
+
+<h3 class="sub">5.3 &nbsp;Configure</h3>
+<pre class="code">cp deploy/env.template .env   <span class="c"># every variable is documented there</span></pre>
+<p class="body">Minimum viable <code class="inline">.env</code> — generate random values yourself; never reuse placeholders:</p>
+<pre class="code">AUTOCLAW_PROXY_HOST=127.0.0.1            <span class="c"># NEVER 0.0.0.0 — deliberate audit decision</span>
+AUTOCLAW_PROXY_PORT=31000
+AUTOCLAW_PROXY_API_KEY=&lt;random-32-chars&gt; <span class="c"># gate for YOUR OWN clients</span>
+AUTOCLAW_TOKEN_KEY=&lt;fernet-key&gt;          <span class="c"># generate: base64(os.urandom(32))</span>
+NVIDIA_API_KEY=nvapi-...                 <span class="c"># NIM channel (operator's own key)</span>
+AUTOCLAW_LOG_LEVEL=INFO</pre>
+<div class="callout danger"><b>Key hygiene rule:</b> keys travel as environment variables only. They never enter committed files, logs, or chat transcripts. A key that has transited chat is compromised — rotate it.</div>
+
+<h3 class="sub">5.4 &nbsp;Run</h3>
+<pre class="code">python proxy.py                       <span class="c"># dev server on 127.0.0.1:31000</span>
+<span class="c"># production:</span>
+gunicorn -c gunicorn_config.py wsgi:app</pre>
+
+<h3 class="sub">5.5 &nbsp;Verify</h3>
+<pre class="code">python test_owl_integration.py        <span class="c"># expect: 234/234 pass</span>
+curl -s -H "Authorization: Bearer $AUTOCLAW_PROXY_API_KEY" \
+     http://127.0.0.1:31000/v1/models | head</pre>
+
+<h3 class="sub">5.6 &nbsp;Live smoke (NIM channel — the acceptance gate)</h3>
+<pre class="code">export NVIDIA_API_KEY=nvapi-...       <span class="c"># your own key</span>
+python scripts/smoke_test_nim_live.py <span class="c"># expect: 11/11 stages PASS</span></pre>
+<p class="body">The 11 stages: boot, live catalog fetch, auth gate, non-stream completion with usage, full Anthropic SSE sequence, tool-use round-trip, OpenAI passthrough, thinking_delta stream on a reasoning model, 404 not_found_error translation, X-Upstream-Via header check, cleanup.</p>
+
+<h3 class="sub">5.7 &nbsp;AutoClaw free-tier channel (optional, operator's own account)</h3>
+<p class="body">The upstream no longer supports programmatic OAuth (<code class="inline">ACLAW_OAUTH_MODE=import</code> is enforced; browser flows hard-fail 409). Tokens come from the operator's own logged-in desktop app:</p>
+<pre class="code"><span class="c"># on the machine with the logged-in AutoClaw desktop app:</span>
+python3 harvest_token.py              <span class="c"># from owl-dns-synergy: download/autoclaw-token-harvest-kit/</span>
+<span class="c"># → emits import-format JSON; drop into ACLAW_IMPORT_DIR (watch-dir poller ingests it), or POST:</span>
+curl -X POST http://127.0.0.1:31000/api/tokens/import \
+     -H "Authorization: Bearer $AUTOCLAW_PROXY_API_KEY" -d @autoclaw_token.json
+python scripts/smoke_test_messages_live.py --token-file autoclaw_token.json</pre>
+
+<h3 class="sub">5.8 &nbsp;Dashboard</h3>
+<p class="body">Open <code class="inline">http://127.0.0.1:31000/dashboard/</code> (auth-gated). The model picker shows both channels, tier badges, output caps, and can probe either wire via loopback.</p>
+
+<h3 class="sub">5.9 &nbsp;Meta/research repo (only if touching L1–L3)</h3>
+<pre class="code">git clone https://github.com/marktantongco/owl-dns-synergy.git
+cd owl-dns-synergy && pip install -e .
+<span class="c"># CLI: fetch, chat, stats, generate-key, test-connection</span>
+<span class="c"># research artifacts under download/ ; integration sources under integrations/autoclaw-owl/</span></pre>
+
+<!-- §6 -->
+<div class="chapter-header">
+  <div class="sec-tag">Section 06</div>
+  <div class="sec-title">What to Anticipate — Known Gotchas</div>
+  <div class="divider"></div>
+</div>
+<p class="lead">Learn these before debugging. Most are documented failure modes that already cost a debugging session once.</p>
+<ol class="n wide">
+  <li><b>The upstream WAF discriminates on User-Agent only.</b> python-requests and default SDK header sets get 405 with an HTML challenge; a pinned desktop UA passes. There is <b>no TLS fingerprinting</b> on this edge — do not add uTLS/JA3 machinery "to be safe" (§10).</li>
+  <li><b>Model catalog drift is a first-class failure mode.</b> Listed ≠ servable: meta/llama-3.3-70b-instruct answered HTTP 410 (EOL) while still listed; some models are listed but not entitled for a given key ("not found for account"). Live-probe before adopting any model default.</li>
+  <li><b>Streaming contract for adapters.</b> The Anthropic→OpenAI converter initially dropped the stream flag → upstream answered non-stream JSON → the SSE converter emitted an empty body. <b>Every new OpenAI-compatible adapter must set body["stream"] explicitly.</b> Regression tests exist.</li>
+  <li><b>Negative cache is permanent by design.</b> Auth failures / model-not-found / quota / ban classifications write a permanent-failure entry; replays get 429 until cleared. The smoke test asserts this.</li>
+  <li><b>Token import dedupes.</b> Re-importing the same jti is a no-op — tests assert exactly one account row.</li>
+  <li><b>Zero-balance tokens are healthy but useless.</b> Upstream returns app-level 402 Insufficient points — that is a success for the wire (auth middleware was reached), not a proxy bug.</li>
+  <li><b>The NIM channel deliberately bypasses</b> token rotation, banners, DSML, output clamping, and the negative cache. That is the first-party contract, not an omission.</li>
+  <li><b>OAuth is dead; import is the only mode.</b> The upstream OAuth route is 405-deprecated; deploy config hard-fails browser flows with 409. Do not "fix" this by re-enabling browser login.</li>
+  <li><b>Repo supply-chain guard.</b> .agents/skills/ is a closed, hash-locked set; CI fails on drift. Never edit vendored skills in place; re-vendor at a pinned SHA and regenerate skills-lock.json.</li>
+  <li><b>Ephemeral sandbox caveat (for agents in disposable environments):</b> background children spawned in a tool call get killed at call boundaries; the surviving pattern is an orphaned grandchild (subprocess.Popen with start_new_session=True).</li>
+  <li><b>The dashboard is fail-closed.</b> HMAC-session auth; WS endpoints use one-time tickets; unauthenticated calls return before any data access. Do not loosen for convenience.</li>
+  <li><b>Upstream UA strictness oscillates.</b> The WAF's tolerance for non-browser UAs has varied between sessions. Code against the strict case (pinned UA everywhere, including the tier refresher and auth module).</li>
+</ol>
+
+<!-- §7 -->
+<div class="chapter-header">
+  <div class="sec-tag">Section 07</div>
+  <div class="sec-title">What Could Still Be Done — Legitimate Roadmap</div>
+  <div class="divider"></div>
+</div>
+<ol class="n wide">
+  <li><b>More authorized adapters on the v2.7.0 pattern</b> — Groq, OpenRouter (free models), Google AI Studio. Each is a translation module + catalog + entitlement handling; NIM is the template. Together they give the router a real failover chain (nim → groq → openrouter).</li>
+  <li><b>claude-* → nim/* alias mapping</b> — map Anthropic model names onto NIM equivalents when no AutoClaw token is present, so Anthropic-wire clients work with zero AutoClaw credentials.</li>
+  <li><b>Dashboard channel picker</b> — surface per-channel status, entitlement, and drift state in the existing ModelPicker.</li>
+  <li><b>Catalog-drift auto-probe</b> — background prober that marks EOL/unentitled models and disables them before clients hit 410/404.</li>
+  <li><b>Real count_tokens</b> — replace the stub with a tokenizer-backed estimate (or provider-side counting where offered).</li>
+  <li><b>Formal adapter base class</b> — extract the NIM shape (catalog, error translation, via-header, streaming contract) into an AbstractProviderAdapter so the next three adapters are config-heavy rather than code-heavy.</li>
+  <li><b>Observability depth</b> — Grafana dashboard JSON for the existing Prometheus series; per-channel latency histograms already exist.</li>
+  <li><b>WebSocket fallback hardening</b> — the local-agent fallback works (RFC 6455 mask + pushback buffer fixed); it deserves load tests and a documented failover drill.</li>
+  <li><b>Test coverage for adapter edge cases</b> — entitlement errors, mid-stream disconnects, catalog drift simulation.</li>
+  <li><b>Operator runbook</b> — a short doc (rotate key, clear negative cache, re-run smokes) alongside DEPLOY.md.</li>
+</ol>
+
+<!-- §8 -->
+<div class="chapter-header">
+  <div class="sec-tag">Section 08 · Compliance</div>
+  <div class="sec-title">Declined &amp; Resisted Actions</div>
+  <div class="divider"></div>
+</div>
+<div class="callout danger"><b>Read this section twice.</b> It is a hard boundary, not a suggestion. These refusals are on the record and they are binding on every future agent working on this stack.</div>
+
+<h3 class="sub">8.1 &nbsp;Context</h3>
+<p class="body">Earlier phases (before the pivot) included, under operator direction, an attempt to acquire free-tier credentials programmatically: solving the upstream login captcha (Shumei icon puzzles) in a stealth browser, walking Google OAuth, probing WAF client-shape behavior, and building a token-harvest kit for the operator's own logged-in desktop app. Those efforts are <b>historical fact</b> recorded in the worklog. They are also <b>closed</b>: the concluding engineering verdict was that programmatic acquisition is impossible (version gates + middleware attestation + separate SSO realms), and the operator accepted the authorized-channel pivot. Everything below is what was <b>asked for and refused</b>, or deliberately not pursued, from that point on.</p>
+
+<h3 class="sub">8.2 &nbsp;The enumerated declines</h3>
+<table class="tbl">
+  <thead><tr><th style="width:4%">#</th><th style="width:42%">Requested action</th><th style="width:14%">Verdict</th><th>Reason on record</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>Enter Google verification codes (provided in chat: "8766 189 780" / "1124 985 377") into the automation to pass a risk-based challenge</td><td><b>Refused, outright</b></td><td>These codes are Google's anti-abuse control over the account owner's identity. Feeding them into automation circumvents account security and Google ToS; it also places the operator's own accounts at risk.</td></tr>
+    <tr><td>2</td><td>"Grind more captcha rounds" — continued automated captcha solving for more accounts</td><td><b>Refused</b></td><td>Captcha systems are explicitly anti-automation controls; grinding them at scale is abuse of the provider's signup/login integrity layer, regardless of per-attempt success.</td></tr>
+    <tr><td>3</td><td>Harvest / import tokens from spare accounts to pool them for the proxy</td><td><b>Refused</b> as an acquisition track</td><td>Multi-account credential pooling to dodge per-account limits is ToS circumvention. The import API itself remains legitimate for the operator's own single-account token.</td></tr>
+    <tr><td>4</td><td>Further WAF client-shape probing against providers ("execute the probe now")</td><td><b>Refused</b> (further probing)</td><td>Probing a provider's protective edge to map what passes is reconnaissance for evasion. The one matrix already run (UA-only verdict) is on record; no more.</td></tr>
+    <tr><td>5</td><td>Wire in bypass/extraction repos — evaluated and rejected: claude-web2api (web-session→API bridge), dsh-subscription-antigravity, opencode-ag-auth, hermes-antigravity-auth, AntigravityUnLocker (subscription credential extraction), agentrouter-spoof-proxy (client spoofing), 9router_azaky</td><td><b>Refused</b></td><td>Each exists to convert web-session or subscription entitlements into API access, or to spoof a trusted client. That is unambiguous ToS circumvention.</td></tr>
+    <tr><td>6</td><td>Offensive WAF tooling from the research lists — xwaf, BypassPro, waf-community-bypasses, Bypass-WAF-SQLMAP, bypasswaf, abuse-ssl-bypass-waf, log4j-bypass-words, evilwaf, WebForge, sqli-labs, XSSSlayer</td><td><b>Refused</b></td><td>Attack tooling. The project adapts its own client; it does not attack WAFs.</td></tr>
+    <tr><td>7</td><td>Stealth-browser stack aimed at credential extraction (browser-use, agent-browser for login automation, ulixee/secret-agent, tholian stealth in that role)</td><td><b>Refused</b> in that role</td><td>The same tooling is acceptable for legitimate automation; using it to defeat login risk-controls is not.</td></tr>
+    <tr><td>8</td><td>Free-API bridge / credential-extraction entries from the 28-repo list (offensive WAF/bypass items)</td><td><b>Refused</b></td><td>Same class as #5/#6; the defensible residue (retry/rotation logic, compat fixes, observability patterns) was adopted.</td></tr>
+  </tbody>
+</table>
+
+<h3 class="sub">8.3 &nbsp;Standing rules for every future agent</h3>
+<ol class="n wide">
+  <li><b>Authorized channels only.</b> New provider access = the operator's own API key, translated honestly by an adapter. There is no exception waiting to be found.</li>
+  <li><b>No anti-abuse-control interaction.</b> Captchas, device prompts, verification codes, risk-based challenges are hard stops — never solve, relay, or automate them, even "one time".</li>
+  <li><b>No credential extraction or session bridging.</b> If a repo's value depends on converting a web session or subscription into API access, it is off-scope no matter how clean the code is.</li>
+  <li><b>No WAF/edge evasion work.</b> Client-side correctness (correct UA, correct schema) is engineering; fingerprint laundering and challenge-solving is evasion. The line: if the provider's intended client would also send it, it's fine.</li>
+  <li><b>Legitimate residue may be studied.</b> Retry/backoff logic, rotation cooldowns, wire-compat fixes, observability patterns from those same repos are fair game — the refusal is about purpose, not about reading code.</li>
+  <li><b>When in doubt, surface the choice to the operator</b> with the compliant and non-compliant options separated, and default to the compliant one.</li>
+</ol>
+
+<!-- §9 -->
+<div class="chapter-header">
+  <div class="sec-tag">Section 09</div>
+  <div class="sec-title">Capability Matrix — Can / Cannot Do</div>
+  <div class="divider"></div>
+</div>
+<div class="grid2">
+  <div class="col panel good">
+    <h4>✓ Can do — today, verified</h4>
+    <ul>
+      <li><b>One local endpoint</b> speaking both OpenAI and Anthropic wire formats — streaming (full Anthropic SSE sequences incl. streamed tool-use + thinking blocks), tool round-trips, usage accounting.</li>
+      <li><b>NVIDIA NIM</b> (80+ catalog models) on the operator's own key, honest translation, entitlement-aware errors (nim/*).</li>
+      <li><b>AutoClaw upstream</b> free tier with imported tokens; claude-* credit-tier aliases (opus→High, sonnet→Medium, haiku→Low) refreshed from upstream model-config.</li>
+      <li><b>Token lifecycle:</b> 3-format import with dedupe, Fernet encryption at rest, watch-dir ingestion, localhost-only binding, API-key gate.</li>
+      <li><b>Resilience:</b> 7-channel routing, circuit breakers, EMA domain learning, negative caching, DNS-flood protection, L1 DNS-tunnel fallback, WS local-agent fallback.</li>
+      <li><b>Operate:</b> Prometheus series, structured logging, authed dashboard (picker, probe, DSML panels), Gunicorn/systemd assets, 234-test suite + two live smoke batteries.</li>
+    </ul>
+  </div>
+  <div class="col panel bad">
+    <h4>✕ Cannot do — by design or by evidence</h4>
+    <ul>
+      <li><b>Authenticate upstream without a real credential.</b> The proxy is a gateway, not an identity. No token → the auth gate answers, full stop.</li>
+      <li><b>Provide credits.</b> Zero-balance accounts get upstream 402; the proxy will not mask or route around a balance.</li>
+      <li><b>Bypass or probe provider protections.</b> No TLS-fingerprint laundering, no challenge solving, no edge reconnaissance (§8).</li>
+      <li><b>Guarantee upstream catalog stability.</b> Retirements and per-key entitlements are upstream decisions; drift handling is mitigation, not guarantee.</li>
+      <li><b>Tokenizer-accurate count_tokens</b> — the endpoint is a structural stub, fine for gating, wrong for billing estimates.</li>
+      <li><b>Act as a general-purpose scrape/evasion proxy.</b> Channels are LLM-API channels; the DNS tunnel exists for resilience of that traffic, not general traffic laundering.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- §10 -->
+<div class="chapter-header">
+  <div class="sec-tag">Section 10</div>
+  <div class="sec-title">Potential vs. Paths Not Chosen</div>
+  <div class="divider"></div>
+</div>
+
+<h3 class="sub">10.1 &nbsp;The chosen track</h3>
+<p class="body"><b>Authorized-provider adapters on one local endpoint.</b> Rationale: zero ban risk (it is the operator's own entitlement), permanent value (translation logic never becomes obsolete because a control changed), and honest scalability (add keys, not evasions). v2.7.0 proved the pattern end-to-end on NVIDIA NIM with an 11/11 live acceptance on the operator's own key.</p>
+
+<h3 class="sub">10.2 &nbsp;Potential that was deliberately not chosen</h3>
+<table class="tbl">
+  <thead><tr><th style="width:30%">Path</th><th style="width:30%">What it would have been</th><th>Why it was not chosen</th></tr></thead>
+  <tbody>
+    <tr><td><b>Continued credential acquisition</b> — captcha automation, code entry, account pooling</td><td>A larger pool of free upstream tokens</td><td>Anti-abuse circumvention; fragile by nature (every control change breaks it); risk to the operator's own accounts. Declined — §8.</td></tr>
+    <tr><td><b>uTLS / JA3-JA4 fingerprint-parity egress</b> (phantomrelay-style)</td><td>"WAF-proof" client shape</td><td>Two independent findings killed it: the WAF fingerprints UA only, and evasive fingerprinting is the wrong side of the §8.3 line anyway. Dropped from the active path.</td></tr>
+    <tr><td><b>Web-session→API bridges / subscription extractors</b></td><td>"Free" Claude/other access from browser logins</td><td>ToS circumvention by construction. Rejected at triage.</td></tr>
+    <tr><td><b>Captcha pre-warming / CDP token capture</b></td><td>Continuous fresh-token supply</td><td>Same compliance line, plus proven upstream impossibility of the surrounding flow.</td></tr>
+    <tr><td><b>WARP/proxy egress rotation to bypass quota</b></td><td>Per-IP limit dodging</td><td>Quota evasion, not resilience. Not chosen.</td></tr>
+    <tr><td><b>Massive multi-account pool with rotation</b></td><td>Load spreading across many free accounts</td><td>Beyond the operator's own accounts, this is abuse. The rotation machinery exists and is used for legitimately imported tokens only.</td></tr>
+  </tbody>
+</table>
+
+<h3 class="sub">10.3 &nbsp;Potential still on the table (compliant, not yet built)</h3>
+<p class="body">Multi-adapter failover chains, the official Anthropic API as a premium channel, embeddings passthrough, per-key rate-limit tiers for downstream clients, response caching for identical prompts, and OpenAI-realtime-style WS bridging. None are committed; all fit the architecture without touching the §8 lines. These are the highest-value compliant extensions because they reuse the adapter pattern already proven by v2.7.0 and deepen the resilience story the five-layer architecture was designed around.</p>
+
+<!-- §11 -->
+<div class="chapter-header">
+  <div class="sec-tag">Section 11</div>
+  <div class="sec-title">Expectations for the User (operator contract)</div>
+  <div class="divider"></div>
+</div>
+<ol class="n wide">
+  <li><b>Credentials are yours to bring.</b> NIM key now; Groq/OpenRouter/AI Studio keys if those adapters get built; an AutoClaw token from your own logged-in desktop app if you want the free tier. The stack authenticates, translates, and routes — it does not create entitlement.</li>
+  <li><b>Rotate anything that touched chat.</b> Both the NVIDIA key and a GitHub PAT have transited plaintext chat in this project's history. Assume compromised; rotate; store in env or a credential helper (gh auth login), never in chat or files.</li>
+  <li><b>Free-tier reality.</b> Upstream free channels impose rate limits, retire models, and zero out balances. Expect 402/410/404-class upstream verdicts; the smoke tests distinguish "wire works, upstream said no" from "proxy broken".</li>
+  <li><b>Security posture is localhost-first.</b> Default binding is 127.0.0.1 with an API-key gate. If you expose it, you own the exposure — reverse-proxy auth, TLS, and a strong AUTOCLAW_PROXY_API_KEY.</li>
+  <li><b>Sessions are gated.</b> High-stakes work (releases, auth surface, kernel edits) goes through the /grill-me ritual defined in AGENTS.md. Expect the agent to request it, not skip it.</li>
+  <li><b>Test gates are non-negotiable.</b> No push without the offline suite; channel work ships with its live smoke battery. The release discipline in AGENTS.md (tags are promises) applies.</li>
+</ol>
+
+<!-- §12 -->
+<div class="chapter-header">
+  <div class="sec-tag">Section 12</div>
+  <div class="sec-title">Room for Improvements (technical-debt register)</div>
+  <div class="divider"></div>
+</div>
+<ul class="n wide">
+  <li><b>Dev server in production is possible but wrong.</b> python proxy.py is for development; Gunicorn (wsgi.py) is the deploy path. Anything that makes the two diverge further is debt.</li>
+  <li><b>Adapter pattern is one instance deep.</b> NIM proved it; extracting the abstract base class (§7.6) turns a pattern into a framework.</li>
+  <li><b>Catalog drift handling is manual.</b> Static fallback lists carry EOL warnings, but a background prober (§7.4) would make drift self-healing.</li>
+  <li><b>count_tokens is a stub</b> — fine for gating, wrong for billing estimates.</li>
+  <li><b>Secrets hygiene is process, not mechanism.</b> Remote URLs have historically carried tokens; current practice is inline-URL pushes with env-provided PATs. A credential-helper config would make the safe path the default path.</li>
+  <li><b>Test coverage gaps</b> — adapter edge cases (entitlement errors, mid-stream disconnects) and WS fallback load behavior are the thinnest areas relative to their operational importance.</li>
+  <li><b>Documentation spread</b> — README, DEPLOY.md, AGENTS.md, env.template, and now this guide; a single docs index (and pruning overlaps) would reduce drift between them.</li>
+  <li><b>Research repo is heavy.</b> owl-dns-synergy carries build artifacts and PDFs in git; a release-assets-only policy would slim clones.</li>
+</ul>
+
+<div class="callout"><b>Quick orientation chips:</b> the fastest way to be useful in this codebase — run <b>test_owl_integration.py</b>, read <b>proxy.py</b> (both wire endpoints), <b>nim_adapter.py</b> (the adapter template), <b>anthropic_compat.py</b> (the wire translator), and <b>credit_tiers.py</b> (tier routing). Then run the NIM live smoke. Everything else hangs off those five files.</div>
+
+</div><!-- /main-content -->
+
+<!-- ═══════════ ENDING ═══════════ -->
+<div class="ending">
+  <div class="ring e1"></div><div class="ring e2"></div>
+  <div class="big">Translate honestly.<br>Route resiliently.<br><span class="accent">Circumvent nothing.</span></div>
+  <div class="note">This guide describes v2.7.0 as of its commit date. Verify current versions against CHANGELOG.md and git ls-remote --tags origin before acting. Read together with AGENTS.md (session discipline) and DEPLOY.md (production deployment).</div>
+  <div class="foot">OWL-DNS-Synergy × AutoClaw · AI Agent Onboarding Guide</div>
+</div>
+
+</body>
+</html>
