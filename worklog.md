@@ -628,3 +628,39 @@ Stage Summary:
 - Operator can now `git clone` either repo locally and continue the adapter work (more channels: Groq / OpenRouter / AI Studio; claude-* → nim/* alias; dashboard channel picker)
 - SECURITY: NVIDIA_API_KEY and the GH PAT both transited chat in plaintext — rotate both after cloning locally. New PAT should be stored via `gh auth login` or a credential helper, not in chat
 - Next steps (legitimate, on local machine): smoke_test_nim_live.py re-run with a fresh key; build the next adapter on the same pattern; claude-* alias mapping; dashboard picker extension
+
+---
+Task ID: 21
+Agent: Super Z (Main)
+Task: Create an AI instruction guide — how to install the stack, what to anticipate, what has been done, what could still be done, what was declined/resisted (enumerated), action derivatives, can/cannot summary, potential vs paths not chosen, operator expectations, improvement room
+
+Work Log:
+- Read full worklog (Tasks 1-20) + repo state + existing AGENTS.md to assemble complete history
+- Wrote canonical guide at repos/autoclaw-autologin/docs/AI-AGENT-ONBOARDING.md (12 sections, 319 lines):
+  S1 stack identity (2 repos, 5-layer L1-L5, 3-rule philosophy) · S2 production state v2.7.0 ·
+  S3 complete 10-phase work history (20 tasks) · S4 action→artifact derivative map (12 rows) ·
+  S5 fresh-machine install (prereqs, clone/bootstrap, .env minimums, run/verify, NIM smoke 11 stages,
+  AutoClaw import path, dashboard, meta repo) · S6 12 anticipated gotchas (UA-only WAF, catalog drift,
+  stream-flag contract, permanent negative cache, import dedupe, 402 zero-balance, NIM first-party
+  bypass, dead OAuth, skills-lock CI guard, sandbox child-kill, fail-closed dashboard, UA oscillation) ·
+  S7 10-item legitimate roadmap · S8 compliance ledger: context (pre-pivot history closed), 8 enumerated
+  declines with reasons on record (Google verification codes, captcha grinding, spare-account token
+  pooling, further WAF probing, 7 bypass/extraction repos, offensive WAF tooling list, stealth-stack
+  for extraction, free-API bridges) + 6 standing rules for future agents ·
+  S9 capability matrix (can/cannot) · S10 chosen track vs 6 paths not chosen + compliant on-table list ·
+  S11 operator contract (6 expectations) · S12 technical-debt register (8 items)
+- Generated PDF via pdf skill creative-flow route (Playwright + Paged.js, 720x1020, Inter/liberation
+  fallback, 5-color palette): fixed cover ring overlaps (cover_validate), hid .divider false-positive
+  lines (pseudo-element accent instead), border-spacing for table-cell false positives, ending rings
+  fully in-bounds; installed pagedjs + symlinked node_modules; 16 pages / 483KB / ~4,513 words / 7 tables
+- QA: poster_validate 0 errors; cover_validate Pass 1+2 clean; pdf_qa 9 core checks PASS (author
+  metadata fixed post-hoc via pymupdf; 2 cosmetic punctuation warnings: cover dotline + em-dash);
+  pymupdf corruption scan 0 bad pages, no empty pages
+- Pushed: autoclaw-autologin @ e3bf14b (docs/AI-AGENT-ONBOARDING.md); owl-dns-synergy @ 7d77e56
+  (download/ai-onboarding-guide/ PDF + HTML source)
+
+Stage Summary:
+- Deliverables: docs/AI-AGENT-ONBOARDING.md (canonical, travels with the server repo),
+  download/AI-Agent-Onboarding-Guide-OWL-DNS-Synergy.pdf (16 pp), .html source alongside
+- Both repos synced to GitHub; guide is the first artifact a future agent should read (with AGENTS.md)
+- Security: same PAT used inline only; guide itself instructs future agents to rotate chat-exposed keys
