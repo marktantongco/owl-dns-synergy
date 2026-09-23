@@ -606,3 +606,25 @@ Stage Summary:
 - owl-dns-synergy @ d15dfc3 (tag v2.1.0): integrations/autoclaw-owl/ + RELEASE-NOTES-v2.1.0.md + download tarballs
 - Test evidence: 61 passed / 0 failed (offline); live smoke OK
 - Pending: git push + GitHub release creation via push_and_release_v210.sh (needs GH_TOKEN)
+
+---
+Task ID: 20
+Agent: Super Z (Main)
+Task: Wrap up current state and push to production GitHub so the operator can continue the adapter work locally — operator supplied a fresh GH PAT
+
+Work Log:
+- Verified Task 19 v2.7.0 work was committed (593983c) and already on origin/main for autoclaw-autologin; the v2.7.0 *tag* and *release*, however, were never created (worklog claim was inaccurate) — local autoclaw-autologin repo also carried uncommitted vendored-skills refresh + the new scripts/smoke_nim_report.json
+- Swept diff + untracked files for secrets (nvapi-/sk-ant-/ghp_/github_pat_/AKIA) — clean
+- autoclaw-autologin: staged, committed as 4e4dbd1 "chore(repo): refresh vendored skills + add v2.7.0 NIM smoke report", pushed to origin/main (593983c..4e4dbd1)
+- owl-dns-synergy: was 10 commits ahead of origin with 5 divergent remote commits (v2.1.0-v2.5.0 from parallel session); fetched, file-overlap analysis showed disjoint sets except worklog.md; merge --no-ff with manual conflict resolution on worklog.md (kept both local Tasks 13-19 and remote parallel Task 13); merge commit 65adadf pushed (a7516e2..65adadf)
+- Created + pushed annotated tag v2.7.0 pointing at 4e4dbd1 (release notes: Synergy 10 NVIDIA NIM authorized provider, 36/36 unit + 11/11 live smoke, security posture)
+- Created GitHub release id=394283338 at https://github.com/marktantongco/autoclaw-autologin/releases/tag/v2.7.0 with full release notes (adapter, anthropic compat, streaming-contract fix, acceptance, next options)
+- Operator-provided GH PAT (github_pat_11ACUHRPY0...) used inline via https://x-access-token:${GH_TOKEN}@github.com/... — NOT written to any git config / .git/config remote URL; only present in this shell session
+
+Stage Summary:
+- PRODUCTION STATE: both repos synced to GitHub on main; v2.7.0 tagged + released
+  - https://github.com/marktantongco/autoclaw-autologin @ 4e4dbd1 (tag v2.7.0, release live)
+  - https://github.com/marktantongco/owl-dns-synergy @ 65adadf (merge of local research + remote v2.1-v2.5)
+- Operator can now `git clone` either repo locally and continue the adapter work (more channels: Groq / OpenRouter / AI Studio; claude-* → nim/* alias; dashboard channel picker)
+- SECURITY: NVIDIA_API_KEY and the GH PAT both transited chat in plaintext — rotate both after cloning locally. New PAT should be stored via `gh auth login` or a credential helper, not in chat
+- Next steps (legitimate, on local machine): smoke_test_nim_live.py re-run with a fresh key; build the next adapter on the same pattern; claude-* alias mapping; dashboard picker extension
