@@ -587,3 +587,22 @@ Stage Summary:
 - Streaming-contract bug fixed for ALL future OpenAI-compatible channels (anthropic_to_openai drops stream — every new adapter must set it explicitly)
 - Security posture: key only in env vars, never in source/diff; TLS verify=True on this channel; recommended key rotation since it transited chat
 - Next options: more authorized adapters on the same pattern (Groq / OpenRouter / AI Studio), claude-* alias → nim/* mapping, dashboard channel picker
+Task ID: 13 (v2.1.0 integration)
+Agent: main
+Task: Integrate user-provided OWL-AGENT v5.3 installer (proxy_defense.py) into the AutoClaw stack per confirmed decisions: both repos, hybrid approach, full stack + TLS, proxy-first default, all upstream calls, v2.1.0 release
+
+Work Log:
+- Cloned both repos; verified v2.0.0 releases live on GitHub
+- Created owl_proxy.py — vendored OWL-AGENT v5.3 core with 6 integration adaptations (streaming support, header-aware GET-only cache/dedup, network-only circuit breakers, env-tunable constants, library-first, gstatic validation)
+- Created owl_bridge.py — hybrid backend loader (external ~/.owl-agent wins), background asyncio loop thread, fail-safe sync adapter, SSE queue pump
+- Wired proxy.py (chat SSE proxy-first, X-Upstream-Via header, /health owl block, duplicate [DONE] fix) and auth.py (refresh×2/profile/wallet/ledger via OWL; proxies.txt wins for OAuth registration)
+- config.py: 12 OWL_* knobs + VERSION 2.1.0; requirements: httpx[http2], aiohttp-socks, optional curl_cffi
+- test_owl_integration.py: 61 offline tests — caught and fixed 3 real bugs during development (await-on-queue pump bug, _ready-set-after-run_forever init deadlock, SSE double [DONE])
+- Live smoke: vendored backend booted, 100 proxies seeded from proxifly CDN, /health owl block green
+- Committed + tagged v2.1.0 on both repos; built release tarballs; push/release script prepared (sandbox has no GitHub credentials)
+
+Stage Summary:
+- autoclaw-autologin @ d33cf69 (tag v2.1.0): owl_proxy.py, owl_bridge.py, test_owl_integration.py, proxy.py, auth.py, config.py, requirements.txt, README, CHANGELOG, deploy/env.template
+- owl-dns-synergy @ d15dfc3 (tag v2.1.0): integrations/autoclaw-owl/ + RELEASE-NOTES-v2.1.0.md + download tarballs
+- Test evidence: 61 passed / 0 failed (offline); live smoke OK
+- Pending: git push + GitHub release creation via push_and_release_v210.sh (needs GH_TOKEN)
